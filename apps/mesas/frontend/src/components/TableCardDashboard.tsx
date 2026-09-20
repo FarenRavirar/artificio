@@ -2,7 +2,17 @@ import { useState } from 'react';
 import { getSlotsVisualState } from '../utils/slots';
 import { SystemBadge } from './SystemBadge';
 import { CertificationBadges } from './CertificationBadges';
-import { applyTableImageFallback, resolveTableImageSource } from '../utils/tableImage';
+import { applyTableImageFallback, tableImageAttrs } from '../utils/tableImage';
+
+/**
+ * Card do painel do mestre, grid medido em `PainelMestrePage.tsx:734`:
+ * `grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4`. Em `xl` o container do
+ * Tailwind vale 1280px, menos `px-6` e dois `gap-4`: ≈ 400px por coluna.
+ *
+ * Tela autenticada, atrás de login — não está no caminho do LCP público, então
+ * nenhuma imagem aqui é prioritária.
+ */
+const DASHBOARD_COVER_SIZES = '(min-width: 1280px) 400px, (min-width: 768px) 50vw, 100vw';
 import { InlineDeleteConfirmation } from './InlineDeleteConfirmation';
 import type { TableDetail } from '../types/tables';
 import { CopyAnnouncementButton } from '../features/table/components/CopyAnnouncementButton';
@@ -103,7 +113,7 @@ export function TableCardDashboard({
         }`}
       >
         <img
-          src={resolveTableImageSource(table.image_url)}
+          {...tableImageAttrs(table.image_url, { sizes: DASHBOARD_COVER_SIZES })}
           alt={table.title}
           className="w-full h-full object-cover"
           onError={applyTableImageFallback}

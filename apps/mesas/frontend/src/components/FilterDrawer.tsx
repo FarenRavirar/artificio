@@ -128,7 +128,7 @@ export function FilterDrawer({ isOpen, onClose, onClear, onApply, children, isAp
             type="button"
             onClick={onApply}
             disabled={isApplying}
-            className="flex min-h-11 flex-1 items-center justify-center rounded-lg bg-[var(--color-artificio-orange)] px-4 py-3 font-semibold text-white transition-colors hover:bg-[var(--color-artificio-orange-hover)] focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-[var(--artificio-focus)]"
+            className="flex min-h-11 flex-1 items-center justify-center rounded-lg bg-[var(--brand-solid)] px-4 py-3 font-semibold text-[var(--brand-solid-fg)] transition-colors hover:bg-[var(--brand-solid-hover)] focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-[var(--artificio-focus)]"
           >
             Aplicar
           </button>

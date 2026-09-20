@@ -8,7 +8,10 @@ import { openSafeExternalUrl } from '../../../utils/safeExternalUrl';
 export function getButtonStyle(variant: CTAConfig['variant']): string {
   switch (variant) {
     case 'primary':
-      return 'bg-[var(--color-artificio-orange)] hover:bg-[var(--color-artificio-orange-hover)] text-white transition transform hover:scale-[1.02] active:scale-[0.98]';
+      // Par sólido de marca (spec 103, T3.2): laranja cru com branco mede
+      // 3,16:1 e reprova o AA de 4,5:1. `--brand-solid`/`--brand-solid-fg`
+      // viram JUNTOS por tema — claro 4,70:1, escuro 6,00:1.
+      return 'bg-[var(--brand-solid)] hover:bg-[var(--brand-solid-hover)] text-[var(--brand-solid-fg)] transition transform hover:scale-[1.02] active:scale-[0.98]';
     case 'secondary':
       return 'bg-white/10 hover:bg-white/20 text-white transition transform hover:scale-[1.02] active:scale-[0.98]';
     case 'disabled':

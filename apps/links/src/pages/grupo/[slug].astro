@@ -2,6 +2,7 @@
 import Base from "../../layouts/Base.astro";
 import PortalHeader from "../../components/PortalHeader.astro";
 import { getAllGroups, type NormalizedGroup } from "../../lib/groups-source";
+import { groupLogoAttrs } from "../../lib/groupLogo";
 
 export async function getStaticPaths() {
   const groups = await getAllGroups();
@@ -16,6 +17,11 @@ const { group } = Astro.props;
 const title = `${group.name} · Grupo de WhatsApp · Artifício RPG`;
 const description =
   group.description ?? `Entre no grupo de WhatsApp ${group.name} da comunidade Artifício RPG.`;
+
+// A logo da ficha é exibida a 128px. O `og:image` abaixo NÃO passa por aqui de
+// propósito: plataforma social recorta e reexibe em tamanho próprio, e mandar a
+// versão de 128px daria preview rebaixado.
+const logo = groupLogoAttrs(group.logoUrl, "detalhe");
 
 const fmt = (iso: string | null) =>
   iso ? new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" }) : null;
@@ -60,7 +66,9 @@ const jsonLd = {
       <header class="group-head">
         <img
           class="logo-lg"
-          src={group.logoUrl || "/placeholder.svg"}
+          src={logo.src}
+          srcset={logo.srcset}
+          sizes={logo.sizes}
           alt={`Logo do grupo ${group.name}`}
           width="128"
           height="128"

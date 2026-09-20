@@ -140,6 +140,59 @@ export function isImageKind(value: unknown): value is ImageKind {
   return typeof value === "string" && (IMAGE_KIND_LIST as readonly string[]).includes(value);
 }
 
+/**
+ * O segmento da URL é um componente de transformação do Cloudinary?
+ *
+ * A gramática é `<sigla>_<valor>`, separado por vírgula dentro de um componente
+ * (`w_800,c_fill`). Nome de pasta e `public_id` do nosso upload não têm essa
+ * forma — `artificio_avatars` não casa porque `artificio` tem 9 caracteres e
+ * sigla de transformação tem no máximo 3 (`ar`, `dpr`, `fl`, `q`, `w`).
+ *
+ * Reconhecer pela GRAMÁTICA e não por lista de siglas é deliberado: lista
+ * envelheceria a cada parâmetro novo da API do Cloudinary, e o modo de
+ * envelhecer seria silencioso — um parâmetro desconhecido viraria "pasta", e a
+ * imagem deixaria de ser reconhecida como nossa.
+ */
+export function isCloudinaryTransformationSegment(segmento: string | undefined): boolean {
+  if (!segmento) return false;
+  return segmento.split(",").every((parte) => /^[a-z]{1,3}_[^/,]+$/.test(parte));
+}
+
+/**
+ * TODA pasta em que algum app do monorepo grava imagem na nossa conta
+ * Cloudinary.
+ *
+ * Separada de `IMAGE_KINDS.folder` de propósito, e a separação é o conserto de
+ * um defeito medido na spec 103 (T2.4). `ImageKind` é contrato de UPLOAD —
+ * proporção, recorte, tamanho aceito, legenda do editor — e só três origens
+ * passam por ele (`mesas_rpg`, `artificio_avatars`, `artificio_profile_banners`).
+ * Outras três gravam na mesma conta por caminho próprio, sem `ImageKind`
+ * nenhum, e cada uma foi lida na sua fonte:
+ *
+ * - `artificio/links` — `apps/links/server/lib/cloudinary.ts:5`;
+ * - `artificio/accounts/avatars` — `apps/accounts/src/app.ts:105`;
+ * - `downloads-covers` — `COVER_FOLDER` em
+ *   `apps/downloads/backend/src/services/coverStorage.ts:6`.
+ *
+ * Derivar a lista só de `IMAGE_KINDS` fazia `isArtificioHostedImage` devolver
+ * `false` para as três. Medido numa URL real de produção do `links`
+ * (`/image/upload/v1782019856/artificio/links/b9b5…jpg`): `false`. A
+ * consequência é silenciosa — `cloudinaryDeliveryUrl` devolve a URL intacta, e
+ * o app continua servindo o original acreditando estar otimizado.
+ *
+ * A comparação é por PREFIXO de caminho, não por segmento: duas dessas pastas
+ * têm barra (`artificio/links`), e igualdade de um segmento só nunca casaria
+ * com elas nem se estivessem na lista.
+ */
+const ARTIFICIO_UPLOAD_FOLDERS: readonly string[] = [
+  ...new Set([
+    ...Object.values(IMAGE_KINDS).map((spec) => spec.folder),
+    "artificio/links",
+    "artificio/accounts/avatars",
+    "downloads-covers",
+  ]),
+];
+
 /** Spec do tipo informado; cai em `table_banner` quando a origem não é confiável. */
 /**
  * A imagem está hospedada na conta Cloudinary DO ARTIFÍCIO?
@@ -155,10 +208,10 @@ export function isImageKind(value: unknown): value is ImageKind {
  * como se fosse upload nosso (achado de review, PR #310).
  *
  * O critério é a PASTA, **na posição em que o nosso upload a grava**: logo
- * depois de `image/upload/`, tolerando o segmento de versão (`v123…`) e nada
- * mais. `folder` já é a fonte única de onde cada tipo de imagem é gravado
- * (`IMAGE_KINDS` abaixo) e o backend a escolhe, então pasta nova entra aqui
- * junto com o `kind`, num lugar só.
+ * depois de `image/upload/`, tolerando transformação de entrega e o segmento de
+ * versão (`v123…`) e nada mais. A fonte única de quais pastas são nossas é
+ * `ARTIFICIO_UPLOAD_FOLDERS` acima — que inclui as de `IMAGE_KINDS` e as três
+ * que gravam sem `ImageKind`. Pasta nova entra lá, num lugar só.
  *
  * **Por que não o cloud name** (achado de review, PR #310, segunda passagem): o
  * cloud name da conta vive só no backend (`process.env.CLOUDINARY_CLOUD_NAME`,
@@ -187,20 +240,32 @@ export function isArtificioHostedImage(url: string): boolean {
     parsed.hostname === "res.cloudinary.com" || parsed.hostname.endsWith(".cloudinary.com");
   if (!isCloudinary) return false;
 
-  // `/<cloud>/image/upload/<v123?>/<folder>/<id>`. A primeira versão desta
-  // função procurava a pasta em QUALQUER segmento, o que aceitava `<id>` ou um
-  // parâmetro de transformação com o mesmo nome. Aqui a posição é exigida: o
-  // segmento seguinte a `upload`, pulando só a versão.
+  // `/<cloud>/image/upload/<transformações?>/<v123?>/<folder>/<id>`. A primeira
+  // versão desta função procurava a pasta em QUALQUER segmento, o que aceitava
+  // `<id>` ou um parâmetro de transformação com o mesmo nome. Aqui a posição é
+  // exigida: o primeiro segmento depois de `upload` que não seja transformação
+  // nem versão.
   const segmentos = parsed.pathname.split("/").filter(Boolean);
   const posUpload = segmentos.indexOf("upload");
   if (posUpload === -1) return false;
 
   let posPasta = posUpload + 1;
+  // Transformação de ENTREGA vem antes da versão e pode ocupar vários
+  // segmentos (`q_auto/f_auto/w_800`). Pular só a versão fazia a URL
+  // transformada da MESMA imagem devolver `false`, medido nas três formas:
+  // crua `true`, `w_1200,c_fill/v…` `false`, `q_auto/f_auto/w_800/v…` `false`.
+  // Isso é latente até alguém servir URL transformada, e aí falha em silêncio:
+  // `ImageUploader.tsx` usa este predicado para ESCONDER o campo de link de
+  // imagem nossa, então o mestre voltaria a ver a URL crua como se fosse link
+  // de terceiro (regressão da spec 100, F6.4c). Achado na spec 103, T2.1.
+  while (isCloudinaryTransformationSegment(segmentos[posPasta])) posPasta += 1;
   if (/^v\d+$/.test(segmentos[posPasta] ?? "")) posPasta += 1;
 
-  const pasta = segmentos[posPasta];
-  if (!pasta) return false;
-  return Object.values(IMAGE_KINDS).some((spec) => spec.folder === pasta);
+  const caminho = segmentos.slice(posPasta).join("/");
+  if (!caminho) return false;
+  return ARTIFICIO_UPLOAD_FOLDERS.some(
+    (pasta) => caminho === pasta || caminho.startsWith(`${pasta}/`),
+  );
 }
 
 export function imageKindSpec(kind: unknown): ImageKindSpec {

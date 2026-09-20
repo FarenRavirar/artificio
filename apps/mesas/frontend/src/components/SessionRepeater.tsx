@@ -100,7 +100,7 @@ export function SessionRepeater({ sessions, onChange, disabled = false }: Sessio
           type="button"
           onClick={handleAddSession}
           disabled={disabled}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--color-artificio-orange)] hover:bg-[var(--color-artificio-orange)]/90 text-white font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--brand-solid)] hover:bg-[var(--brand-solid-hover)] text-[var(--brand-solid-fg)] font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <PlusCircle className="w-4 h-4" />
           Adicionar Horário

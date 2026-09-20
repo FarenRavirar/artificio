@@ -5,6 +5,8 @@ import {
   cropToObjectPosition,
   imageKindHint,
   imageKindSpec,
+  isArtificioHostedImage,
+  isCloudinaryTransformationSegment,
   isCropRect,
   isGoogleUserContentUrl,
   isImageKind,
@@ -377,5 +379,113 @@ describe("imageKindHint", () => {
   it("origem não confiável cai no banner de mesa, como o resto do módulo", () => {
     expect(imageKindHint("inexistente")).toBe(imageKindHint("table_banner"));
     expect(imageKindHint(undefined)).toBe(imageKindHint("table_banner"));
+  });
+});
+
+describe("isArtificioHostedImage", () => {
+  const CRUA =
+    "https://res.cloudinary.com/dnln0btbo/image/upload/v1788537783/artificio_profile_banners/khmxivtocytsah6o0pap.jpg";
+
+  it("reconhece a URL crua do nosso upload", () => {
+    expect(isArtificioHostedImage(CRUA)).toBe(true);
+  });
+
+  it.each([
+    ["entrega nossa", "q_auto/f_auto/w_800"],
+    ["componente único", "w_1200,c_fill"],
+    ["um parâmetro só", "w_400"],
+  ])("reconhece a MESMA imagem com transformação: %s", (_caso, transformacao) => {
+    // Regressão da spec 103, T2.1: pular só a versão fazia a URL transformada
+    // devolver `false`, e `ImageUploader` voltaria a exibir o link cru como se
+    // a imagem fosse de terceiro (spec 100, F6.4c).
+    const url = CRUA.replace("/upload/", `/upload/${transformacao}/`);
+    expect(isArtificioHostedImage(url)).toBe(true);
+  });
+
+  it.each([
+    ["host de terceiro", "https://exemplo.com/image/upload/v1/artificio_avatars/foto.jpg"],
+    ["conta de terceiro, pasta desconhecida", "https://res.cloudinary.com/demo/image/upload/v1/foto.jpg"],
+    ["sem segmento `upload`", "https://res.cloudinary.com/dnln0btbo/image/fetch/mesas_rpg/foto.jpg"],
+    ["pasta fora de posição", "https://res.cloudinary.com/dnln0btbo/image/upload/v1/outra/mesas_rpg/foto.jpg"],
+    ["hostname que só termina parecido", "https://res.cloudinary.com.evil.tld/x/image/upload/mesas_rpg/f.jpg"],
+    ["texto que não é URL", "não é url"],
+  ])("recusa: %s", (_caso, url) => {
+    expect(isArtificioHostedImage(url)).toBe(false);
+  });
+
+  it("recusa quando a transformação é o último segmento, sem pasta", () => {
+    expect(
+      isArtificioHostedImage("https://res.cloudinary.com/dnln0btbo/image/upload/w_800/"),
+    ).toBe(false);
+  });
+
+  it.each([
+    [
+      "links, URL real de produção",
+      "https://res.cloudinary.com/dnln0btbo/image/upload/v1782019856/artificio/links/b9b5d9f233fda079f9f5eda966ea910d8ec65b7b953debfa4f91c7705f7d3c78.jpg",
+    ],
+    [
+      "avatar do accounts",
+      "https://res.cloudinary.com/dnln0btbo/image/upload/v1/artificio/accounts/avatars/abc.jpg",
+    ],
+    [
+      "capa do downloads",
+      "https://res.cloudinary.com/dnln0btbo/image/upload/v1/downloads-covers/abc.jpg",
+    ],
+  ])("reconhece pasta que grava sem `ImageKind`: %s", (_caso, url) => {
+    // Spec 103, T2.4: estas três devolviam `false` porque a lista vinha só de
+    // `IMAGE_KINDS`. Medido na URL real do `links` acima. A falha é silenciosa:
+    // `cloudinaryDeliveryUrl` devolve a URL intacta e o app segue servindo o
+    // original — 932 KiB de logo medidos em `links.artificiorpg.com` para
+    // exibir 13 caixas de 104px.
+    expect(isArtificioHostedImage(url)).toBe(true);
+  });
+
+  it("reconhece a pasta de dois segmentos mesmo com transformação de entrega", () => {
+    expect(
+      isArtificioHostedImage(
+        "https://res.cloudinary.com/dnln0btbo/image/upload/q_auto/f_auto/w_208/v1782019856/artificio/links/b9b5.jpg",
+      ),
+    ).toBe(true);
+  });
+
+  it.each([
+    [
+      "pasta que só começa parecido",
+      "https://res.cloudinary.com/dnln0btbo/image/upload/v1/artificio/linksxyz/a.jpg",
+    ],
+    [
+      "prefixo sem a barra que o separa",
+      "https://res.cloudinary.com/dnln0btbo/image/upload/v1/downloads-covers-antigo/a.jpg",
+    ],
+  ])("comparação por prefixo não vira comparação por substring: %s", (_caso, url) => {
+    // A comparação é `caminho === pasta || caminho.startsWith(`${pasta}/`)`. Sem
+    // a barra no segundo termo, `downloads-covers-antigo` passaria.
+    expect(isArtificioHostedImage(url)).toBe(false);
+  });
+});
+
+describe("isCloudinaryTransformationSegment", () => {
+  it.each(["w_800", "q_auto", "f_auto", "w_1200,c_fill", "ar_16:10,c_fill,g_auto", "dpr_2.0"])(
+    "reconhece transformação: %s",
+    (segmento) => {
+      expect(isCloudinaryTransformationSegment(segmento)).toBe(true);
+    },
+  );
+
+  it.each([
+    "mesas_rpg",
+    "artificio_avatars",
+    "artificio_profile_banners",
+    "khmxivtocytsah6o0pap",
+    "v1788537783",
+    "foto.jpg",
+    "",
+  ])("não confunde com pasta, id ou versão: %s", (segmento) => {
+    expect(isCloudinaryTransformationSegment(segmento)).toBe(false);
+  });
+
+  it("segmento ausente não é transformação", () => {
+    expect(isCloudinaryTransformationSegment(undefined)).toBe(false);
   });
 });

@@ -459,7 +459,7 @@ export const OnboardingPage = () => {
                 id="btn-onboarding-proximo"
                 onClick={goNext}
                 disabled={(step === 1 && !canNextFromStep1) || (step === 2 && !canNextFromStep2)}
-                className="inline-flex items-center gap-2 px-5 py-2 rounded-lg bg-[var(--color-artificio-orange)] hover:bg-[var(--color-artificio-orange-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="text-[var(--brand-solid-fg)] inline-flex items-center gap-2 px-5 py-2 rounded-lg bg-[var(--brand-solid)] hover:bg-[var(--brand-solid-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 Próximo <ChevronRight className="w-4 h-4" />
               </button>

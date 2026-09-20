@@ -87,7 +87,7 @@ const CatalogEmptyState = ({ activeFiltersCount, onClearFilters }: CatalogEmptyS
       <button
         type="button"
         onClick={onClearFilters}
-        className="bg-[var(--color-artificio-orange)] hover:bg-[var(--color-artificio-orange-hover)] px-6 py-3 rounded-lg font-semibold transition-colors"
+        className="text-[var(--brand-solid-fg)] bg-[var(--brand-solid)] hover:bg-[var(--brand-solid-hover)] px-6 py-3 rounded-lg font-semibold transition-colors"
       >
         Limpar todos os filtros
       </button>
@@ -493,7 +493,15 @@ export const CatalogoPage = () => {
               id="btn-anunciar-mesa-home"
               type="button"
               onClick={handleAnnounceTable}
-              className="flex cursor-pointer items-center gap-2 whitespace-nowrap rounded-full bg-[var(--color-artificio-orange)] px-5 py-2.5 text-sm font-semibold text-white transition-colors duration-200 hover:bg-[var(--color-artificio-orange-hover)]"
+              /* Par sólido de marca, não laranja cru + `text-white`: medido, o
+                 rótulo é `text-sm font-semibold` (14px/600), que NÃO é "texto
+                 grande" no WCAG 2.2 (pede 18,66px bold ou 24px), então o limite
+                 é 4,5:1. `#ff5722` com branco mede 3,16:1 e o hover (`#e64a19`)
+                 3,92:1 — os dois reprovam. O par --brand-solid/--brand-solid-fg
+                 existe para isto e vira JUNTO por tema: claro 4,70:1 (#cf4317 +
+                 branco), escuro 6,00:1 (#ff5722 + navy). Mesma correção de
+                 `TableCard.tsx:506`. */
+              className="flex cursor-pointer items-center gap-2 whitespace-nowrap rounded-full bg-[var(--brand-solid)] px-5 py-2.5 text-sm font-semibold text-[var(--brand-solid-fg)] transition-colors duration-200 hover:bg-[var(--brand-solid-hover)]"
             >
               <Megaphone className="h-4 w-4" />
               Anunciar Mesa

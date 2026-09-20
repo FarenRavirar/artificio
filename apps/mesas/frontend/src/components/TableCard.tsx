@@ -8,12 +8,24 @@ import { getSlotsVisualState } from '../utils/slots';
 import { SlotsIndicator } from './SlotsIndicator';
 import { SystemBadge } from './SystemBadge';
 import { CertificationBadges } from './CertificationBadges';
-import { applyTableImageFallback, resolveTableImageSource } from '../utils/tableImage';
+import { applyTableImageFallback, tableImageAttrs } from '../utils/tableImage';
 import { isUsableImageSrc } from '../utils/imageSource';
 import { ageRatingLabel, isRestrictedAgeRating } from '../utils/ageRating';
 import { useAuth } from '../contexts/useAuth';
 import { startSsoLogin } from '../utils/auth';
 import { GmReviewSummary } from '@artificio/ui';
+
+/**
+ * Espaço que a capa ocupa no grid do catálogo, medido em `CatalogoPage.tsx`:
+ * `grid-cols-1 md:grid-cols-2 xl:grid-cols-[repeat(auto-fill,minmax(280px,420px))]`.
+ *
+ * Os números saem daí, não de escolha: 420px é o teto do `minmax`, e os
+ * breakpoints são os padrões do Tailwind (`md` 768px, `xl` 1280px — o `@theme`
+ * de `index.css` não sobrescreve `screens`). Mudando o grid, este valor muda
+ * com ele: `sizes` que descreve um layout que não existe mais faz o navegador
+ * escolher variante menor que a caixa, e aí a capa sai borrada.
+ */
+const CARD_COVER_SIZES = '(min-width: 1280px) 420px, (min-width: 768px) 50vw, 100vw';
 
 const modalityLabels: Record<string, string> = {
   online: 'Online',
@@ -352,7 +364,7 @@ export function TableCardComponent({ table }: { table: TableCard }) {
             enquadramento que o mestre escolheu, que é justamente onde a capa
             mais precisa dele — o card é o primeiro contato com a mesa. */}
         <img
-          src={resolveTableImageSource(table.cover_url)}
+          {...tableImageAttrs(table.cover_url, { sizes: CARD_COVER_SIZES })}
           alt={table.title}
           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
           style={{
@@ -426,7 +438,7 @@ export function TableCardComponent({ table }: { table: TableCard }) {
         </button>
 
         {table.featured && (
-          <span className="absolute top-14 right-3 max-w-[45%] truncate rounded-[var(--radius-md)] bg-[var(--color-artificio-orange)] px-2 py-1 text-[length:var(--text-label)] font-[var(--weight-strong)] text-white">
+          <span className="absolute top-14 right-3 max-w-[45%] truncate rounded-[var(--radius-md)] bg-[var(--brand-solid)] px-2 py-1 text-[length:var(--text-label)] font-[var(--weight-strong)] text-[var(--brand-solid-fg)]">
             ★ Destaque
           </span>
         )}

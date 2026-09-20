@@ -55,7 +55,7 @@ Restrição medida: `browser_take_screenshot` só grava sob `C:\projetos\artific
 
 ## T2 — Imagens do `mesas`
 
-### [ ] T2.1 — Função de URL de entrega em `packages/media`
+### [x] T2.1 — Função de URL de entrega em `packages/media`
 
 Recebe a URL do Cloudinary e a largura desejada; devolve a URL com
 `q_auto/f_auto/w_<n>` inserido entre `/image/upload/` e o segmento de versão.
@@ -69,16 +69,133 @@ Requisitos medidos:
 
 **Aceite:** teste de unidade cobrindo os três casos + `pnpm --filter @artificio/media test`.
 
-### [ ] T2.2 — `CroppedImage` emite `srcset` e `sizes`
+**Escrito** em `packages/media/src/deliveryUrl.ts` (`cloudinaryDeliveryUrl`,
+`cloudinarySrcset`, `imageKindWidths`) + `deliveryUrl.test.ts`, 23 casos.
+`pnpm --filter @artificio/media test`: 95 testes em 3 arquivos, verde. Subpath
+`./delivery-url` acrescentado ao `exports` do pacote — sem dependência nova, o
+lockfile não muda (`deploy-flow.md` §2 lido).
 
-`apps/mesas/frontend/src/components/CroppedImage.tsx:73`. As larguras saem de
-`IMAGE_KINDS`, não de números escolhidos à mão.
+**A solução do Cloudinary foi medida e DESCARTADA.** O plugin oficial
+`responsive()` (`@cloudinary/react` + `@cloudinary/url-gen`) não emite `srcset`:
+medido no fonte do pacote (`packages/html/src/plugins/responsive.ts`) que ele lê
+`element.parentElement.clientWidth` e reescreve `element.src` num listener de
+`window.addEventListener('resize')` com debounce, sem `ResizeObserver`. Isso só
+pede a imagem DEPOIS de layout mais JS, que é piorar exatamente o LCP que a T2.3
+mede. Além disso exige o cloud name no cliente, e `VITE_CLOUDINARY_CLOUD_NAME`
+não é lida por nenhuma linha de `src/` nem validada por nenhum workflow
+(`imageKinds.ts:163-169`) — build sem a env esconderia a imagem de todo mundo.
+`srcset`/`sizes` no HTML é o padrão que deixa o navegador escolher ANTES de
+baixar.
+
+**`w_auto` também descartado, medido.** A doc de responsive images do Cloudinary
+lista 5 abordagens e recomenda nenhuma ("Choose the one that best suits your
+environment"). `w_auto` depende de client hints (`Sec-CH-Width`/`Sec-CH-DPR`), e
+a própria doc admite "incomplete browser support": Safari não implementa client
+hints e o Firefox nunca implementou — só Chromium. Além disso `w_auto` ainda
+exigiria o `sizes`, então não elimina o trabalho que evitaria.
+
+**A forma com barra é a da doc, confirmada na fonte certa.** A página de
+image optimization diz literalmente: "as with any transformation action
+parameter, they should be specified as separate components. In a delivery URL,
+that means separating them with a slash (`/`), not a comma", com o exemplo
+`https://res.cloudinary.com/demo/image/upload/q_auto/f_auto/docs/shoes.jpg`. A
+ordem entre os dois é indiferente ("The order of these two parameters doesn't
+matter"). Isso torna `apps/site/src/lib/images.ts` divergente da doc, não só do
+nosso módulo.
+
+**Bug latente, falha em silêncio:** `isArtificioHostedImage` devolve `false` para
+URL com transformação. Medido com as três formas da mesma imagem:
+
+```
+ja transformada:  false   (…/upload/w_1200,c_fill/v1788537783/artificio_profile_banners/…)
+nossa produzida:  false   (…/upload/q_auto/f_auto/w_800/v1788537783/artificio_profile_banners/…)
+crua:             true    (…/upload/v1788537783/artificio_profile_banners/…)
+```
+
+A função procura a pasta em `posUpload + 1`, pulando só `v\d+`; o segmento de
+transformação desloca a pasta e o predicado falha. Hoje não dói porque nada serve
+URL transformada. Ao servir, `ImageUploader.tsx:146` passa a exibir o campo de
+link cru como se a imagem fosse de terceiro — regressão da spec 100 F6.4c, com
+build verde e nenhum teste cobrindo o caso.
+
+**Corrigido** (autorização nominal do mantenedor para tocar pacote
+compartilhado): o predicado agora pula os segmentos de transformação além da
+versão, via `isCloudinaryTransformationSegment`, exportada do mesmo módulo. Ela
+reconhece transformação pela GRAMÁTICA (`<sigla até 3>_<valor>`, vírgula dentro
+do componente) e não por lista de siglas, que envelheceria em silêncio a cada
+parâmetro novo da API — parâmetro desconhecido viraria "pasta" e a imagem
+deixaria de ser reconhecida como nossa.
+
+`isArtificioHostedImage` **não tinha teste nenhum**; agora tem 14, e a guarda foi
+provada vermelha: desligando o `while`, falham exatamente os 3 casos da
+regressão (`3 failed | 117 passed`), nada mais.
+
+Isso também torna útil a guarda de idempotência de `cloudinaryDeliveryUrl`, que
+antes era código morto — a URL transformada nem chegava nela, e o teste passava
+pelo motivo errado (provado: com a guarda desligada, 95 testes seguiram
+passando). Hoje é ela que impede empilhar `w_` sobre `w_`.
+
+### [x] T2.2 — `srcset` e `sizes` nos `<img>` que carregam a capa
+
+**A spec apontava o componente errado.** Medido: `CroppedImage` NÃO renderiza o
+card do catálogo. `rtk rg "CroppedImage" apps/mesas/frontend/src` devolve só
+`AvatarField`, `ImageUploader` e os testes — telas de EDIÇÃO, que não estão no
+caminho do LCP. A capa do catálogo é um `<img>` cru em
+`apps/mesas/frontend/src/components/TableCard.tsx:354`, sem `srcset`, sem
+`sizes`, sem `loading` e sem `decoding`.
+
+O alvo real, medido (`applyTableImageFallback`, 4 consumidores):
+- `TableCard.tsx:354` — card do catálogo, 12 por página;
+- `TableHero.tsx:42` — herói da página da mesa, LCP maior que o card;
+- `TableCardDashboard.tsx:109`;
+- `MestreFeaturedTable.tsx:54`.
+
+`sizes` derivado do grid real (`CatalogoPage.tsx:628`,
+`grid-cols-1 md:grid-cols-2 xl:grid-cols-[repeat(auto-fill,minmax(280px,420px))]`),
+com breakpoint padrão do Tailwind 4.3.1 (`@theme` em `index.css` não sobrescreve
+`screens`): `(min-width: 1280px) 420px, (min-width: 768px) 50vw, 100vw`. O teto
+de 420px vem do `minmax`, não de número escolhido à mão.
+
+O card recorta em `16/10`, proporção DIFERENTE do banner (`1200/650`) — as
+larguras continuam saindo de `IMAGE_KINDS`, porque o que limita é o arquivo
+gravado, não a caixa.
 
 **`object-position` continua** — é o enquadramento escolhido pelo dono. Não trocar
 por `c_fill`/`g_auto` (motivo em `plan.md` §3.3).
 
+**Bug que `srcset` INTRODUZ se entrar sozinho.** Medido na spec do HTML: com
+`srcset` de descritor `w`, o `src` **não é considerado** ("If srcset uses width
+descriptors, src is not considered"), e trocar só `src` por JS não muda nada —
+é preciso limpar `srcset` também. `applyTableImageFallback`
+(`utils/tableImage.ts:9`) faz exatamente isso: `img.src = bannerPlaceholder`,
+manipulando o DOM direto. Com `srcset`, a capa quebrada continuaria quebrada, em
+silêncio, nos 4 consumidores. O helper precisa zerar `img.srcset` antes do
+`src`, e **não existe teste nenhum** cobrindo esse fallback hoje
+(`rtk rg` sobre os 4 consumidores: zero arquivo de teste).
+
+`CroppedImage` não sofre do mesmo: ele troca a origem por estado React
+(`failedSrc`), então o re-render sai sem `srcset`.
+
 **Aceite:** `pnpm --filter @artificio/mesas test` verde + o `<img>` renderizado com
-`srcset` de ao menos 3 larguras.
+`srcset` de ao menos 3 larguras + teste provando que a capa quebrada cai no
+placeholder COM `srcset` presente.
+
+**Entregue.** `tableImageAttrs` em `apps/mesas/frontend/src/utils/tableImage.ts`
+monta `src`, `srcSet`, `sizes`, `loading`, `decoding` e `fetchPriority` numa
+decisão só, consumida pelos 4 `<img>`. O `sizes` é do CHAMADOR, porque descreve
+o layout dele: `srcset` acompanhado de `sizes` mentiroso é pior que `srcset`
+nenhum — o navegador acredita na declaração e pode escolher variante menor que a
+caixa. `priority` só no herói da mesa e na mesa em destaque do perfil (os dois
+LCP); marcar tudo como prioritário tira do navegador o critério de fila.
+
+`applyTableImageFallback` agora zera `srcset` e `sizes` antes do `src`. Provado
+vermelho: removendo `img.srcset = ''`, falha exatamente 1 teste
+(`× limpa `srcset` ao aplicar o placeholder`).
+
+Medido: `mesas-frontend` 1209 testes em 90 arquivos (era 1193 em 89),
+`tsc --noEmit` sem erro, `eslint` com 1 aviso pré-existente em
+`useBannerScrim.ts:251` (arquivo intocado, `git diff` vazio — mesma família de
+dep list incompleta desta spec, não introduzido aqui).
 
 ### [ ] T2.3 — Medir o ganho em produção
 
@@ -86,13 +203,140 @@ por `c_fill`/`g_auto` (motivo em `plan.md` §3.3).
 Economia de imagem < 1.000 KiB (era 10.644) e LCP < 2,5 s (era 5,9 s). Uma rodada só
 não fecha — o Lighthouse varia.
 
-### [ ] T2.4 — Cruzar com os outros apps
+### [x] T2.4 — Cruzar com os outros apps
 
 `downloads` e `links` também exibem imagem do Cloudinary. A pergunta é por que eles
 não quebraram (AGENTS.md §Compartilhado por padrão).
 
 **Aceite:** medir o payload de imagem dos dois; se servirem original, aplicar a mesma
 função.
+
+**Por que o `site` não quebrou, medido:** ele já tem a solução, divergente e
+invisível para os outros apps — `apps/site/src/lib/images.ts`
+(`optimizedImageUrl`, `responsiveSrcSet`), consumida só por
+`apps/site/src/components/Card.astro`. É o defeito que a regra §Compartilhado por
+padrão nomeia: a mesma decisão escrita duas vezes, com cinco divergências
+medidas contra `deliveryUrl.ts`:
+
+- usa `c_fill`, que RECORTA no servidor. Aceitável no `site` (capa de post não tem
+  crop do dono); proibido no `mesas`, onde jogaria fora o `object-position` do
+  enquadramento escolhido (`plan.md` §3.3);
+- larguras `[360, 540, 720, 960]` escritas à mão, não derivadas de `IMAGE_KINDS`;
+- `isCloudinaryImage` aceita QUALQUER `res.cloudinary.com`, inclusive conta de
+  terceiro — reescreve o caminho alheio e produz 404;
+- vírgula em vez de barra;
+- sem guarda de idempotência: duas chamadas empilham transformação.
+
+**Unificado** (decisão dele: "corrija todos e unifique o que precisar
+unificar... nessa spec e nessa PR"). `apps/site/src/lib/images.ts` virou camada
+fina sobre `@artificio/media/delivery-url`; as duas funções públicas
+(`optimizedImageUrl`, `responsiveSrcSet`) mantiveram nome e assinatura, então
+`Card.astro` não mudou.
+
+O recorte no servidor virou opção explícita do pacote
+(`DeliveryOpts.recortarNaProporcao`), e é a razão pela qual a cópia existia: no
+`site` o `c_fill` é a INTENÇÃO (capa de post não tem enquadramento de dono),
+enquanto no `mesas` ele destruiria o `object-position`. `ar_` e `c_fill` saem no
+mesmo componente separados por vírgula — são parâmetros da mesma ação, e a doc
+reserva a barra para ações encadeadas. Proporção malformada é ignorada em vez de
+produzir `ar_undefined`.
+
+**Medição que corrigiu meu próprio erro:** eu ia usar `1200/630` (a do
+`og:image`). `Card.astro:10-11` declara `720×405` e `360×203` — **16/9**. Usar a
+proporção errada mudaria o recorte de toda capa. `203` é o arredondamento de
+`202.5`, pré-existente, e `Card.astro` segue intocado.
+
+**Medido nos dados: a otimização do `site` é no-op hoje**, e já era antes.
+`apps/site/src/data/posts.json` tem 8 posts, 8 com `image`, e o hostname de
+**todos** é `artificiorpg.com` — zero Cloudinary. É a T2.5 (capas 404 do
+WordPress legado). A versão antiga também não transformava nada, porque exigia
+`res.cloudinary.com`. Logo: nenhuma regressão visual na unificação, e o caminho
+passa a funcionar sozinho quando a T2.5 for decidida.
+
+`images.ts` **não tinha teste nenhum**, o que deixou as cinco divergências
+passarem sem ruído. Agora tem 11. `site`: 192 testes em 18 arquivos verdes,
+`tsc --noEmit` sem erro, `eslint` limpo.
+
+**`links` servia o original, medido em produção.** `links.artificiorpg.com/api/groups`:
+13 grupos publicados, 12 com logo na nossa conta Cloudinary, 1 sem, **zero de
+terceiro**. Peso somado das 12: **955.063 bytes (932 KiB)** para preencher caixas
+de **52px** (`global.css:230-232`, `.card .logo` — não os 104 do atributo
+`width`). As mesmas 12 com `q_auto/f_auto/w_208` e `Accept: image/avif,image/webp`:
+**94.626 bytes (92 KiB)**. Economia **840 KiB, 90%**. A maior logo sozinha passava
+de 143 KiB.
+
+Corrigido com `apps/links/src/lib/groupLogo.ts`, camada fina sobre o pacote (sem
+dependência nova: `@artificio/media` já era `workspace:*` no
+`apps/links/package.json`). Três consumidores passaram a pedir tamanho:
+`GroupCard.astro`, `CommunityGroups.tsx` (card, 52px) e `grupo/[slug].astro`
+(ficha, 128px). O `og:image` de `[slug].astro:40` segue com a URL crua de
+propósito — plataforma social recorta e reexibe em tamanho próprio, e mandar a
+versão de 128px daria preview rebaixado.
+
+**Defeito na RAIZ, achado ao aplicar a função:** `isArtificioHostedImage`
+devolvia `false` para a URL real do `links`. Medido nas três formas:
+`artificio/links` `false`, `artificio/accounts/avatars` `false`,
+`downloads-covers` `false`, `mesas_rpg` `true`. Duas causas independentes, as
+duas em `packages/media/src/imageKinds.ts`:
+
+1. a lista de pastas vinha só de `IMAGE_KINDS`, e `ImageKind` é contrato de
+   **upload** (proporção, recorte, validação). Três origens gravam na mesma conta
+   sem `ImageKind` nenhum — `apps/links/server/lib/cloudinary.ts:5`,
+   `apps/accounts/src/app.ts:105`, `coverStorage.ts:6` (`COVER_FOLDER`);
+2. a comparação era de UM segmento (`spec.folder === pasta`), e duas dessas
+   pastas têm barra, então nunca casariam nem se estivessem na lista.
+
+Consertado com `ARTIFICIO_UPLOAD_FOLDERS` (as cinco pastas reais, cada uma com a
+linha da fonte no comentário) e comparação por prefixo de caminho. A falha era
+**silenciosa**: `cloudinaryDeliveryUrl` devolve a URL intacta, e o app segue
+servindo o original acreditando estar otimizado.
+
+O outro consumidor do predicado é `ImageUploader.tsx:146`, que esconde o campo de
+link quando a imagem é nossa. Não é regressão: o critério declarado ali é "a
+pasta, que só o nosso backend escreve", e as três pastas novas também são
+escritas só pelo nosso backend. Mesma regra, origens que faltavam.
+
+Guarda de prefixo provada vermelha: trocar `caminho.startsWith(`${pasta}/`)` por
+`caminho.startsWith(pasta)` deu **2 falhas**, exatamente `artificio/linksxyz` e
+`downloads-covers-antigo`.
+
+**`downloads` não tem correção pela URL, e isso foi medido.**
+`/api/v1/materials?limit=200`: 16 materiais, 15 com capa, somando **4.207.820
+bytes (4.109 KiB)** — a maior 621 KiB — para exibir dentro de 176px de altura
+(`max-h-44`). Só que **todas as 15 estão em `img.itch.zone`**, host de terceiro;
+zero em `downloads-covers`. A variante de tamanho do itch é **assinada por
+asset**, não parâmetro livre: `110x87#` responde 200 num asset que o itch publica
+e **404** nas nossas URLs, e `original` responde 200 nas nossas e **404** na dele.
+Montar a variante daria 404 — o mesmo defeito que `images.ts` tinha com conta de
+terceiro. `cloudinaryDeliveryUrl` devolve essas URLs intactas por projeto.
+
+Aplicado no `downloads` o que **não** depende do host: `MaterialCover.tsx` (ponto
+único de exibição de capa, dois consumidores) ganhou `loading`/`decoding`/
+`fetchPriority` — `lazy`/`async`/`auto` no card, `eager`/`sync`/`high` na ficha,
+onde a capa é o LCP. Sem `loading`, o navegador buscava as 15 capas no primeiro
+paint. Sem `width`/`height`: a regra do componente é `object-contain` sem
+distorcer, e capa de RPG varia (3:4, 2:3, A4) — o `min-h` do frame já reserva o
+espaço. O componente **não tinha teste nenhum**, que é como os atributos ficaram
+de fora; agora tem 5, provados vermelhos (remover `loading` → 3 falhas, os 3
+casos).
+
+`@artificio/media` **não** é dependência de `apps/downloads/frontend`, e
+acrescentá-la mexeria em `package.json` e Dockerfile
+(`check_dockerfile_workspace_deps`). Como as 15 capas de hoje são todas de
+terceiro, otimizar URL ali não economizaria byte nenhum — fica para quando
+`downloads-covers` servir capa de fato (`DOWNLOADS_CLOUDINARY_COVERS_ENABLED`).
+
+**Validado:** `@artificio/media` 138 testes em 3 arquivos (era 132), build e
+`eslint` limpos; `downloads-frontend` 326 em 55 (era 321/54), `tsc --noEmit` e
+`eslint` limpos; `downloads-backend` 570; `links` build 17 páginas, `tsc` e
+`eslint` limpos (`"test"` do app é `echo "(links) no tests"`, então a cobertura
+fica no pacote); `mesas-frontend` 1209; `site` 203 em 19; `accounts` 602 (52
+skipped, pré-existentes — `git diff apps/accounts` vazio); `pnpm verify:api`
+`breaking=0` nos 6 apps.
+
+As URLs do `srcset` foram conferidas servidas, não só montadas: `w_52` 1.240 B,
+`w_104` 2.472 B, `w_208` 4.800 B, `w_256` 6.804 B, todas HTTP 200 e
+`image/webp`.
 
 ### [!] T2.5 — ACHADO NOVO: toda capa de post do blog é 404 em produção
 
@@ -131,7 +375,7 @@ Perguntado ao mantenedor em 2026-09-19; aguardando resposta.
 
 ## T3 — Contraste e ordem de heading
 
-### [ ] T3.1 — Medir antes de corrigir
+### [x] T3.1 — Medir antes de corrigir
 
 Extrair o par fundo/texto de `#btn-anunciar-mesa-home`
 (`CatalogoPage.tsx:417`) e `#catalog-search-submit` (`CatalogFiltersBar.tsx:282`),
@@ -140,7 +384,20 @@ interface).
 
 **Aceite:** a razão medida de cada botão, escrita aqui.
 
-### [ ] T3.2 — Corrigir na origem certa
+**Os dois usam o MESMO par**, medido no código: fundo
+`--color-artificio-orange`, que é alias de `--artificio-brand` (`#ff5722`,
+`packages/ui/src/styles.css:4`), com `text-white`. Razões pela fórmula normativa
+do WCAG 2.x (luminância relativa, não brilho percebido):
+
+- repouso `#ff5722` + `#ffffff` — **3,16:1**;
+- hover `#e64a19` (`--artificio-brand-deep`) + `#ffffff` — **3,92:1**.
+
+**O limite é 4,5:1, não 3:1**, e isso foi medido em vez de suposto: o rótulo dos
+dois é `text-sm font-semibold`, ou seja 14px/600. "Texto grande" no WCAG 2.2
+começa em 18,66px bold ou 24px, e o `@theme` do app (`index.css:7-16`) só
+redefine cores — não sobrescreve `--text-sm`. Os dois estados reprovam.
+
+### [ ] T3.2 — Corrigir na origem certa — código pronto, aceite espera deploy
 
 Os dois usam token `--color-*` de `packages/ui`. Se o token reprova, o defeito é dos
 6 apps e a correção é no token — com verificação nos consumidores. Se só o uso local
@@ -149,11 +406,106 @@ reprova, corrige local.
 **Aceite:** Lighthouse Acessibilidade sem reprovação de contraste + os outros
 consumidores do token conferidos.
 
-### [ ] T3.3 — Ordem de heading no catálogo
+**O token NÃO precisa mudar — ele já existe e está correto.** Medido:
+`packages/ui/src/styles.css:257-263` define `--brand-solid` / `--brand-solid-fg`
+/ `--brand-solid-hover` exatamente para "laranja de marca em papel SÓLIDO", com
+o cálculo registrado no próprio comentário. As razões conferem com o que medi:
 
-`<h3>` sem `<h2>` antes, nos cards. **Não investigado.**
+| | claro | escuro |
+|---|---|---|
+| repouso | **4,70:1** (`#cf4317` + branco) | **6,00:1** (`#ff5722` + navy `#020740`) |
+| hover | **6,07:1** (`#b03a14` + branco) | **4,84:1** (`#e64a19` + navy) |
+
+O par **vira junto** por tema, e é isso que resolve: no escuro o fundo volta a
+ser o laranja puro e o TEXTO passa a navy. Por isso `text-white` fixo não serve
+como correção — o defeito seria só empurrado para o outro tema.
+
+Uma correção do pacote está registrada errada nele: o comentário da linha 354 diz
+que navy sobre `#ff5722` dá "7.4:1"; medido, dá **6,00:1**. Passa AA de sobra, mas
+o número da doc do pacote está acima do real. Divergência documental, não de
+código — `packages/ui` não foi tocado.
+
+**A spec nomeava 2 botões; a varredura achou 22.** Todos no `mesas`, todos com o
+mesmo par medido:
+
+- **14** com fundo sólido laranja + `text-white` — `TableCard.tsx:441`,
+  `SystemSuggestionModal.tsx:498`, `SessionRepeater.tsx:103`,
+  `SealToggle.tsx:41`, `ScenarioSuggestionModal.tsx:138`,
+  `ScenarioSelector.tsx:206` e `:215`, `FilterDrawer.tsx:131`,
+  `CatalogFiltersBar.tsx:279`, `ImageUploader.tsx:270`,
+  `ParsePreviewTextArea.tsx:151`, `uiHelpers.ts:11`,
+  `admin/AdminSidebar.tsx:57`, `SettingSuggestionsPanel.tsx:186`;
+- **1** com `text-[var(--fg)]` — `PainelMestrePage.tsx:632`. Este é o pior caso e
+  estava invisível: fundo fixo com texto que vira por tema dá **5,92:1 no claro**
+  e **2,80:1 no ESCURO**, porque ali `--fg` clareia para `#eef1f8`. É o defeito
+  que o comentário de `TableCard.tsx:502` já descrevia;
+- **7** herdando a cor do ancestral (`MesaPage.tsx:112` e `:145`,
+  `CatalogoPage.tsx:90`, `OnboardingPage.tsx:462`, `MestreNotFound.tsx:12`,
+  `MestreError.tsx:16`, `MasterProfilePage.tsx:84` e `:110`) — sem `text-` na
+  linha, a razão depende do contexto, e o par sólido a torna independente dele.
+
+Os 22 passaram a usar o par. `hover:bg-[…]/90` virou `--brand-solid-hover`:
+opacidade sobre fundo desconhecido não tem contraste garantido, o token tem.
+
+**Dois pontos seguem com laranja sólido, de propósito:** a asserção negativa do
+teste novo, e `TableEditor.tsx:508`, que é barra de progresso — sem texto por
+cima, o critério é o 3:1 de componente contra a trilha, outro par.
+
+**Guarda:** `apps/mesas/frontend/src/utils/contrasteMarca.test.ts`, 9 testes. Ele
+**calcula** a razão a partir do valor do token lido de
+`packages/ui/src/styles.css`, em vez de conferir se a classe cita
+`--brand-solid` — conferir o nome passaria mesmo se o pacote trocasse o valor por
+um que reprova, que é como este defeito nasceu (`--color-artificio-orange` é nome
+correto apontando para cor insuficiente). Inclui varredura do app inteiro, para
+que o 23º ponto não entre. Mesmo padrão de `TableEditor.test.tsx:428`.
+
+Provado vermelho duas vezes: voltar um botão ao laranja cru → 1 falha, o botão
+exato; voltar `MestreError.tsx` → 1 falha, com arquivo e linha no output.
+
+**Erro meu, corrigido:** a primeira versão do teste recortou o bloco do tema
+escuro na MENÇÃO em prosa (`:root = light, [data-theme="dark"] = dark`, linhas
+134-136) em vez do seletor real da linha 294, e `--brand-solid` não resolveu.
+Comentários fora antes de casar — a mesma pegadinha já registrada em
+`TableEditor.test.tsx:444`.
+
+Falta o Lighthouse do aceite, que exige deploy.
+
+### [ ] T3.3 — Ordem de heading no catálogo — código pronto, aceite espera deploy
+
+`<h3>` sem `<h2>` antes, nos cards.
 
 **Aceite:** Lighthouse sem o achado de ordem de heading.
+
+**Investigado e confirmado.** A rota do catálogo tem exatamente dois níveis:
+`<h1>` em `CatalogoPage.tsx:481` e `<h3>` no título da mesa em
+`TableCard.tsx:467`. Nenhum `<h2>` — e o `<h2>Filtros</h2>` de
+`FilterDrawer.tsx:99` não conta, porque o componente faz `if (!isOpen) return
+null` (linha 72) e não entra no DOM no carregamento.
+
+A `<section>` que envolve o grid (`CatalogoPage.tsx:585`) não tinha heading
+nenhum, nem visual nem acessível — é a origem, não o card.
+
+Corrigido promovendo a contagem de resultados a `<h2>` em `ResultsHeader.tsx`.
+Rebaixar o `<h3>` do card seria o remédio errado: o título da mesa É subordinado
+à lista, e rebaixar destruiria a hierarquia em vez de corrigi-la. **O texto
+visível não mudou** — nem palavras, nem tamanho, nem peso (`font-normal`
+neutraliza o bold que `<h2>` traz por padrão); mudar o que o visitante lê é
+decisão de produto, e aqui só a tag mudou.
+
+**Erro meu, corrigido antes de fechar:** pus um `aria-label="Mesas encontradas"`
+fixo no heading, para o nome não oscilar entre "Carregando..." e "12 mesas
+encontradas". Buscado na WAI-ARIA APG (§Names and Descriptions): `aria-label` em
+papel que nomeia a partir do conteúdo "hides descendant content from assistive
+technology users and replaces it with the value of `aria-label`" — a contagem
+desapareceria justamente para quem usa leitor de tela. Removido; o nome
+acessível é o texto visível, como a regra manda.
+
+**Guarda:** `ResultsHeader.test.tsx`, 6 testes (o componente não tinha nenhum) —
+nível 2, texto inalterado, ausência de `aria-label`, nome acessível vindo do
+texto, estado de carregamento e ausência de `<h1>`/`<h3>` no componente. Provado
+vermelho: voltar a `<div>` → 5 falhas.
+
+Falta o Lighthouse do aceite, que exige deploy.
 
 ---
 
@@ -248,8 +600,10 @@ contrato de `packages/ui` e alcança os 6 apps: exige aprovação nominal.
 ### Revisão da PR #327 — veredicto medido de cada achado
 
 Duas rodadas. Achados 1-7 são de Codex e CodeRabbit sobre o commit `fca55ef`,
-corrigidos no commit `4031ddc`, pushado na PR #327. Achados 11-12 são das duas
-ferramentas sobre o `4031ddc`, corrigidos na árvore e ainda não commitados.
+corrigidos no commit `4031ddc`. Achados 11-12 são das duas ferramentas sobre o
+`4031ddc`, corrigidos no commit `b9d7e82`. PR #327 mergeada em `dev` no merge
+commit `1f6f639`; o resto da spec segue na branch
+`feat/103-imagens-contraste-login`, criada de `origin/dev` nesse commit.
 
 **Procedem, corrigidos:**
 

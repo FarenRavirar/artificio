@@ -3,7 +3,18 @@ import type { TableViewModel, TableHeroVariant } from '../types/tableView.types'
 import { getTableBadges, getBadgeClasses } from '../../../utils/tableBadges';
 import { getButtonStyle, handleCTA } from '../utils/uiHelpers';
 import { SystemBadge } from '../../../components/SystemBadge';
-import { applyTableImageFallback, resolveTableImageSource } from '../../../utils/tableImage';
+import { applyTableImageFallback, tableImageAttrs } from '../../../utils/tableImage';
+
+/**
+ * Espaço da capa no herói da mesa, medido em `MesaPage.tsx:156-157`:
+ * `container mx-auto px-6` com `grid-cols-1 lg:grid-cols-[1fr_340px] gap-6`.
+ *
+ * Em `xl` o `container` do Tailwind 4 vale 1280px (sem customização no
+ * `@theme`), então a coluna do herói é 1280 − 48 (`px-6`) − 340 (aside) − 24
+ * (`gap-6`) = 868px. Abaixo de `lg` o grid colapsa numa coluna e a capa ocupa
+ * a largura do container.
+ */
+const HERO_COVER_SIZES = '(min-width: 1280px) 868px, (min-width: 1024px) 60vw, 100vw';
 
 interface TableHeroProps {
   vm: TableViewModel;
@@ -34,8 +45,8 @@ export function TableHero({ vm, variant = 'full', showOverlay = true }: TableHer
   return (
     <div className="relative rounded-2xl overflow-hidden">
       {/* Cover Image */}
-      <img 
-        src={resolveTableImageSource(vm.coverUrl)}
+      <img
+        {...tableImageAttrs(vm.coverUrl, { sizes: HERO_COVER_SIZES, priority: true })}
         alt={vm.title}
         className="w-full aspect-[1200/650] object-cover"
         style={cropStyle}

@@ -629,7 +629,12 @@ export const PainelMestrePage = () => {
                     setEditingTableData(null);
                     setView('create-table');
                   }}
-                  className="flex items-center gap-2 px-5 py-3 bg-[var(--color-artificio-orange)] hover:bg-[var(--color-artificio-orange-hover)] text-[var(--fg)] font-[var(--weight-strong)] rounded-[var(--radius-lg)] transition-colors cursor-pointer"
+                  /* Fundo fixo com texto que vira por tema era o pior dos dois
+                     mundos (spec 103, T3.2): medido, laranja com `--fg` dá
+                     5,92:1 no claro e 2,80:1 no ESCURO, porque ali o `--fg`
+                     clareia para `#eef1f8`. O par sólido vira junto — 4,70:1 e
+                     6,00:1. Mesmo diagnóstico de `TableCard.tsx:502`. */
+                  className="flex items-center gap-2 px-5 py-3 bg-[var(--brand-solid)] hover:bg-[var(--brand-solid-hover)] text-[var(--brand-solid-fg)] font-[var(--weight-strong)] rounded-[var(--radius-lg)] transition-colors cursor-pointer"
                 >
                   <PlusCircle className="w-5 h-5" />
                   Nova Mesa

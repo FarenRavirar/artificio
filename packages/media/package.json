@@ -16,6 +16,11 @@
       "types": "./dist/imageKinds.d.ts",
       "import": "./dist/imageKinds.js",
       "require": "./dist/imageKinds.js"
+    },
+    "./delivery-url": {
+      "types": "./dist/deliveryUrl.d.ts",
+      "import": "./dist/deliveryUrl.js",
+      "require": "./dist/deliveryUrl.js"
     }
   },
   "scripts": {

@@ -7,7 +7,14 @@ import { SystemBadge } from '../SystemBadge';
 import { markdownToPlainText } from '@artificio/content-editor/sanitize';
 import { CertificationBadges } from '../CertificationBadges';
 import { getSlotsVisualState } from '../../utils/slots';
-import { applyTableImageFallback, resolveTableImageSource } from '../../utils/tableImage';
+import { applyTableImageFallback, tableImageAttrs } from '../../utils/tableImage';
+
+/**
+ * A mesa em destaque ocupa a largura inteira do `.container` do perfil, que lê
+ * `--page-max: 1200px` (`MestrePage.css`). É a primeira imagem da página, logo
+ * é o LCP dela — daí o `priority`.
+ */
+const FEATURED_COVER_SIZES = '(min-width: 1200px) 1200px, 100vw';
 
 interface Props {
   table: TableCard;
@@ -42,7 +49,7 @@ export function MestreFeaturedTable({ table }: Props) {
               cortada pelo centro geométrico e o enquadramento escolhido pelo
               mestre é ignorado. */}
           <img
-            src={resolveTableImageSource(table.cover_url)}
+            {...tableImageAttrs(table.cover_url, { sizes: FEATURED_COVER_SIZES, priority: true })}
             alt={table.title}
             style={{
               objectPosition: cropToObjectPosition(

@@ -203,7 +203,7 @@ export const ScenarioSelector = ({
             type="button"
             onClick={() => setLanguage('pt')}
             className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-              language === 'pt' ? 'bg-[var(--color-artificio-orange)] text-white' : 'text-white/60 hover:text-white'
+              language === 'pt' ? 'bg-[var(--brand-solid)] text-[var(--brand-solid-fg)]' : 'text-white/60 hover:text-white'
             }`}
           >
             PT
@@ -212,7 +212,7 @@ export const ScenarioSelector = ({
             type="button"
             onClick={() => setLanguage('en')}
             className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-              language === 'en' ? 'bg-[var(--color-artificio-orange)] text-white' : 'text-white/60 hover:text-white'
+              language === 'en' ? 'bg-[var(--brand-solid)] text-[var(--brand-solid-fg)]' : 'text-white/60 hover:text-white'
             }`}
           >
             EN
