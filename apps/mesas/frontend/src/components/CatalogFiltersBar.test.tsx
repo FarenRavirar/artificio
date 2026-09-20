@@ -219,6 +219,23 @@ describe('CatalogFiltersBar — chips e limpar tudo (R10)', () => {
   });
 });
 
+describe('CatalogFiltersBar — filtros de agenda chegam aos chips (PR #327)', () => {
+  it('dia e faixa selecionados viram chip removível', () => {
+    // O objeto de `ActiveFiltersChips` é montado campo por campo: esquecer um
+    // não quebra tipo nem teste, só apaga o chip em silêncio e torna o ramo de
+    // remoção inalcançável (achado P2 do Codex).
+    render(
+      <CatalogFiltersBar
+        {...baseProps}
+        filters={{ ...baseProps.filters, weekdays: ['sábado'], dayparts: ['noite'] }}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: /Remover filtro Sábado/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Remover filtro Noite/i })).toBeInTheDocument();
+  });
+});
+
 describe('CatalogFiltersBar — "Mais filtros" (R4, painel desktop / drawer mobile)', () => {
   it('desktop: abre painel avançado com badge de quantidade; Escape fecha e devolve foco', () => {
     window.matchMedia = vi.fn().mockReturnValue(mockMediaQueryList(true)) as unknown as typeof window.matchMedia;

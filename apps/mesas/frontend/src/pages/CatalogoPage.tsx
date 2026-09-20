@@ -405,12 +405,18 @@ export const CatalogoPage = () => {
   const activeFiltersCount = useMemo(() => activeCatalogFiltersCount(filters), [filters]);
 
   // Quantidade de filtros avançados ativos (badge do botão "Mais filtros").
+  //
+  // Dia e faixa entram porque moram no mesmo painel: sem eles o badge ficava em
+  // zero com filtro de agenda aplicado, e ao fechar o painel o usuário perdia a
+  // única indicação de que ele existia (achado P2 do Codex na PR #327).
   const advancedCount = useMemo(() => {
     return [
       filters.experience,
       filters.type,
       filters.seal,
       ...(filters.styles || []),
+      ...(filters.weekdays || []),
+      ...(filters.dayparts || []),
     ].filter(Boolean).length;
   }, [filters]);
 

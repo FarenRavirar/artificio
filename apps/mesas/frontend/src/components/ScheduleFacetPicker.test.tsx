@@ -59,6 +59,18 @@ describe('ScheduleFacetPicker — opção vazia (D6)', () => {
     expect(baseProps.onDaypartToggle).not.toHaveBeenCalled();
   });
 
+  it('faixa MARCADA com zero segue clicável, para poder desmarcar', () => {
+    render(<ScheduleFacetPicker {...baseProps} dayparts={['madrugada']} />);
+
+    // Desabilitar o que está marcado prenderia o filtro ativo: sem "Limpar tudo"
+    // não haveria como desfazer (achado do CodeRabbit na PR #327).
+    const madrugada = screen.getByRole('button', { name: /madrugada/i });
+    expect(madrugada).toBeEnabled();
+
+    fireEvent.click(madrugada);
+    expect(baseProps.onDaypartToggle).toHaveBeenCalledWith('madrugada');
+  });
+
   it('a faixa com mesa é clicável e devolve o valor da URL', () => {
     render(<ScheduleFacetPicker {...baseProps} />);
 

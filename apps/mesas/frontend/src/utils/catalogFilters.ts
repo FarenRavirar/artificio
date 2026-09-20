@@ -110,16 +110,32 @@ export function parseCatalogFilters(params: URLSearchParams): CatalogFilters {
  * frontend) nem `sort=popular`/`page=1` (defaults). Styles são normalizados
  * antes do encode para a URL ser estável independentemente da ordem de seleção.
  */
+/**
+ * Campo do filtro → nome do parâmetro na URL, para os valores escalares.
+ *
+ * Tabela em vez de sete `if` iguais: o nome do parâmetro é dado do contrato da
+ * API, não fluxo de controle, e a divergência (`priceType` → `price_type`) fica
+ * visível numa linha. Complexidade cognitiva de 17 para dentro do limite,
+ * apontada pelo Sonar.
+ */
+const SCALAR_PARAM_NAMES = {
+  search: 'search',
+  system: 'system',
+  modality: 'modality',
+  priceType: 'price_type',
+  experience: 'experience_level',
+  type: 'type',
+  seal: 'seal',
+} as const satisfies Partial<Record<keyof CatalogFilters, string>>;
+
 export function buildCatalogParams(filters: CatalogFilters): URLSearchParams {
   const params = new URLSearchParams();
 
-  if (filters.search) params.set('search', filters.search);
-  if (filters.system) params.set('system', filters.system);
-  if (filters.modality) params.set('modality', filters.modality);
-  if (filters.priceType) params.set('price_type', filters.priceType);
-  if (filters.experience) params.set('experience_level', filters.experience);
-  if (filters.type) params.set('type', filters.type);
-  if (filters.seal) params.set('seal', filters.seal);
+  for (const [field, paramName] of Object.entries(SCALAR_PARAM_NAMES)) {
+    const value = filters[field as keyof typeof SCALAR_PARAM_NAMES];
+    if (value) params.set(paramName, value);
+  }
+
   if (filters.styles && filters.styles.length > 0) {
     const normalizedStyles = normalizeStyles(filters.styles);
     if (normalizedStyles.length > 0) {

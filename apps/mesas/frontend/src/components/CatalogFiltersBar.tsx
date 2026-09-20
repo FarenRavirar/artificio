@@ -360,6 +360,12 @@ export function CatalogFiltersBar({
                 type: filters.type,
                 seal: pickOptional(filters.seal, SEAL_VALUES),
                 styles: filters.styles,
+                // Sem estes dois, o chip de agenda nunca aparecia e os ramos de
+                // remoção individual em `CatalogoPage.removeFilter` ficavam
+                // inalcançáveis: só "Limpar tudo" desfazia a seleção de dia ou
+                // faixa (achado P2 do Codex na PR #327).
+                weekdays: filters.weekdays,
+                dayparts: filters.dayparts,
                 sort: filters.sort,
               }}
               systemName={systemName}

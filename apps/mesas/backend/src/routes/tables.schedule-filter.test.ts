@@ -64,6 +64,13 @@ import tablesRoutes from './tables.js';
 /** Ordem em que `.where()` foi chamado, para saber o que entrou antes da contagem. */
 let whereCalls: unknown[][] = [];
 
+/**
+ * Sequência de eventos na ordem real de execução, para provar que o filtro entra
+ * ANTES da contagem. Só contar chamadas não mede isso: o teste passava com o
+ * `.where()` aplicado depois de `executeTakeFirst` (achado do CodeRabbit, PR #327).
+ */
+let eventLog: ('schedule-where' | 'count')[] = [];
+
 function makeQueryBuilder() {
   const builder = {
     leftJoin: vi.fn().mockReturnThis(),
@@ -71,6 +78,7 @@ function makeQueryBuilder() {
     selectAll: vi.fn().mockReturnThis(),
     where: vi.fn((...args: unknown[]) => {
       whereCalls.push(args);
+      if (rawSqlOf(args).includes('table_schedules')) eventLog.push('schedule-where');
       return builder;
     }),
     orderBy: vi.fn().mockReturnThis(),
@@ -89,6 +97,21 @@ function makeApp() {
   app.use(express.json());
   app.use('/api/v1/tables', tablesRoutes);
   return app;
+}
+
+/** SQL dos fragmentos crus de UMA chamada de `.where()`. */
+function rawSqlOf(args: unknown[]): string {
+  return args
+    .filter((arg): arg is RawBuilder<boolean> => typeof (arg as RawBuilder<boolean>)?.compile === 'function')
+    .map((fragment) => fragment.compile(compilerDb).sql)
+    .join(' ');
+}
+
+/** O fragmento de agenda foi aplicado antes da consulta de contagem. */
+function filterAppliedBeforeCount(): boolean {
+  const whereIndex = eventLog.indexOf('schedule-where');
+  const countIndex = eventLog.indexOf('count');
+  return whereIndex >= 0 && countIndex >= 0 && whereIndex < countIndex;
 }
 
 /** SQL de todo fragmento cru passado a `.where()`, concatenado. */
@@ -119,12 +142,16 @@ function scheduleFilterSqlLower(): string {
 
 beforeEach(() => {
   whereCalls = [];
+  eventLog = [];
   dbMocks.execute.mockReset();
   dbMocks.executeTakeFirst.mockReset();
   dbMocks.selectFrom.mockReset();
 
   dbMocks.execute.mockResolvedValue([]);
-  dbMocks.executeTakeFirst.mockResolvedValue({ count: 0 });
+  dbMocks.executeTakeFirst.mockImplementation(async () => {
+    eventLog.push('count');
+    return { count: 0 };
+  });
   dbMocks.selectFrom.mockImplementation(() => makeQueryBuilder());
 });
 
@@ -157,8 +184,13 @@ describe('GET /api/v1/tables — filtro de agenda (spec 103 §6)', () => {
 
     // `executeTakeFirst` é a contagem. Todo `.where()` tem de ter sido aplicado
     // antes dela — filtro depois da paginação deixa buraco na página.
+    //
+    // A ordem é o que importa, e `expect(sql).not.toBe('')` não a media: passava
+    // igual com o filtro aplicado DEPOIS da contagem. `callOrder` do vi.fn dá a
+    // sequência global de invocação (achado do CodeRabbit na PR #327).
     expect(dbMocks.executeTakeFirst).toHaveBeenCalled();
     expect(scheduleFilterSql()).not.toBe('');
+    expect(filterAppliedBeforeCount()).toBe(true);
   });
 
   it('E3: weekday multivalor é OU, num IN só (sem linha duplicada)', async () => {
@@ -215,6 +247,24 @@ describe('GET /api/v1/tables — filtro de agenda (spec 103 §6)', () => {
     expect(filterSql).toContain("'06:00:00'");
     expect(filterSql).toContain("'12:00:00'");
     expect(filterSql).toMatch(/>=\s*\$\d+|>=\s*'06:00:00'/);
+    // O limite SUPERIOR tem de ser exclusivo. `toContain("'12:00:00'")` passa
+    // igual com `<=`, e aí 12:00 cai em manhã e em tarde (achado do CodeRabbit).
+    expect(filterSql).toMatch(/<\s*(\$\d+|'12:00:00')/);
+    expect(filterSql).not.toMatch(/<=\s*(\$\d+|'12:00:00')/);
+  });
+
+  it('P1: agenda placeholder de "Horário personalizado" não casa o filtro', async () => {
+    await request(makeApp()).get('/api/v1/tables?weekday=segunda&daypart=noite').expect(200);
+
+    const filterSql = scheduleFilterSqlLower();
+    // `deriveSchedule` grava linha de placeholder `segunda`/`19:00` com os dois
+    // status em 'to_define' (editorMapping.ts:130-180), porque as colunas são NOT
+    // NULL e o enum do banco não tem 'to_define'. Sem o gate de status, essa mesa
+    // apareceria em `weekday=segunda` e `daypart=noite` sem o mestre ter dito isso.
+    // Medido em produção 2026-09-19: 12 mesas com dia 'to_define' e 21 com horário
+    // 'to_define', nenhuma com linha hoje — o falso positivo é latente, não ativo.
+    expect(filterSql).toContain("t.schedule_day_status = 'defined'");
+    expect(filterSql).toContain("t.schedule_time_status = 'defined'");
   });
 
   it('E10: noite não usa 24:00:00, que TIME não aceita', async () => {

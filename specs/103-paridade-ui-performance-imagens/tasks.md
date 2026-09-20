@@ -8,6 +8,9 @@ Task só fecha com o comando que a mediu na mesma linha. "Local", "parcial" e
 
 ## T1 — `` `}{` `` na busca do portal
 
+Entregue no commit `fca55ef`, PR #327 (base `dev`), junto da T7. Falta só a T1.2,
+que depende de deploy.
+
 ### [x] T1.1 — Template do Pagefind volta a ser HTML cru
 
 Entregue em `apps/site/src/pages/busca/index.astro`: removidos `` {` `` e `` `} `` que
@@ -241,6 +244,84 @@ contrato de `packages/ui` e alcança os 6 apps: exige aprovação nominal.
 ---
 
 ## T7 — Feature extra: filtro por dia da semana (`spec.md` §6)
+
+### Revisão da PR #327 — veredicto medido de cada achado
+
+Codex e CodeRabbit, commit `fca55ef`. Correções na árvore, não commitadas.
+
+**Procedem, corrigidos:**
+
+1. **Agenda placeholder casava o filtro** (P1 Codex). "Horário personalizado" (R20)
+   grava linha com placeholder `segunda`/`19:00` e os dois status em `'to_define'`,
+   porque `day_of_week`/`start_time` são NOT NULL e o enum do banco não tem
+   `to_define` (`editorMapping.ts:130-180`). O filtro e o CTE das facetas liam a
+   linha sem olhar o status, então `weekday=segunda` e `daypart=noite` devolviam
+   mesa que o mestre nunca marcou. Corrigido com gate por eixo
+   (`t.schedule_day_status`/`t.schedule_time_status = 'defined'`).
+   Medido em produção 2026-09-19: 12 mesas com dia `to_define`, 21 com horário
+   `to_define`, **0** com linha — o falso positivo é latente, não ativo. As 88
+   mesas ativas seguem uma regra limpa: `defined/defined` sempre tem linha (66/66),
+   qualquer `to_define` nunca tem (0 em 22).
+   Guard visto vermelho: removido o gate do dia, só o caso P1 falha.
+2. **Chips de agenda nunca apareciam** (P2 Codex). `CatalogFiltersBar` monta o
+   objeto de `ActiveFiltersChips` campo por campo e não passava `weekdays`/
+   `dayparts`, o que também tornava os ramos de `CatalogoPage.removeFilter`
+   inalcançáveis — só "Limpar tudo" desfazia. Corrigido, com guard em
+   `CatalogFiltersBar.test.tsx`.
+3. **Badge de "Mais filtros" ignorava agenda** (P2 Codex). `advancedCount` somava
+   4 campos e não os dois novos; com o painel fechado o usuário perdia a indicação.
+   Corrigido.
+4. **Opção marcada com zero ficava desabilitada** (CodeRabbit). Prendia o filtro
+   ativo sem como desmarcar. `isEmpty` passou a exigir `!isSelected`. Guard novo em
+   `ScheduleFacetPicker.test.tsx`.
+5. **E2 não media ordem** (CodeRabbit). `expect(scheduleFilterSql()).not.toBe('')`
+   passava igual com o filtro aplicado DEPOIS da contagem. Trocado por um log de
+   eventos que assere `schedule-where` antes de `count`.
+6. **Borda superior da faixa sem prova de exclusividade** (CodeRabbit).
+   `toContain("'12:00:00'")` passava com `<=`, e aí 12:00 cairia em manhã e tarde.
+   Acrescentado `toMatch(/<\s*.../)` + `not.toMatch(/<=\s*.../)`.
+
+**Recusado, com medição:**
+
+7. **`NOT EXISTS` no ramo do hint** (CodeRabbit). Proposta: considerar hint só
+   quando não há linha em `table_schedules`. Medido em produção: 34 mesas ativas
+   têm linha E hint de dia, com **0** divergências entre `schedule_day_hint` e
+   `ts.day_of_week`. Não há hint obsoleto a desempatar, e o caso real que a
+   proposta tentava alcançar — o placeholder — já é coberto pelo gate de status do
+   item 1. Aplicar mudaria resultado sem defeito medido.
+
+Validação: backend 1190 testes (era 1189), frontend 1188 (era 1186), lint 0 erros
+nos dois (1 warning pré-existente em `useBannerScrim.ts`), `tsc -b` sem erros,
+`verify:api` breaking=0.
+
+### SonarQube — 4 achados de manutenibilidade
+
+Nenhum de correção. Três aplicados, um recusado.
+
+8. **`decoded` como array** (`routes/tables.ts:117`). `includes` dentro de
+   `filter` é checagem de pertencimento escrita como varredura. Virou `Set` +
+   `has`, a mesma forma que `normalizeEnumMulti` já usa no frontend. Performance
+   é irrelevante aqui (n ≤ 7); a razão é a forma única.
+9. **Complexidade 17 em `ActiveFiltersChips`** (`:43`). Eram 7 blocos `if` +
+   `push` idênticos e 3 listas idênticas. Extraídos `scalarChip` e `listChips`, e
+   a cadeia virou lista declarativa. Isto ataca a causa do achado 2: com lista, um
+   filtro novo é uma linha, e não há `push` a esquecer.
+10. **Complexidade 17 em `buildCatalogParams`** (`utils/catalogFilters.ts:113`).
+    Sete `if` iguais viraram a tabela `SCALAR_PARAM_NAMES` (campo → parâmetro da
+    URL), onde a única divergência real (`priceType` → `price_type`) fica visível.
+    `satisfies Partial<Record<keyof CatalogFilters, string>>` prende a chave ao
+    tipo do filtro.
+
+**Recusado:** "Replace these 4 tests with a single Parameterized one"
+(`tables.schedule-filter.test.ts:174`). Os 4 casos de E4 têm ASSERÇÕES diferentes,
+não só entradas: um exige SQL vazio, outro presença e ausência de substring, outro
+contagem de `exists`. Parametrizar exigiria passar a asserção como parâmetro, o que
+troca 4 testes legíveis por uma tabela pior de ler — e o nome de cada caso é o que
+identifica a falha no output.
+
+Cobertura do refactor provada: removido `scalarChip('seal', …)`, 3 testes de
+`ActiveFiltersChips.test.tsx` falharam; restaurado, verdes. Refactor sem esse
+vermelho seria verde por ausência de teste, não por comportamento preservado.
 
 Duas facetas novas no catálogo, uma decisão só (2026-09-18): **dia da semana**,
 sugerido por usuário anônimo em 2026-09-08, e **faixa de horário** (manhã, tarde,

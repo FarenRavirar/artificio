@@ -96,8 +96,13 @@ function ChipGroup<T extends string>({
           const count = counts[value] ?? 0;
           // Antes de a contagem chegar, nada é desabilitado — desabilitar por
           // dado ausente esconderia opção que tem mesa.
-          const isEmpty = countsLoaded && count === 0;
           const isSelected = selected.includes(value);
+          // Opção MARCADA nunca desabilita, mesmo com zero: o usuário tem de
+          // poder desmarcar o que marcou. Desabilitar prenderia o filtro ativo
+          // sem outra saída que "Limpar tudo" — e a contagem pode chegar a zero
+          // depois da marca, porque a faceta é global e recarrega
+          // (achado do CodeRabbit na PR #327).
+          const isEmpty = countsLoaded && count === 0 && !isSelected;
 
           return (
             <button

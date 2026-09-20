@@ -114,14 +114,18 @@ type DaypartValue = keyof typeof DAYPART_RANGES;
  */
 function parseEnumCsvQuery<T extends string>(raw: unknown, valid: readonly T[]): T[] {
   if (typeof raw !== 'string') return [];
-  const decoded = raw.split(',').filter(Boolean).map((item) => {
+  // `Set` em vez de array: a checagem é de pertencimento, e `normalizeEnumMulti`
+  // no frontend (`utils/catalogFilterOptions.ts`) já usa a mesma forma.
+  const decoded = new Set(raw.split(',').filter(Boolean).map((item) => {
     try {
       return decodeURIComponent(item);
     } catch {
       return item;
     }
-  });
-  return valid.filter((option) => decoded.includes(option));
+  }));
+  // Itera o registro CANÔNICO, não a query: a ordem é a do registro e valor
+  // desconhecido não entra.
+  return valid.filter((option) => decoded.has(option));
 }
 
 type PublicTableContact = {
@@ -363,12 +367,31 @@ router.get('/', async (req: Request, res: Response) => {
           );
 
         // Sessão completa: dia e faixa conferidos na mesma linha de table_schedules.
+        //
+        // O status da TABELA entra em cada eixo porque `day_of_week`/`start_time` são
+        // NOT NULL e o enum do banco não tem 'to_define': com "Horário personalizado"
+        // (R20), `deriveSchedule` grava uma linha de PLACEHOLDER `segunda`/`19:00` e
+        // marca os dois status como 'to_define'
+        // (`frontend/src/features/table-editor/utils/editorMapping.ts:130-180`). Sem o
+        // gate, essa mesa apareceria em `weekday=segunda` e `daypart=noite` sem o
+        // mestre nunca ter dito isso. O card do catálogo já decide pelo status da
+        // tabela, não pelo dia da linha — aqui o filtro passa a fazer o mesmo.
+        // Achado P1 do Codex na PR #327.
         const scheduleConditions = [
-          ...(weekdays.length > 0 ? [sql<boolean>`ts.day_of_week IN (${dayList})`] : []),
-          ...(dayparts.length > 0 ? [sql<boolean>`(${daypartRangesFor(sql.raw('ts.start_time'))})`] : []),
+          ...(weekdays.length > 0
+            ? [sql<boolean>`(t.schedule_day_status = 'defined' AND ts.day_of_week IN (${dayList}))`]
+            : []),
+          ...(dayparts.length > 0
+            ? [
+                sql<boolean>`(t.schedule_time_status = 'defined' AND (${daypartRangesFor(sql.raw('ts.start_time'))}))`,
+              ]
+            : []),
         ];
 
         // Agenda parcial: o eixo filtrado tem de estar no hint da própria `tables`.
+        // Hint só existe no eixo que o mestre NÃO definiu, e o validator proíbe hint
+        // no eixo 'defined' (`tableValidators.ts`), então aqui o `IS NOT NULL` já
+        // implica o status — não há gate a repetir.
         const hintConditions = [
           ...(weekdays.length > 0 ? [sql<boolean>`t.schedule_day_hint IN (${dayList})`] : []),
           ...(dayparts.length > 0 ? [sql<boolean>`(${daypartRangesFor(sql.raw('t.schedule_time_hint'))})`] : []),
@@ -610,9 +633,18 @@ router.get('/schedule-facets', async (_req: Request, res: Response) => {
     // Uma passada só: a agenda de cada mesa vem da linha de table_schedules ou,
     // na sua ausência, do hint. `UNION ALL` + `DISTINCT t.id` na contagem evita
     // que mesa com duas sessões no mesmo dia conte duas vezes.
+    //
+    // Cada eixo é anulado quando o status da tabela é 'to_define': a linha de
+    // "Horário personalizado" carrega placeholder `segunda`/`19:00` (motivo no
+    // comentário do filtro, acima), e sem isso o contador somaria mesa que o
+    // mestre nunca marcou nesse dia ou faixa. O `WHERE ... IS NOT NULL` de cada
+    // SELECT final descarta o eixo anulado. Achado P1 do Codex na PR #327.
     const result = await sql<{ kind: string; value: string; count: string | number }>`
       WITH agenda AS (
-        SELECT t.id AS table_id, ts.day_of_week, ts.start_time
+        SELECT
+          t.id AS table_id,
+          CASE WHEN t.schedule_day_status = 'defined' THEN ts.day_of_week END AS day_of_week,
+          CASE WHEN t.schedule_time_status = 'defined' THEN ts.start_time END AS start_time
         FROM tables t
         JOIN table_schedules ts ON ts.table_id = t.id
         WHERE t.status = 'active' AND t.archived_at IS NULL
