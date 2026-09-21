@@ -28,6 +28,50 @@ Não ler além do tier necessário. Não reabrir o que já está no contexto.
 - Saída de **todos os agentes** em caveman ultra salvo código/commits/segurança. Já embutido nos prompts dos subagentes.
 - Comunicação com mantenedor: PT, caveman ultra. Sem preâmbulo, sem resumo redundante.
 - Docs operacionais de reload (capsule, decisions, project-state) mantidos compactos; comprimir com a skill `caveman-compress` se incharem.
+- **A skill está instalada** (medido 2026-09-21): `~/.claude/skills/caveman/`, do repo `github.com/JuliusBrussee/caveman`, seis níveis. `caveman-activate.js` injeta 5249 chars com `level: ultra` no `SessionStart` (4 matchers); `caveman-mode-tracker.js` injeta 360 chars por prompt em `UserPromptSubmit`; `.claude/hooks/caveman-resposta-final.js` cobre o evento `Stop`, que era o buraco entre o prompt e a resposta final.
+
+## Custo de reinjeção por turno (medido 2026-09-21)
+
+Contado no transcript da sessão `7b82e0fe` (17,7 MB):
+
+| fonte | ocorrências | evento |
+|---|---|---|
+| `codebase-memory-mcp` | **249** | `PreToolUse(Grep\|Glob\|Bash)` + `PostToolUse(Read)` |
+| `caveman-mode-tracker` | 93 | `UserPromptSubmit` |
+| `registro-anti-compactacao` | 65 | `Stop` |
+| `caveman-resposta-final` | 8 | `Stop` |
+
+**O peso não está nos hooks do repo.** O `codebase-memory-mcp` injeta o bloco
+"untrusted repository metadata" com 5 símbolos do grafo em TODA chamada de Bash,
+e os matches costumam ser irrelevantes ao comando (medido: buscas por "caveman",
+"function" e "gatilho" devolveram seções de specs velhas e docs do `mesas`).
+São ~3,9x as injeções de todos os hooks `Stop` somados.
+
+Duas saídas levantadas, **nenhuma decidida** — pendente de resposta do
+mantenedor: tirar o `codebase-memory-mcp` do `PreToolUse(Grep|Glob|Bash)`
+mantendo o MCP por chamada explícita (é hook global, `~/.claude/settings.json`),
+ou instalar o proxy do repo do caveman, que comprime o que o agente LÊ (logs,
+JSON, diffs, saída de teste). O proxy é pacote novo: exige pergunta antes.
+
+### Teto de mensagem nos hooks `Stop`
+
+Mensagem de hook `Stop` reinjeta a cada parada cobrada, então tem teto no teste:
+`registro-anti-compactacao` 700 chars (estava em ~1100 de prosa, cortado para
+515 com 4 comandos de amostra), `caveman-resposta-final` 400 (estava em 977).
+Sem teto o texto volta a crescer — cada regressão futura acrescenta uma linha de
+explicação, e nenhuma parece caber sozinha.
+
+⚠️ **Frase que o guard casa não pode ser partida entre dois itens do array** do
+`motivo`: o `join("\n")` mete newline no meio dela e o teste fica vermelho sem
+motivo aparente. Medido ao cortar "falha em silêncio" em 2026-09-21.
+
+⚠️ **`stop_hook_active` NÃO corta o segundo hook `Stop` da mesma parada.** Medido
+2026-09-21: `registro-anti-compactacao` e `caveman-resposta-final` cobraram
+juntos na mesma parada, cada um com `exit 2`. O comentário de
+`registro-anti-compactacao.js` supunha a flag por parada inteira; ela não impede
+que dois hooks distintos bloqueiem o mesmo `Stop`. Consequência prática: dois
+hooks `Stop` que bloqueiam custam duas cobranças no mesmo turno, e o teto de
+chars de cada um é o que limita o custo.
 
 ## Anti-retrabalho
 - **Decisão tomada → `decisions.md` na hora.** Próximo agente lê em vez de re-perguntar.

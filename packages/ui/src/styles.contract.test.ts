@@ -233,6 +233,48 @@ describe("4 slots do header em ≤860px (T7.1)", () => {
     // ferramentas, sessão. Coincidência de valor, papéis diferentes.
     expect(cssRule(".artificio-header-main")).toContain("grid-template-columns: auto 1fr auto auto");
   });
+
+  it("dá à busca EMBUTIDA uma faixa própria, sem linha implícita", () => {
+    // A busca embutida é filho DIRETO do grid (`Header.tsx:370`), diferente da lupa,
+    // que entra dentro de `.artificio-header-tools`. São as duas formas de busca do
+    // mesmo componente, e a regra de `[data-has-search="true"]` declarava 4 faixas
+    // para 5 itens até 2026-09-21: o 5º caía em linha implícita e levava
+    // `.artificio-session`, o último filho do DOM. Medido em produção no `downloads`
+    // (1280px, 1440px e 1920px, as três iguais): `grid-template-rows: 44px 44px` e a
+    // sessão em `x:24 y:60`, com o grid em 104px contra `min-height: 64px`.
+    //
+    // Conta as faixas em vez de fixar a string: a largura de cada uma é decisão de
+    // layout, a QUANTIDADE é o contrato com a contagem de filhos que
+    // `Header.slots.test.tsx` trava do outro lado.
+    const faixas = (regra: string) =>
+      /grid-template-columns:\s*([^;]+);/
+        .exec(regra)?.[1]
+        .trim()
+        // `minmax(220px, 360px)` é UMA faixa: a vírgula interna não separa faixas.
+        .replace(/\([^)]*\)/g, "()")
+        .split(/\s+/).length ?? NaN;
+
+    const base = faixas(cssRule(".artificio-header-main"));
+    const comBusca = faixas(cssRule('.artificio-header-main[data-has-search="true"]'));
+
+    expect(base, "regra base do grid do header desapareceu").toBe(4);
+    expect(
+      comBusca,
+      "a busca embutida é um filho direto A MAIS: com as mesmas faixas da regra base, o 5º item cai em linha implícita e empurra `.artificio-session` para a 2ª linha",
+    ).toBe(base + 1);
+  });
+
+  it("devolve as 4 faixas em ≤860px, onde a busca sai da linha 1", () => {
+    // O override dentro do media existe para desfazer a faixa extra do desktop: lá a
+    // busca embutida vira `grid-column: 1 / -1; grid-row: 2`, então não disputa coluna
+    // e a 5ª faixa sobraria vazia comendo `gap`. As duas contagens mudam juntas.
+    expect(regraNoMedia860('.artificio-header-main[data-has-search="true"]')).toContain(
+      "grid-template-columns: auto 1fr auto auto",
+    );
+    expect(
+      regraNoMedia860('.artificio-header-main[data-has-search="true"] .artificio-header-search'),
+    ).toContain("grid-row: 2");
+  });
 });
 
 describe("chrome escuro por tema (T7.4)", () => {

@@ -785,34 +785,213 @@ Falta o Lighthouse do aceite, que exige deploy.
 
 ## T4 — Login do `downloads` na linha errada
 
-### [ ] T4.1 — Medir em três larguras
+### A causa NÃO é a largura da faixa de busca
 
-`downloads` em 1280px, 1440px e 1920px: posição de `.artificio-session`,
-`grid-template-columns` e altura do header. Medido só 1440px até agora
-(`x:24 y:60`, fora da linha).
+`plan.md` §2 e o T4.2 original apontavam `packages/ui/src/styles.css:555`
+(`grid-template-columns: auto minmax(0,1fr) minmax(220px,360px) auto` quando
+`data-has-search="true"`). Medido: essa regra só troca a LARGURA da 3ª coluna.
+Ela não cria coluna nenhuma, então não explica `y:60`.
 
-**Aceite:** as três medições escritas aqui.
+O que explica é **contagem de slots**. `renderToStaticMarkup` do `Header` com as
+props reais do `downloads` no desktop (`showSearch` + `onSearchChange` +
+`showChangelog` + `onOpenChangelog` + `showThemeToggle`) devolve **6 filhos
+diretos** de `.artificio-header-main`:
 
-### [ ] T4.2 — Levantar os consumidores de `data-has-search`
+```
+button.artificio-nav-toggle · a.artificio-brand · nav. ·
+label.artificio-header-search · div.artificio-header-tools · div.artificio-session
+```
 
-A regra é `packages/ui/src/styles.css:555`, compartilhada. Antes de tocar, saber quem
-mais liga a busca embutida.
+`.artificio-nav-toggle` é `display: none` no desktop e sai do grid, então sobram
+**5 itens para 4 colunas**. O 5º cai em linha implícita, e o último filho do DOM
+é `.artificio-session` — é ela que desce. É o mesmo defeito que `styles.css:2322`
+já avisa por escrito ("Coluna `auto` NÃO encolhe… um 5º filho direto aqui cai em
+coluna implícita"), só que ali o aviso foi escrito olhando o mobile.
 
-**Aceite:** `rtk rg "data-has-search\|hasSearch" apps packages` com a lista.
+`downloads` é o ÚNICO app que combina busca embutida com ferramentas: é o único
+que passa `onSearchChange` ao `Header` compartilhado
+(`apps/downloads/frontend/src/components/AppShell.tsx:146`) e também liga
+changelog e tema. Nos outros 4, ou a coluna de ferramentas colapsa, ou não há
+busca embutida — 4 itens, 4 colunas, sessão na linha 1.
 
-### [ ] T4.3 — Corrigir o grid
+O guard `Header.slots.test.tsx` não pegou porque o caso da busca embutida
+(linha 135) passa só `showSearch`+`onSearchChange`, sem changelog nem tema, e
+assere `toContain` em vez de contar. A combinação do `downloads` não tem caso.
 
-Escolher entre as três saídas de `plan.md` §2 **com base nas medições de T4.1/T4.2**,
-não por preferência.
+### [x] T4.1 — Medir em três larguras
+
+Medido em `https://downloads.artificiorpg.com/` (produção, deslogado) em
+2026-09-21, Chrome do mantenedor autorizado nominalmente. O defeito é
+pré-existente, então produção serve para medir a causa.
+
+| largura | `grid-template-columns` | `grid-template-rows` | itens visíveis | `.artificio-session` | altura do grid |
+|---|---|---|---|---|---|
+| 1280px | `139.906px 600.094px 360px 84px` | `44px 44px` | 5 | `x:24 y:60` | 104px |
+| 1440px | `139.906px 760.094px 360px 84px` | `44px 44px` | 5 | `x:24 y:60` | 104px |
+| 1920px | `139.906px 1240.09px 360px 84px` | `44px 44px` | 5 | `x:24 y:60` | 104px |
+
+**As três são idênticas no que importa.** `grid-template-rows` tem DUAS faixas —
+a 2ª é implícita, o grid declara só 4 colunas e nenhuma linha. Só a 2ª coluna
+(`1fr`) muda com a largura; `minmax(220px,360px)` fica saturado em 360px nas
+três, então a hipótese de que a faixa cederia em 1280px está descartada por
+medição. A altura do header foi 105px contra os `min-height: 64px` do contrato.
+
+No viewport real (1817px, `innerWidth` medido) o grid ao vivo dá o mesmo:
+`rows: "44px 44px"`, `.artificio-session` em `x:24 y:60`, `data-has-search="true"`,
+e `.artificio-nav-toggle` em `display: none` — 5 dos 6 filhos disputam 4 colunas.
+
+⚠️ Ferramenta, para a próxima medição: `mcp__claude-in-chrome__resize_window`
+NÃO alcança o viewport. Dois resizes (1280 e 743) e `window.innerWidth` seguiu
+1817, com `outerWidth: 0`. As três larguras saíram clonando
+`.artificio-header-main` dentro de um container de largura fixa — as faixas do
+grid são relativas ao container, e as três larguras alvo estão todas acima do
+`max-width: 860px`, o único media query que reescreve este grid.
+`plugin:playwright:playwright` devolveu `CONNECT_TIMEOUT` em dois boots.
+
+**Aceite:** as três medições escritas aqui. ✅
+
+### [x] T4.2 — Levantar os consumidores de `data-has-search`
+
+`rtk rg "data-has-search|hasSearch" apps packages` → o atributo nasce em UM
+lugar só, `packages/ui/src/Header.tsx:333`, a partir de
+`hasEmbeddedSearch = showSearch && Boolean(onSearchChange)` (`Header.tsx:163`).
+Consumido por `styles.css:555`, `:2330`, `:2334` e pelos guards
+`Header.test.tsx:29,43`.
+
+Zero app lê o atributo. Os `hasSearchQuery` de
+`apps/glossario/frontend/src/App.tsx:53,81,92,117` são estado de busca do
+glossário, sem relação. Dos `onSearchChange` em `apps/`, só o do `downloads`
+(`AppShell.tsx:146`) vai ao `Header`; os de `accounts/AdminRolesPanel.tsx:324`,
+`mesas/SystemsAdminView.tsx:164` e `mesas/ScenariosAdminView.tsx:165` são
+toolbars de admin.
+
+Consequência para T4.3: mexer na regra de busca afeta só o `downloads`, mas
+mexer na CONTAGEM de colunas afeta os 5 consumidores.
+
+### [x] T4.3 — Corrigir o grid
+
+As três saídas de `plan.md` §2 foram escritas contra a causa errada (largura de
+faixa) e nenhuma delas foi usada. A correção é a 5ª faixa em
+`packages/ui/src/styles.css`, dentro da regra de `[data-has-search="true"]` que
+já existia para este caso:
+
+```css
+grid-template-columns: auto minmax(0, 1fr) minmax(220px, 360px) auto auto;
+```
+
+**A correção mora no pacote, e não no app, porque o defeito é do pacote.** O
+`Header` OFERECE `onSearchChange` desde a spec 087, com CSS e guards próprios, e
+essa prop quebrava o layout que o próprio pacote declara. Medido: `glossario`
+(`GlossarioHeader.tsx:56-59`), `links` (`LinksHeader.tsx:25-30`) e `mesas`
+(`AppShell.tsx:61-64`) passam as MESMAS três ferramentas do `downloads`
+(`showThemeToggle` + `showSearch` + `showChangelog`) e não quebram — eles usam
+`onSearch`, a lupa, que entra DENTRO de `.artificio-header-tools`. `downloads` é
+só o primeiro consumidor da forma embutida, não um caso particular.
+
+Corrigir no app seria tampar buraco: a prop seguiria quebrada para o próximo
+consumidor.
+
+A regra base (4 faixas) ficou intocada, e nenhum dos outros 6 consumidores casa
+este seletor — `data-has-search` só é emitido com `hasEmbeddedSearch`
+(`Header.tsx:163`, `:333`). O override dentro de `@media (max-width: 860px)`
+segue com 4 faixas de propósito: lá a busca vira `grid-column: 1 / -1; grid-row: 2`
+e não disputa coluna, então a 5ª sobraria vazia comendo `gap`.
+
+**Dois guards, cada um provado vermelho em separado:**
+
+`styles.contract.test.ts` — "dá à busca EMBUTIDA uma faixa própria, sem linha
+implícita". Conta as faixas em vez de fixar a string (`minmax(220px, 360px)` é
+UMA faixa: a vírgula interna é neutralizada antes do `split`) e exige
+`comBusca === base + 1`. Vermelho ao reverter a 5ª faixa:
+`expected 4 to be 5`. Mais "devolve as 4 faixas em ≤860px", que trava o override
+e o `grid-row: 2` juntos.
+
+`Header.slots.test.tsx` — "conta 6 filhos com busca EMBUTIDA mais ferramentas",
+a combinação real do `downloads`, com igualdade da lista inteira em vez de
+`toContain`. Vermelho ao remover a busca do render:
+`expected [ …(4) ] to deeply equal [ …(5) ]`. Mais "a lupa NÃO cria filho a mais",
+que trava o contraste que explica por que só o `downloads` quebrava.
+
+O guard antigo não pegou porque o caso de busca embutida (linha 135) passa só
+`showSearch`+`onSearchChange`, sem changelog nem tema, e assere `toContain` em
+vez de contar.
+
+**Validação:** `packages/ui` 148/148 · `downloads-frontend` 326/326 ·
+`mesas-frontend` 1234/1234 · build do pacote exit 0.
 
 **Aceite:** `.artificio-session` com `y < 60` nas três larguras, nos 5 apps, e nenhum
-consumidor regredido.
+consumidor regredido. **Falta a metade de aceite que exige deploy** — a medição
+em produção acima é do CSS ANTES da correção, e `beta.downloads` respondeu `000`
+(sem deploy). O guard cobre o contrato; a confirmação na tela pede o deploy.
 
 ---
 
 ## T5 — Paridade de cor, peso e subnav
 
-### [~] T5.1 — BLOQUEADA por D2 (`spec.md` §4)
+### [x] T5.0 — Causa raiz: o `site` não usava o `Header` do pacote — **CORRIGIDA (2026-09-21)**
+
+T5 foi escrita como três divergências de aparência entre apps. Medido, é **uma**
+causa: seis apps importam `Header` de `@artificio/ui` — `links`
+(`LinksHeader.tsx:2`), `site-admin` (`App.tsx:2`), `glossario`
+(`GlossarioHeader.tsx:3`), `downloads` (`AppShell.tsx:3`), `mesas`
+(`AppShell.tsx:3`) e `accounts` (`main.tsx:3`). O `site` **não**: importa só peças
+soltas (`ChangelogButton`, `NavToggle`, `NotificationBell`, `ThemeToggle`) e abre
+`<header className="artificio-header">` + `.artificio-header-main` à mão em
+`SiteHeaderIsland.tsx:324-325` — o mesmo markup que `packages/ui/src/Header.tsx:324,333`
+já produz.
+
+Pelo AGENTS.md §"Compartilhado por padrão; exceção por app é o defeito", isso é
+defeito, não escolha: o app reimplementa o componente compartilhado usando as classes
+CSS dele. Toda divergência que T5.1/T5.2/T5.3 mediram nasce daí, e cada uma seria
+corrigida app a app enquanto a origem seguiria de pé.
+
+**O comentário que justifica a duplicação está desatualizado — medido, não inferido.**
+`SiteHeaderIsland.tsx:296-319` declara como contrato que "a ilha é dona do `<header>`
+inteiro", com o motivo de que a subnav precisa ser 2ª linha e irmã de
+`.artificio-header-main`. O `Header` do pacote já faz exatamente isso:
+`.artificio-header-main` fecha em `Header.tsx:462` e `.artificio-subnav` abre em
+`:465`, fora dele e dentro do `<header>` — irmã, como o comentário pede. Vem por prop
+(`hasModuleNav`/`moduleNav`, `:464`, com `moduleCurrentHref` e `moduleLabel` em
+`:469-473`) e tem suíte própria (`packages/ui/src/Header.subnav.test.tsx`). Nasceu na
+spec 102 T7.5, citada em `Header.tsx:466-468`; o comentário da ilha descreve o estado
+anterior a ela.
+
+**Aplicado.** `SiteHeaderIsland.tsx` virou adaptador e devolve `<Header>` de
+`@artificio/ui`: −351/+78 linhas (379 → 143). Mapeamento, sem prop nova no pacote:
+`modules` → `navItems`; `sections` → `moduleNav` + `moduleCurrentHref` + `moduleLabel`;
+hambúrguer público, marca, painel mobile e rodapé de ferramentas → internos do `Header`;
+`showThemeToggle`/`showSearch`+`onSearch`/`showChangelog`+`onOpenChangelog`+`changelogHasBadge`;
+`sticky` default true. **Contrato de `packages/ui` intocado — os outros 6 apps não foram
+tocados.**
+
+Três pontos que a troca exigiu resolver, cada um medido:
+
+1. **Destaque da categoria do blog.** `Nav.normalizeHref` compara por igualdade; as
+   categorias precisam de PREFIXO (`/blog/categoria/guias/` destaca "Guias"). O item
+   ativo passou a ser resolvido na ilha (`secaoAtiva`) e chega ao `Nav` como href exato.
+   Medido no `dist`: `/blog/categoria/guias/` emite `aria-current="page"` na categoria
+   certa; `/blog/` não emite em nenhuma, que é o correto.
+2. **Busca.** O botão do pacote não emite `id="search-toggle"`, e `SearchModal.astro:104`
+   casa por ele — falha silenciosa, sem quebrar build nem teste. Medido que `:106` já
+   escuta `artificio:open-search`, o evento que `openSearch` dispara: o `id` era caminho
+   redundante. `onSearch={openSearch}` cobre, sem prop nova.
+3. **Marca.** `logoNavy`/`logoNeg`/`brandName` saíram da interface e do `.astro`: o
+   `Header` importa de `packages/ui/src/brand.ts` e emite as duas `<img>` com `src`,
+   `width`, `height` e `alt` (`Header.tsx:353-368`) — a mesma fonte dos outros 6 apps.
+
+**Verificação.** Linha-base antes da edição: 19 arquivos, 203 testes, verde. Depois:
+19/203 verde, `SiteHeader.estrutura.test.tsx` 7/7 — e esse guard roda o `.astro` REAL
+pela Container API, cobrindo os 5 filhos diretos do grid, `<style>`/`<script>` fora dele,
+subnav irmã, `artificio-nav-toggle` de ≤860px e os 11 links do SSR. `eslint` 0 erros,
+`build` completo, `verify:api` breaking=0. Medido no `dist/index.html`: 11
+`artificio-nav-link`, 1 `artificio-subnav`, 1 `artificio-nav-toggle`, 2
+`artificio-brand-logo`, 1 `artificio-header-tools`.
+
+**Não medido:** aparência em browser real e o comportamento em ≤860px. Os guards cobrem
+estrutura e HTML servido, não layout computado — é o mesmo vão que T6.2 registra (jsdom
+não faz layout).
+
+### [~] T5.1 — BLOQUEADA por D2 (`spec.md` §4) **e agora pela spec 104**
 
 Qual cor de header vira padrão. `mesas` é branco sobre azul `rgb(27,42,74)`; `site` é
 `rgb(2,7,64)` sobre branco. Convergir para o `mesas` muda o header do portal de
@@ -820,6 +999,17 @@ branco para azul escuro.
 
 Pergunta feita ao mantenedor em 2026-09-16, **sem resposta** até a escrita desta
 spec. Não há decisão registrada.
+
+**Bloqueio novo, medido em 2026-09-21:** o azul do `mesas` é
+`--artificio-navy: #1b2a4a` (`packages/ui/src/styles.css:10`), e a spec 104 §2
+declara a identidade em quatro cores com navy `#020740` — o do `site`. A §7 da 104
+fecha: "nenhuma cor nova além das quatro declaradas, salvo variação de luminosidade
+das próprias". `#1b2a4a` não é variação de luminosidade de `#020740`. Decidir T5.1
+pelo `mesas` fixaria como padrão de header uma cor que a 104 pode declarar inválida.
+
+A resposta passou a pertencer à 104: decidir aqui é adiantar decisão de cor daquela
+spec. **Não medido:** nenhuma task da 104 cita `--artificio-navy`, então não se sabe
+se ela pretende redefinir o token ou só o texto do tema claro (T1).
 
 ### [~] T5.2 — BLOQUEADA por D1 (`spec.md` §4)
 
@@ -829,12 +1019,49 @@ o `mesas` passa a listar as seções do módulo?
 
 Mesma pergunta, mesma data, **sem resposta**.
 
-### [ ] T5.3 — Peso do link do `site`
+### [ ] T5.3 — Peso do link do nav — **o enunciado estava errado**
 
-Peso 600 no `site` contra 500 nos outros quatro. **Não depende de D1/D2** — é
-divergência pura, e o alvo é o `mesas` (500).
+Escrita como "peso 600 no `site` contra 500 nos outros quatro". Medido em 2026-09-21,
+**não existe divergência de peso entre apps**. Os cinco usam a mesma regra do pacote:
+`.artificio-nav-link` é `font-weight: var(--weight-medium)`
+(`packages/ui/src/styles.css:791`), com `--weight-medium: 500` (`:86`).
+`rtk rg "artificio-nav-link" apps packages` não devolve override de peso fora do
+pacote, e `rtk rg "--weight" apps/site/src` devolve zero. Os `font-weight: 600` do
+`apps/site/src/styles/global.css` são `.chip` (`:83`), `.paginador-*` (`:383`) e
+`.notfound a` (`:395`) — nenhum alcança o nav.
 
-**Aceite:** `getComputedStyle(link).fontWeight === "500"` nos 5 apps, viewport 1440px.
+**De onde veio o 600:** `packages/ui/src/styles.css:803-806`,
+`.artificio-nav-link[aria-current="page"]` usa `var(--weight-strong)` = 600. O link da
+página ATUAL é mais grosso; os demais ficam em 500. O `site` tem várias seções no
+menu e quase sempre uma delas está ativa, então há sempre um 600 na tela; o `mesas`
+tem um item só (T5.2). Quem mediu comparou o link ativo de um app com o link inativo
+de outro e leu como divergência entre apps. É a mesma regra nos cinco.
+
+Não há o que corrigir aqui, e **baixar para 500 seria regressão**: apagaria a
+marcação de "você está aqui" no peso. Sobreviveria só a borda inferior colorida
+(`:803-804`), que é distinção por cor sozinha — WCAG 1.4.1.
+
+**Fica pendente** de qual correção sair da causa raiz acima: se o `site` passar a
+consumir o `Header` do pacote, o peso continua vindo da mesma regra e a task some por
+construção.
+
+**Aceite:** nenhum. Task reclassificada como enunciado incorreto, não como trabalho.
+
+### [ ] T5.4 — Guard do peso não pode congelar cor (achado de 2026-09-21)
+
+T6.1 pede contrato cobrindo "peso, cor, gap e padding" do link do nav, e a 104 T1 vai
+trocar `--artificio-light-ink: #0b1220` por `#222222`. Guard que assere hexadecimal de
+cor congela o que a 104 precisa mudar; guard que assere o token (`var(--fg)`,
+`var(--weight-medium)`) não. Vale para o eixo cor de T6.1 — os outros três eixos não
+têm essa restrição.
+
+As duas specs estendem o mesmo arquivo (`packages/ui/src/styles.contract.test.ts`,
+104 T3.2). Suítes disjuntas: 103 mede peso/cor/gap/padding do nav, 104 mede razão de
+contraste de pares `*-solid`. Conflito possível é de merge, não de contrato.
+
+O contrato hoje alcança só a subnav (`styles.contract.test.ts:210`,
+`.artificio-subnav .artificio-nav-link[aria-current="page"]`); o nav principal não tem
+nenhuma assertiva.
 
 ---
 

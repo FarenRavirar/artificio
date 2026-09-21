@@ -108,6 +108,19 @@ t("o motivo ensina os 5 gatilhos e o destino", () => {
   assert(m.includes("nunca"), "deveria lembrar de reescrever, não anexar");
 });
 
+t("o motivo cabe em 700 chars com a amostra", () => {
+  // Teto medido. A mensagem reinjeta a cada parada cobrada — 65 vezes só na
+  // sessão de 2026-09-21. A 1ª versão gastava ~1100 chars em prosa explicativa
+  // (o hook nasceu antes do `caveman`), e o mantenedor cobrou: "está muito
+  // absurdo de grande. foi feito antes do caveman". Cortada para 515 chars com
+  // 4 comandos de amostra.
+  //
+  // Sem teto o texto volta a crescer: cada regressão futura tende a acrescentar
+  // uma linha de explicação, e nenhuma delas parece caber sozinha.
+  const m = motivo(roda(turnoQueMediu));
+  assert(m.length <= 700, `motivo com ${m.length} chars, acima do teto de 700`);
+});
+
 t("NÃO cobra quando escreveu no tasks.md da spec", () => {
   const r = roda([
     ...turnoQueMediu,

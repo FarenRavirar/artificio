@@ -1,6 +1,5 @@
-import { getAccountsOrigin, logout, redirectToLogin, useSession } from "@artificio/auth/client";
-import { ChangelogButton, NavToggle, NotificationBell, StaticChangelogModal, ThemeToggle, useChangelogBadge, CHANGELOG_UPDATE_MARKERS } from "@artificio/ui";
-import { useState, useRef, useEffect } from "react";
+import { Header, StaticChangelogModal, useChangelogBadge, CHANGELOG_UPDATE_MARKERS, type NavItem, type UserMenuItem } from "@artificio/ui";
+import { useState } from "react";
 import rawChangelogs from "../data/changelogs.json";
 
 export interface SiteNavItem {
@@ -19,40 +18,38 @@ export interface SiteHeaderIslandProps {
   siteOrigin?: string;
   /** Caminho da página sendo renderizada, para destacar a categoria ativa na subnav. */
   pathname?: string;
-  /* A marca vem por prop porque os arquivos são assets do pipeline do Astro (hash no
-     nome, resolvidos em build). A ilha renderiza o `<a class="artificio-brand">` para
-     ele ser FILHO DIRETO do grid — ver a nota extensa no `return`. */
-  logoNavy?: string;
-  logoNeg?: string;
-  brandName?: string;
+  /* `logoNavy`/`logoNeg`/`brandName` saíram em 2026-09-21, com a troca para o `Header`
+     do pacote: ele importa a marca de `packages/ui/src/brand.ts` e emite as duas `<img>`
+     com `src`, `width`, `height` e `alt` próprios (`Header.tsx:353-368`) — é por onde os
+     outros 6 apps já recebem o logo. Passá-los daqui duplicaria a fonte da marca. */
 }
 
-function getInitials(name: string) {
-  return name
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join("");
-}
 
 /*
-  Header do `site` (T3.5d + T3.5g, spec 102).
+  Header do `site` (spec 102 T3.5d/T3.5g; troca para o componente compartilhado em
+  2026-09-21).
 
-  O `site` NÃO usa `packages/ui/src/Header.tsx` — tem marcação própria. As duas subfases
-  foram implementadas no mesmo trabalho porque mexem nos mesmos arquivos: T3.5d move o
-  nav para dentro da ilha (o toggle do mobile precisa de estado), T3.5g redistribui os
-  itens entre esquerda e direita. Feitas em separado, a segunda reescreveria a primeira.
+  ESTE ARQUIVO É UMA PONTE, NÃO UM HEADER. Ele resolve o que é específico do portal —
+  dados de navegação do Astro, href ativo por pathname, changelog estático e a ponte com
+  o `SearchModal.astro` — e entrega tudo ao `Header` de `@artificio/ui`, que é quem
+  renderiza o `<header>`.
 
-  ⚠️ Os 11 links do nav PRECISAM continuar no HTML servido (aceite 13). Eles chegam como
-  props de dado estático e são renderizados no SSR do React — `client:idle` hidrata
-  depois, mas a marcação já saiu no HTML. NÃO trocar por `client:only` nem condicionar o
-  render à hidratação: o toggle passaria no aceite e os 11 links sumiriam para o crawler,
-  que é exatamente a regressão que o item 13 existe para impedir.
+  ⚠️ NÃO voltar a montar `<header class="artificio-header">` aqui. Foi assim até
+  2026-09-21, e o comentário que justificava a duplicação dizia que só a ilha conseguia
+  pôr a subnav como IRMÃ de `.artificio-header-main`. Medido nessa data, isso deixou de
+  ser verdade: o `Header` do pacote fecha o grid em `Header.tsx:462` e abre
+  `.artificio-subnav` em `:465`, fora dele — exatamente a estrutura que o comentário
+  pedia. Ela chega por `moduleNav`/`moduleCurrentHref`/`moduleLabel` e nasceu na spec 102
+  T7.5, depois do comentário que a declarava impossível.
 
-  Regra de acesso (T3.5g): ferramenta pública à esquerda; a sessão — e a porta para ela —
-  à direita. Por isso "Entrar" fica na direita apesar de público: é onde o avatar aparece
-  depois do login. O sino exige sessão (`NotificationBell.tsx:266`), então também fica.
+  O custo da marcação própria foi medido: os achados de cor, peso e subnav da spec 103
+  (T5) eram todos o mesmo defeito — um app reimplementando o componente compartilhado
+  com as classes CSS dele. Header próprio também significou levar sozinho cada regra
+  nova de ≤860px do pacote, e um P1 do Codex (PR #323) nasceu disso.
+
+  ⚠️ Os 11 links do nav PRECISAM continuar no HTML servido (aceite 13, spec 102). Eles
+  chegam como props de dado estático e saem no SSR do React — `client:idle` hidrata
+  depois, mas a marcação já foi. NÃO trocar por `client:only`.
 */
 export function SiteHeaderIsland({
   modules = [],
@@ -60,79 +57,45 @@ export function SiteHeaderIsland({
   currentHref,
   siteOrigin,
   pathname,
-  logoNavy = "",
-  logoNeg = "",
-  brandName = "Artifício RPG",
 }: Readonly<SiteHeaderIslandProps>) {
-  /* Seção ativa da subnav. `currentHref` continua aceito (o `Base.astro` o repassa),
-     mas nenhuma rota o preenche hoje — medido. O fallback pelo pathname faz a categoria
-     atual destacar sem exigir que cada página passe a prop, que é o defeito que deixava
-     a subnav inteira sem `aria-current` em produção. */
-  function isCurrent(item: SiteNavItem): boolean {
-    if (currentHref && currentHref === item.href) return true;
-    /* "Portal" aponta para a origem do próprio site: é a página atual em toda rota. */
-    if (siteOrigin && item.href === siteOrigin) return true;
-    if (!pathname) return false;
-    return item.href.startsWith("/") && item.href !== "/" && pathname.startsWith(item.href);
-  }
-
-  const { user, loading } = useSession();
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [navOpen, setNavOpen] = useState(false);
   const [changelogOpen, setChangelogOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  /* Exclusão mútua dos dois painéis (mesma regra do `packages/ui/src/Header.tsx`):
-     menu do avatar e painel mobile não abrem juntos. O dropdown é absoluto sobre a
-     barra e o painel mobile é irmão em fluxo — sobrepostos, disputam a mesma
-     extremidade. O clique-fora do avatar já o fechava ao tocar no hambúrguer; faltava
-     o sentido inverso. */
-  const toggleUserMenu = () => {
-    setMenuOpen((v) => {
-      if (!v) setNavOpen(false);
-      return !v;
-    });
-  };
-
-  const toggleNav = () => {
-    setNavOpen((v) => {
-      if (!v) setMenuOpen(false);
-      return !v;
-    });
-  };
-
-
   const { hasNewUpdate, markSeen } = useChangelogBadge("site_last_seen_update", CHANGELOG_UPDATE_MARKERS.site);
-
-  /* NÃO voltar a chamar `applyHeaderVariant(theme)` daqui (T7.4, spec 102).
-     Essa chamada era a causa do FOUC que o mantenedor relatava ("o site sempre
-     carrega o branco e troca para o escuro, do nada, a cada F5"): ela só rodava
-     depois do `client:idle`, enquanto o corpo já havia escurecido pelo script
-     inline do `Base.astro`, que roda antes da primeira pintura. O header ficava
-     branco no intervalo. Agora ele escurece por CSS, junto com o corpo —
-     `:root[data-theme="dark"] .artificio-header:not([data-variant="light"])`. */
 
   const openChangelog = () => {
     setChangelogOpen(true);
     markSeen();
   };
 
-  /* Fallback para `/busca/` quando o modal não abre (assets do Pagefind ausentes, como no
-     `astro dev`, onde o índice só existe depois do postbuild).
+  /* Href ativo da subnav, resolvido AQUI e não pelo `Nav` do pacote.
+     `Nav.normalizeHref` compara por igualdade (hostname para URL absoluta, string para
+     path), e as categorias do blog precisam de PREFIXO: `/rpg/algum-post` destaca
+     `/rpg`. Resolvendo o item ativo antes, o `Nav` recebe um href exato e a comparação
+     dele basta.
 
-     ⚠️ O fallback espera o EVENTO `artificio:search-unavailable`, emitido pelo
-     `SearchModal.astro` quando o carregamento falha — nunca um prazo fixo. A primeira
-     versão desta task esperava 100ms e então checava `isOpen`: o bundle do Pagefind tem
-     171 KB, e num primeiro clique sem cache ele ainda está baixando aos 100ms. O
-     carregamento em andamento era lido como falha, e a navegação abortava o modal que
-     estava prestes a abrir. Qualquer tempo que cobrisse uma conexão lenta seria longo
-     demais para uma rápida; o evento não tem esse trade-off.
+     `currentHref` continua tendo precedência (o `Base.astro` o repassa), mas nenhuma
+     rota o preenche hoje — medido na spec 102. O fallback por pathname é o que faz a
+     categoria atual destacar sem exigir a prop em cada página. */
+  const secaoAtiva =
+    (currentHref && sections.some((s) => s.href === currentHref) ? currentHref : undefined) ??
+    (pathname
+      ? sections.find((s) => s.href.startsWith("/") && s.href !== "/" && pathname.startsWith(s.href))?.href
+      : undefined);
 
-     Os listeners são registrados no `openSearch` e removidos na primeira resposta, em vez
-     de viverem num `useEffect`: assim um aviso atrasado de um clique anterior não navega
-     sozinho enquanto a pessoa lê a página. O modal responde sempre — `search-opened` no
-     caso feliz, `search-unavailable` no fracasso —, e é o `search-opened` que impede o
-     listener de ficar pendurado quando a busca abre normalmente, que é o comum. */
+  /* Ponte com o `SearchModal.astro`: o evento, nunca o `id`.
+
+     O botão do pacote não emite `id="search-toggle"`, e o modal casa os DOIS caminhos
+     (`SearchModal.astro:104` pelo id, `:106` pelo evento). Disparar o evento direto
+     dispensa o id e não pede prop nova no `Header`.
+
+     O fallback para `/busca/` espera o EVENTO `artificio:search-unavailable`, emitido
+     pelo modal quando o carregamento falha — nunca um prazo fixo. A primeira versão
+     esperava 100ms e então checava `isOpen`: o bundle do Pagefind tem 171 KB, e num
+     primeiro clique sem cache ele ainda está baixando aos 100ms; carregamento em
+     andamento era lido como falha e a navegação abortava o modal prestes a abrir.
+
+     Os listeners são registrados aqui e removidos na primeira resposta, em vez de
+     viverem num `useEffect`: assim um aviso atrasado de um clique anterior não navega
+     sozinho enquanto a pessoa lê a página. */
   const openSearch = () => {
     const cleanup = () => {
       document.removeEventListener("artificio:search-unavailable", onUnavailable);
@@ -147,269 +110,28 @@ export function SiteHeaderIsland({
     document.dispatchEvent(new CustomEvent("artificio:open-search"));
   };
 
-  useEffect(() => {
-    if (!menuOpen) return;
-    function onDocClick(event: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setMenuOpen(false);
-      }
-    }
-    function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") setMenuOpen(false);
-    }
-    document.addEventListener("mousedown", onDocClick);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDocClick);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [menuOpen]);
+  /* "Admin" é do portal, então entra por `userMenu`. "Perfil Artifício" e "Sair" o
+     `Header` já põe sozinho — repeti-los daria item duplicado no dropdown. */
+  const userMenu: UserMenuItem[] = [{ label: "Admin", href: "/admin/", adminOnly: true }];
 
-  useEffect(() => {
-    if (!navOpen) return;
-    function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") setNavOpen(false);
-    }
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [navOpen]);
-
-  /* `aria-current` do nav de PROJETOS: o item "Portal" aponta para `BRAND_ORIGIN`
-     (`packages/ui/src/modules.ts:9`), que é a origem deste próprio site — logo ele é a
-     página atual em qualquer rota daqui. A versão anterior deste header comparava
-     `label === "Portal"`; a comparação por href diz a mesma coisa sem depender do
-     rótulo. NÃO trocar por `currentHref`: nenhuma rota do site passa essa prop
-     (medido), e o atributo simplesmente sumiria do nav — foi o que aconteceu na
-     primeira versão de T3.5d. */
-  function renderNavList(items: SiteNavItem[], ariaLabel: string, onNavigate?: () => void) {
-    return (
-      <nav aria-label={ariaLabel}>
-        <ul className="artificio-nav-list">
-          {items.map((item) => (
-            <li key={item.href}>
-              <a
-                className="artificio-nav-link"
-                href={item.href}
-                aria-current={isCurrent(item) ? "page" : undefined}
-                onClick={onNavigate}
-              >
-                {item.label}
-              </a>
-            </li>
-          ))}
-        </ul>
-      </nav>
-    );
-  }
-
-  /* Ferramentas públicas — esquerda (T3.5g). Não exigem sessão: nenhuma delas lê `user`. */
-  const ferramentasPublicas = (
-    <div className="artificio-header-tools">
-      <ChangelogButton hasBadge={hasNewUpdate} onClick={openChangelog} />
-      <button
-        type="button"
-        className="artificio-header-action"
-        id="search-toggle"
-        aria-label="Buscar"
-        title="Buscar"
-        onClick={openSearch}
-      >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-          <circle cx="11" cy="11" r="7" />
-          <path d="m21 21-4.3-4.3" />
-        </svg>
-      </button>
-      <ThemeToggle />
-    </div>
-  );
-
-  /* Sessão — direita (T3.5g): avatar, menu, sino e o botão "Entrar". */
-  const sessao = (() => {
-    if (loading) return <span className="artificio-session-muted">Carregando</span>;
-    if (user) {
-      return (
-        <div className="artificio-usermenu" ref={menuRef}>
-          <button
-            type="button"
-            className="artificio-avatar-link"
-            aria-haspopup="menu"
-            aria-expanded={menuOpen}
-            onClick={toggleUserMenu}
-          >
-            {user.avatar ? (
-              <img alt="" className="artificio-avatar" src={user.avatar} />
-            ) : (
-              <span className="artificio-avatar artificio-avatar-fallback">
-                {getInitials(user.name)}
-              </span>
-            )}
-            <span className="artificio-user-name">{user.name}</span>
-          </button>
-          {menuOpen ? (
-            <div className="artificio-usermenu-dropdown" role="menu">
-              {/* PAINEL DE SESSÃO (T7.3, spec 102) — o sino saiu da faixa e entrou aqui,
-                  igual ao `packages/ui/src/Header.tsx`. Decisão do mantenedor na F7:
-                  "notificação fica dentro do direito, pois é notificação de quem fica
-                  logado". Aqui ele era filho DIRETO de `.artificio-session`, não vinha por
-                  `actions` — o site tem header próprio —, então dividia a faixa com o
-                  avatar e a fazia medir 72px em vez de 40px. */}
-              <div className="artificio-usermenu-actions">
-                <NotificationBell sourceApp="site" />
-              </div>
-              {user.role === "admin" ? (
-                <a role="menuitem" className="artificio-usermenu-item" href="/admin/">
-                  Admin
-                </a>
-              ) : null}
-              <a
-                role="menuitem"
-                className="artificio-usermenu-item"
-                href={`${getAccountsOrigin()}/conta`}
-                rel="noreferrer"
-              >
-                Perfil Artifício
-              </a>
-              <button
-                type="button"
-                role="menuitem"
-                className="artificio-usermenu-item artificio-usermenu-item-danger"
-                onClick={() => logout(globalThis.location.href)}
-              >
-                Sair
-              </button>
-            </div>
-          ) : null}
-        </div>
-      );
-    }
-    return (
-      <button
-        className="artificio-login-button"
-        type="button"
-        onClick={() => redirectToLogin()}
-      >
-        Entrar
-      </button>
-    );
-  })();
-
-  /* A ILHA É DONA DO `<header>` INTEIRO — e isto é o contrato, não preferência de
-     organização (correção do aceite 16, 2026-09-14).
-
-     Antes, `SiteHeader.astro` abria `<header>` + `.artificio-header-main` e a ilha
-     renderizava um Fragment com nav/ferramentas/sessão/subnav dentro. Parecia
-     equivalente e não era, por dois motivos medidos no beta (2026-09-14):
-
-     1. Ao hidratar um componente, o Astro injeta um `<style>` e um `<script>` como
-        IRMÃOS do `<astro-island>`, dentro do mesmo pai. Eles são filhos diretos do
-        grid e ocupam coluna. Medido: os itens eram `<style>`, `<script>`, nav e tools
-        — 5 para as 4 colunas de `styles.css`, 3 em ≤860px. As ferramentas públicas
-        caíam fora da área visível ("não tem changelog nem mudar para escuro").
-     2. A subnav é 2ª LINHA do header (`.artificio-header` é `flex-direction: column`,
-        e ela tem `border-top` próprio). Dentro do grid ela vira coluna.
-
-     O `<astro-island>` em si NÃO era o problema: o Astro já emite
-     `astro-island,astro-slot,astro-static-slot{display:contents}` por conta própria
-     (conferido no HTML servido), então ele é transparente ao layout. Não adicionar essa
-     regra ao CSS do projeto achando que corrige — ela já está lá, e não alcança o
-     `<style>`/`<script>` irmãos nem a subnav.
-
-     É também o padrão do único outro header por ilha que funciona: `apps/links`
-     (`PortalHeader.astro` → `<LinksHeader client:load />`), onde o `<astro-island>` fica
-     FORA do `<header>` e não interfere em grid nenhum.
-
-     A marca continua vindo do Astro por prop (`logoNavy`/`logoNeg`): os arquivos são
-     assets importados pelo pipeline do Astro, com hash no nome, e a ilha não os conhece. */
   return (
-    <header className="artificio-header" data-sticky="true">
-      <div className="artificio-header-main">
-        {/*
-          Hambúrguer PÚBLICO — 1º slot em ≤860px (T7.1, spec 102). Mesma marcação do
-          `packages/ui/src/Header.tsx`: o CSS é compartilhado, e é ele que esconde este
-          botão no desktop e o mostra abaixo de 860px.
-
-          ⚠️ O site TEM de ter este botão, não só o `.artificio-menu-toggle` da direita.
-          A primeira versão de T7.1 escondeu o `menu-toggle` em ≤860px (ele duplicava o
-          público no `Header` do pacote) e o site ficou SEM NENHUM controle de navegação
-          no celular: os 11 links de projetos e as categorias do blog viraram
-          inalcançáveis, porque o mesmo `@media` também esconde os navs inline. Achado do
-          Codex na PR #323 (P1). O site é consumidor divergente do CSS compartilhado —
-          toda regra nova de ≤860px precisa ser conferida aqui também.
-
-          Vem ANTES da marca no DOM pelo mesmo motivo do pacote: ordem do documento é a
-          ordem do leitor de tela e do Tab, e na tela ele está à esquerda de tudo.
-        */}
-        <NavToggle
-          className="artificio-nav-toggle"
-          label="Menu de navegação"
-          expanded={navOpen}
-          onClick={toggleNav}
-        />
-        <a className="artificio-brand" href="/">
-          <img className="artificio-brand-logo logo-navy" src={logoNavy} alt={brandName} width="300" height="100" />
-          <img className="artificio-brand-logo logo-neg" src={logoNeg} alt={brandName} width="300" height="100" />
-        </a>
-        {renderNavList(modules, "Projetos do Artifício")}
-        {ferramentasPublicas}
-        <div className="artificio-session" aria-live="polite">
-          {/* ⚠️ O `NotificationBell` saiu daqui em T7.3 e vive dentro do dropdown do
-              avatar (`.artificio-usermenu-actions`). Aqui ele era filho DIRETO da faixa e
-              a fazia medir 72px (sino de 40 + avatar de 32) em vez de 40px — o estouro de
-              2px em 320. Só a porta da sessão fica na barra. */}
-          {sessao}
-          {/* O `.artificio-menu-toggle` que ficava aqui saiu em T7.1: ele era o ÚNICO
-              controle de navegação do site e agora vive como `.artificio-nav-toggle`, no
-              1º slot. Mantê-lo aqui além do público daria dois hambúrgueres idênticos.
-              T7.3 é quem cria o painel de SESSÃO neste slot, com conta e notificações. */}
-        </div>
-      </div>
-
-      {/* 2ª linha (desktop): categorias do blog. IRMÃ do `.artificio-header-main`, porque
-          `.artificio-header` é `flex-direction: column` e a subnav tem `border-top`
-          próprio — dentro do grid ela virava uma coluna, não uma linha.
-          `styles.css:2039` a esconde em ≤860px; os links seguem no painel mobile. */}
-      <div className="artificio-subnav">
-        {renderNavList(sections, "Seções do blog")}
-      </div>
-
-      {/* Painel mobile (T3.5d): é o que devolve os 11 links em ≤860px, onde
-          `styles.css:2022` esconde os navs inline. Só aparece com o toggle aberto;
-          `.artificio-mobile-nav` já tem estilo pronto no `packages/ui`. Também irmão do
-          grid, pelo mesmo motivo da subnav.
-
-          O <div> NÃO escuta evento (Sonar S6847/S1082): quem fecha é o próprio link, pelo
-          `onNavigate` passado ao `renderNavList`. O `<a>` é interativo de nascença —
-          teclado, toque e mouse de graça —, enquanto `role`+`tabIndex` num <div>
-          inventaria um controle que não existe. Primeira tentativa trocou `onClick` por
-          `onClickCapture`+`onKeyUp` e o Sonar seguiu acusando, com razão: a regra é sobre
-          haver handler no elemento não-interativo, não sobre qual. */}
-      {navOpen ? (
-        <div className="artificio-mobile-nav">
-          {renderNavList(modules, "Projetos do Artifício (menu)", () => setNavOpen(false))}
-          {renderNavList(sections, "Seções do blog (menu)", () => setNavOpen(false))}
-          {/* Rodapé de ferramentas públicas (T7.2, spec 102) — IGUAL ao do
-              `packages/ui/src/Header.tsx`, e pelo mesmo motivo: a regra de ≤860px que tira
-              changelog e tema da barra vive no CSS COMPARTILHADO e alcança este header
-              também. Fazer só o lado do pacote deixaria o `artificiorpg.com` sem os dois
-              no celular — é a repetição exata do P1 que o `menu-toggle` causou em T7.1.
-
-              A busca NÃO desce: ela continua exposta na barra em ≤860px (aceite 2 de
-              T7.1), então repeti-la aqui daria dois controles para a mesma ação. */}
-          <div className="artificio-mobile-nav-footer">
-            <ChangelogButton
-              hasBadge={hasNewUpdate}
-              onClick={() => {
-                setNavOpen(false);
-                openChangelog();
-              }}
-            />
-            <ThemeToggle />
-          </div>
-        </div>
-      ) : null}
-
+    <>
+      <Header
+        currentHref={siteOrigin}
+        navItems={modules as NavItem[]}
+        moduleNav={sections as NavItem[]}
+        moduleCurrentHref={secaoAtiva}
+        moduleLabel="Seções do blog"
+        userMenu={userMenu}
+        showThemeToggle
+        showSearch
+        onSearch={openSearch}
+        showChangelog
+        onOpenChangelog={openChangelog}
+        changelogHasBadge={hasNewUpdate}
+      />
       <StaticChangelogModal isOpen={changelogOpen} onClose={() => setChangelogOpen(false)} rawChangelogs={rawChangelogs} />
-    </header>
+    </>
   );
 }
 

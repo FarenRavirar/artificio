@@ -2,8 +2,12 @@
 /*
   Header do `site` (T3.5d + T3.5g, spec 102).
 
-  Este arquivo é só a PONTE: resolve os assets da marca e os dados de navegação no build
-  do Astro e entrega tudo para a ilha, que é dona do `<header>` inteiro.
+  Este arquivo resolve os dados de navegação no build do Astro e entrega para a ilha, que
+  desde 2026-09-21 é só um adaptador: quem renderiza o `<header>` é o `Header` de
+  `@artificio/ui`, o mesmo dos outros 6 apps.
+
+  A marca saiu daqui junto com a troca — o `Header` a importa de `packages/ui/src/brand.ts`
+  (`Header.tsx:353-368`), então `logos` e `BRAND_NAME` não precisam mais atravessar a ponte.
 
   ⚠️ NÃO reabrir `<header>` nem `.artificio-header-main` aqui. Foi assim até 2026-09-14 e
   quebrava o layout mobile: junto do componente hidratado o Astro injeta um `<style>` e um
@@ -19,8 +23,7 @@
   props de dado estático e são renderizados no SSR do React — `client:idle` hidrata
   depois, mas a marcação já saiu no HTML. NÃO trocar por `client:only`.
 */
-import { logos, MODULES, SECTIONS } from "../lib/content";
-import { BRAND_NAME } from "@artificio/ui/static";
+import { MODULES, SECTIONS } from "../lib/content";
 import { BRAND_ORIGIN } from "@artificio/config";
 import SiteHeaderIsland from "./SiteHeaderIsland";
 interface Props {
@@ -39,7 +42,4 @@ const pathname = Astro.url.pathname;
   currentHref={currentHref}
   siteOrigin={BRAND_ORIGIN}
   pathname={pathname}
-  logoNavy={logos.logoNavy}
-  logoNeg={logos.logoNeg}
-  brandName={BRAND_NAME}
 />
