@@ -244,25 +244,62 @@ dep list incompleta desta spec, não introduzido aqui).
 Economia de imagem < 1.000 KiB (era 10.644) e LCP < 2,5 s (era 5,9 s). Uma rodada só
 não fecha — o Lighthouse varia.
 
-**Medido em 2026-09-21** (`npx lighthouse --only-categories=performance`, preset móvel
-padrão, 3 rodadas, cache-buster por rodada):
+**O número do aceite depende do método de throttling, e isso precisa estar escrito
+antes de qualquer tabela.** Medido em 2026-09-21, a mesma página, no mesmo build:
 
-| rodada | LCP | payload total |
+| `--throttling-method` | LCP (mediana de 3) | o que a medida é |
 |---|---|---|
-| 1 | 8,37 s | 1.996 KiB |
-| 2 | 8,14 s | 1.997 KiB |
-| 3 | 8,27 s | 1.995 KiB |
+| `simulate` (padrão) | **8,27 s** | projeção do Lantern sobre um trace sem throttling |
+| `devtools` | **3,69 s** | Slow 4G aplicado de verdade (request-level) |
+| `provided` | 1,5 s | banda da máquina, sem throttling — não serve de alvo |
 
-Mediana **8,27 s**. Performance 0,63 nas três.
+Os três medem a mesma página. A rede real terminou em **911 ms** nas rodadas
+`simulate`; os 8,27 s são o que o Lantern calcula que aconteceria a 1.638 kbps, não
+tempo observado. A doc do projeto diz que `simulate` "suffers from edge cases" e que
+investigação de performance deve usar throttling real
+(`GoogleChrome/lighthouse/docs/throttling.md`).
 
-**A economia de imagem passa; o LCP reprova, e piorou em relação aos 5,9 s do
-enunciado.** Os 5,9 s foram medidos noutro build, então a comparação direta não é
-confiável — o que é medição desta rodada é o 8,27 s contra o alvo de 2,5 s.
+**Número adotado para o aceite: `devtools`**, porque aplica os mesmos 1.638 kbps de
+Slow 4G que o alvo pressupõe, sem inventar o resto. Reprova igual — 3,69 s contra
+2,5 s — mas a distância é 1,2 s, não 5,8 s, e é sobre ela que o trabalho se dimensiona.
 
-**Não use a auditoria `uses-responsive-images` como prova aqui.** Ela não existe no
-JSON do Lighthouse 13.4.0, e ler a chave ausente devolve economia `0 KiB` — zero por
-ausência de medição, não por ausência de desperdício (AGENTS.md §Evidência item 8). O
-que foi medido de fato: **1.242 KiB em 18 imagens**, de 1.997 KiB totais.
+**O que o Google usa para ranquear NÃO é nenhum destes três.** O sinal de
+ranqueamento é CrUX, dado de campo do usuário real, no percentil 75; Lighthouse é
+diagnóstico (`web.dev/articles/lab-and-field-data-differences`). **Não medi o CrUX
+deste domínio** — a API pede chave que não temos, e o PageSpeed Insights anônimo
+devolveu `429 Quota exceeded`. Sem isso não se sabe se `mesas.artificiorpg.com` já
+passa ou não passa a avaliação de Core Web Vitals.
+
+**O LCP não é imagem.** Medido no browser com `PerformanceObserver` em viewport de
+412×823: o elemento LCP é o **`<h1>`** ("Encontre uma mesa de RPG em 30 segundos",
+`size: 24320`), e ele pinta no MESMO instante do FCP — 456 ms na rede local, e nas
+rodadas `devtools` FCP e LCP saem idênticos nas três (3,71 / 3,61 / 3,69 s). Cortar
+KiB de imagem não move este LCP; o que o move é o que atrasa o primeiro paint.
+
+**Causa raiz medida, e ela não estava no enunciado da task.** O HTML servido traz
+**52 `<link rel="preload">`**, dos quais **13 de imagem**, e o primeiro deles está na
+**posição 134** do documento — contra a **posição 5684** do primeiro `stylesheet`. O
+preload scanner dispara logos de VTT (20 px) e avatares (24 px) antes de enxergar o
+CSS que libera o paint, e `root-CXpPGPMT.css` só termina em 229 ms disputando banda
+com eles. É a contenção que `web.dev/articles/preload-critical-assets` descreve:
+"if too many resources are prioritized, effectively none of them are".
+
+**Quem emite os preloads é o React 19, não o nosso código.** `rtk rg` por `preload`
+em `apps/mesas/frontend/src` e em `packages` devolve **zero**; não há `links()` de
+rota. O React 19 injeta um `<link rel="preload" as="image">` no `<head>` para cada
+`<img>` EAGER que o SSR renderiza (`facebook/react#34217`). **Verificado no React
+instalado neste repo**, não aceito da issue: `renderToStaticMarkup` de um `<img>`
+sem `loading` produz 1 preload; o mesmo `<img>` com `loading="lazy"` produz **0**.
+
+O HTML de produção tinha **38 `<img>` sem `loading="lazy"`**, quase todos decoração
+abaixo da dobra: 20 logos de VTT e 11 avatares.
+
+**Corrigido:** o logo de VTT do `TableCard` passou a `loading="lazy"` +
+`decoding="async"` (o avatar do mesmo card já tinha recebido isso junto de
+`avatarSrc`). O logo da marca segue eager de propósito — está acima da dobra, e mora
+em `packages/ui`, cujo alcance é de 6 apps.
+
+`mesas-frontend` 1239/1239 depois da mudança.
 
 **O `srcset` da T2.2 está no ar e correto**, medido no HTML servido: 21 `<img>` com
 `srcSet` de `600w, 1200w, 1600w` e `sizes="(min-width: 1280px) 420px, (min-width: 768px) 50vw, 100vw"`.
@@ -270,15 +307,48 @@ Em 412 CSS px com DPR 1,75 o navegador precisa de ~721 px e escolhe **1200w**, a
 candidata imediatamente acima — comportamento correto do navegador, não defeito do
 atributo. A lacuna é de largura disponível: `imageKindWidths`
 (`packages/media/src/deliveryUrl.ts:183`) parte de `minWidth` dobrando, o que dá
-600 → 1200 e nenhuma candidata entre as duas.
+600 → 1200 e nenhuma candidata entre as duas. **Isso não afeta o LCP** (que é texto),
+mas afeta payload: 1.242 KiB em 18 imagens, de 1.997 KiB totais.
 
-**O gargalo não é só imagem:** FCP de 5,0 s na mesma rodada, com documento entregue em
-185 ms e `server-response-time` de 100 ms. O throttling simulado é de 1.638 kbps, e
-2 MB nessa banda dão ~10 s de download — 576 KiB são de script, em 41 requisições.
+**Não use a auditoria `uses-responsive-images` como prova aqui.** Ela não existe no
+JSON do Lighthouse 13.4.0, e ler a chave ausente devolve economia `0 KiB` — zero por
+ausência de medição, não por ausência de desperdício (AGENTS.md §Evidência item 8).
 
-**Segue aberta.** Fechar exige decidir o que cortar (largura intermediária no registro
-de `IMAGE_KINDS`, avatares sem transformação — ver abaixo —, ou peso de JS), e isso
-muda o que o visitante recebe.
+**Segue aberta**, e o que falta agora é medição, não decisão: a correção do `lazy` só
+existe na árvore local, então **não há medida do efeito dela em produção**. O caminho
+para fechar, em ordem de custo:
+
+1. deployar e remedir com `--throttling-method=devtools`, 3 rodadas, para saber
+   quanto os preloads de imagem valiam de fato dos 3,69 s;
+2. se ainda reprovar, atacar o segundo item medido do caminho crítico — `entry.client`
+   custa 587 ms de bootup e o `gtag` chega em 463 ms e só termina em 882 ms;
+3. o peso de imagem (1.242 KiB) é payload, não LCP — entra por custo de dado do
+   visitante, não por este aceite.
+
+### [!] T2.3b — DÉBITO: sem acesso ao CrUX, o SEO é medido às cegas
+
+Registrado por decisão do mantenedor em 2026-09-21 ("o que precisar da API do Chrome
+UX Report, deixe como débito dentro da fase da spec").
+
+**O problema:** o sinal de ranqueamento do Google é CrUX — dado de campo, percentil
+75 de usuário real. Lighthouse, em qualquer `--throttling-method`, é laboratório e
+serve para diagnosticar, não para saber se o site passa
+(`web.dev/articles/lab-and-field-data-differences`). Enquanto o aceite da T2.3 for um
+número de laboratório, ele não responde à pergunta de SEO que motivou a task.
+
+**Por que não medi:** a API do CrUX exige chave
+(`chromeuxreport.googleapis.com/v1/records:queryRecord` devolveu
+`API_KEY_INVALID`), e o PageSpeed Insights sem chave devolveu
+`429 Quota exceeded for quota metric 'Queries'`. Sem uma das duas, não se sabe se
+`mesas.artificiorpg.com` passa ou reprova a avaliação de Core Web Vitals, nem se tem
+tráfego suficiente para aparecer no relatório.
+
+**Para destravar, o mantenedor escolhe uma:** chave da API do Chrome UX Report
+(gratuita, console do Google Cloud) ou acesso ao Search Console do domínio. A
+primeira é a que automatiza; a segunda dá o mesmo dado pela interface.
+
+**Enquanto isso:** T2.3 segue medindo com `--throttling-method=devtools`, que é o
+laboratório mais honesto disponível, e o número dela **não** é o número do Google.
 
 **Achado lateral, CORRIGIDO no mesmo trabalho (AGENTS.md §Bug achado):** 6 URLs do
 Cloudinary (**507 KiB**) saíam sem transformação nenhuma
@@ -290,11 +360,30 @@ capa — quem renderizava avatar importava `image-kinds` (`cropToObjectPosition`
 montava o `src` cru. É a exceção por app que §Compartilhado por padrão nomeia.
 
 `avatarSrc(src, larguraDeLayout)` entrou em `utils/tableImage.ts`, ao lado de
-`tableImageAttrs`, e os **5** pontos que renderizavam avatar passaram a usá-lo, com
+`tableImageAttrs`, e os **7** pontos que renderizavam avatar passaram a usá-lo, com
 a largura que o CSS de cada um declara: `TableCard.tsx:188` (24 px),
+`MasterCard.tsx:44` e `TableMaster.tsx:26` (64 px, `w-16`),
 `ProfileEditPage.tsx:162` (80 px, `ProfileEditPage.css:38`), `MestreHero.tsx:267`
 (96 px, `MestreHero.css:139`), `PlayerPage.tsx:146` (120 px, `PlayerPage.css:73`) e
-`MestreBio.tsx:36` (240 px, `MestrePage.css:427`).
+`MestreBio.tsx:36` (280 px, `MestrePage.css:358`).
+
+**Foram 5 na primeira volta; a revisão da PR #330 achou os outros 2 e um valor
+errado, ambos procedentes:**
+
+- `MasterCard` e `TableMaster` recebem o avatar por `vm.masterAvatar`, do view model
+  em `packages/catalog-table`, e a varredura inicial buscou por `avatar_url}` — que
+  não casa com quem recebe via prop. Corrigido nos dois consumidores, e não no
+  mapper: o mapper fixaria UMA largura para caixas de tamanhos diferentes, e quem
+  sabe o tamanho é o layout. `packages/catalog-table` tem consumidor único
+  (`mesas-frontend`), então normalizar lá seria possível — só não é o lugar certo.
+- a bio usava **240 px**, que é o `max-width` do MOBILE (`MestrePage.css:427`,
+  dentro de `@media`). No desktop a coluna é de **280 px** (`MestrePage.css:358`), e
+  é o caso maior que manda: com 240 o `w_480` gerado ficava abaixo dos 560 px que uma
+  tela 2x pede, e a foto do perfil público perderia nitidez.
+
+**Guarda contra a repetição:** tabela de larguras por consumidor em
+`tableImage.test.ts`, com o valor de CSS de cada um — o teste falha se alguém mudar
+uma largura sem mexer no CSS correspondente.
 
 **Largura fixa, não `srcset`, e isso foi medido:** `imageKindWidths('profile_avatar')`
 começa em `minWidth` 140 (`imageKinds.ts:113`), o piso do perfil público — para um

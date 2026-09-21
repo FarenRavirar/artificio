@@ -34,7 +34,7 @@ export function MestreBio({ profile }: Props) {
           {profile.avatar_url && !avatarLoadFailed && (
             <div className="mestre-bio-photo">
               <img
-                src={avatarSrc(profile.avatar_url, 240)}
+                src={avatarSrc(profile.avatar_url, 280)}
                 alt={profile.display_name}
                 loading="lazy"
                 decoding="async"

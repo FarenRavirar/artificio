@@ -167,4 +167,23 @@ describe('avatarSrc', () => {
       'https://res.cloudinary.com/dnln0btbo/image/upload/w_300/v1788501588/artificio_avatars/abc123.png';
     expect(avatarSrc(jaTransformada, 24)).toBe(jaTransformada);
   });
+
+  /**
+   * As larguras de cada consumidor, medidas no CSS que o renderiza. Existe porque a
+   * revisão da PR #330 achou dois consumidores que a varredura tinha perdido
+   * (`MasterCard` e `TableMaster`, ambos `w-16` = 64px, alimentados por
+   * `vm.masterAvatar`), e um valor errado: a bio usava 240px, que é o `max-width`
+   * do MOBILE (`MestrePage.css:427`) — no desktop a coluna é de 280px
+   * (`MestrePage.css:358`), e é o caso maior que manda.
+   */
+  it.each([
+    ['TableCard', 24, 'w_48'],
+    ['MasterCard e TableMaster', 64, 'w_128'],
+    ['ProfileEditPage', 80, 'w_160'],
+    ['MestreHero', 96, 'w_192'],
+    ['PlayerPage', 120, 'w_240'],
+    ['MestreBio (coluna desktop)', 280, 'w_560'],
+  ])('largura de %s: %ipx de layout vira %s', (_nome, layout, esperado) => {
+    expect(avatarSrc(AVATAR_NOSSO, layout)).toContain(`/${esperado}/`);
+  });
 });
