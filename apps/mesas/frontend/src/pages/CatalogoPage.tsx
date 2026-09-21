@@ -100,7 +100,19 @@ const renderTableCards = (isLoading: boolean, tables: TableCard[]): ReactNode =>
     return Array.from({ length: 12 }).map((_, idx) => <TableCardSkeleton key={idx} />);
   }
 
-  return tables.map((table) => <TableCardComponent key={table.id} table={table} />);
+  // `priority` só no PRIMEIRO card: é o candidato a LCP do catálogo em todos os
+  // breakpoints, e em móvel (`grid-cols-1`, card com `min-h-[430px]`) é o único
+  // acima da dobra. Sem isto o padrão `priority=false` do helper punha
+  // `loading="lazy"` nele também, adiando a descoberta da imagem que domina a
+  // métrica (achado de review, PR #328).
+  //
+  // Não é a primeira FILA: em `xl` a grade é `auto-fill`, o número de colunas
+  // depende da largura da janela e não dá para sabê-lo aqui. Marcar 3 ou 4 por
+  // garantia gastaria prioridade em imagens fora da tela no móvel, que é o
+  // perfil onde o LCP medido reprovava (5,9 s).
+  return tables.map((table, idx) => (
+    <TableCardComponent key={table.id} table={table} priority={idx === 0} />
+  ));
 };
 
 export const CatalogoPage = () => {

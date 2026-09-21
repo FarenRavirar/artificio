@@ -180,7 +180,11 @@ export const MesaPage = () => {
 
             {/* Fase 2.2: TableHero (substituindo hero section de 74 linhas) */}
             {/* showOverlay={false} = banner limpo (apenas imagem), informações estão na sidebar */}
-            {vm && <TableHero vm={vm} variant="full" showOverlay={false} />}
+            {/* `priority`: esta é a única rota onde o `TableHero` é o herói
+                singular e primeira imagem da página, logo o LCP dela. Na lista
+                do perfil (`MasterTables.tsx`) o mesmo componente aparece uma vez
+                por mesa e lá o default `false` é o certo. */}
+            {vm && <TableHero vm={vm} variant="full" showOverlay={false} priority />}
 
             {/* Fase 2.3: TableSchedules (substituindo schedules section de 68 linhas) */}
             {vm && <TableSchedules vm={vm} />}

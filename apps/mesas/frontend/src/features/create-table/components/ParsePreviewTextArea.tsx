@@ -145,10 +145,15 @@ export function ParsePreviewTextArea({ onPreviewReady, currentUserName, text, on
       />
 
       <div className="flex items-center gap-3 flex-wrap">
+        {/* `hover:bg-[var(--brand-solid-hover)]` e não `hover:brightness-110`:
+            `brightness` é filtro, clareia o fundo sem que ninguém meça a razão
+            resultante contra `--brand-solid-fg`, e o hover perde a garantia que
+            o repouso tem. O token existe para o estado interativo e é medido
+            por tema em `contrasteMarca.test.ts` (spec 103, T3.2). */}
         <button
           type="submit"
           disabled={!canSubmit}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-[var(--brand-solid)] text-[var(--brand-solid-fg)] text-sm font-medium hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-[var(--brand-solid)] text-[var(--brand-solid-fg)] text-sm font-medium hover:bg-[var(--brand-solid-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
         >
           {state === 'sending' ? (
             <>

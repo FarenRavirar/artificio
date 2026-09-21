@@ -14,6 +14,30 @@ function listarFontes(raiz: string): string[] {
 }
 
 /**
+ * Linhas do app que casam `padrao`, como `caminho/relativo.tsx:N`.
+ *
+ * Tira os comentários ANTES de casar. Sem isso a varredura acha os próprios
+ * blocos que documentam a correção, que citam a classe errada em prosa — medido,
+ * 5 achados com 4 falsos. Não apaga as linhas, substitui por vazio, para o
+ * número de linha continuar o do arquivo real.
+ */
+function varrer(padrao: RegExp): string[] {
+  const raiz = resolve(__dirname, '..');
+  const achados: string[] = [];
+  for (const arquivo of listarFontes(raiz)) {
+    if (arquivo.endsWith('contrasteMarca.test.ts')) continue;
+    readFileSync(arquivo, 'utf8')
+      .replace(/\{\/\*[\s\S]*?\*\/\}|\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\r\n]/g, ' '))
+      .split(/\r?\n/)
+      .forEach((linha, i) => {
+        if (/^\s*\/\//.test(linha) || !padrao.test(linha)) return;
+        achados.push(`${relative(raiz, arquivo).replace(/\\/g, '/')}:${i + 1}`);
+      });
+  }
+  return achados.sort();
+}
+
+/**
  * Guarda de contraste dos botões sólidos de marca (spec 103, T3.1/T3.2).
  *
  * O teste CALCULA a razão a partir do valor real do token em
@@ -141,6 +165,50 @@ describe('contraste do par sólido de marca (WCAG 2.2 AA)', () => {
     expect(razao('#000000', '#ffffff')).toBeCloseTo(21, 1);
     expect(razao('#ffffff', '#ffffff')).toBeCloseTo(1, 5);
     expect(razao('#767676', '#ffffff')).toBeCloseTo(4.54, 1);
+  });
+});
+
+describe('nenhum botão sólido usa cor fora do par, nem filtro no hover', () => {
+  it('varredura: zero `--special` ou `--artificio-bronze` como fundo de botão', () => {
+    // A spec 103 corrigiu 22 botões de laranja cru e a varredura seguinte achou
+    // mais 3 com o MESMO defeito em outra cor: `--artificio-bronze` (4,10:1
+    // claro / 4,04:1 escuro) e `--special` (2,68:1 / 3,50:1 com `--fg`; 6,98:1
+    // mas 3,96:1 com branco). Nenhuma das duas é cor de marca, e nenhuma tem
+    // par que vire por tema.
+    //
+    // Fundo de BOTÃO só: os dois tokens seguem legítimos como texto, borda e
+    // fundo translúcido — isso é a spec 104, que decide o destino da família.
+    // Só em `className`, e sem comentário: os blocos que documentam esta
+    // correção citam a classe antiga em PROSA, e a primeira versão deste teste
+    // casou nos próprios comentários (5 achados, 4 falsos). É a mesma pegadinha
+    // de `linha 33` e de `TableEditor.test.tsx:444`, agora na terceira forma.
+    const infratores = varrer(/className="[^"]*bg-\[var\(--(?:special|artificio-bronze)\)\][^"]*"/);
+    // Os dois que restam estão NOMEADOS, e não filtrados em silêncio, para que
+    // o próximo não entre escondido atrás da exceção deles. Ambos são spec 104:
+    //
+    // - `TableCardDashboard.tsx:103` — badge "🗄️ Arquivada" com bronze (4,10:1
+    //   claro / 4,04:1 escuro). Pareia com o botão "Arquivar", que virou laranja
+    //   nesta spec; separar o par é decisão do mantenedor, não do agente.
+    // - `VttPlatformsEditor.tsx:123` — fundo do checkmark de seleção, com um
+    //   `<Check>` em `--fg` dentro. Ícone é gráfico, então o critério é o 3:1 de
+    //   componente (WCAG 1.4.11) e não o 4,5:1 de texto. **Reprova mesmo
+    //   assim:** medido 2,68:1 no claro e 3,50:1 no escuro. Foi esta varredura
+    //   que o achou — não estava em nenhuma lista.
+    expect(infratores).toEqual([
+      'components/TableCardDashboard.tsx:103',
+      'components/mestre/VttPlatformsEditor.tsx:123',
+    ]);
+  });
+
+  it('nenhum botão de marca usa `brightness` no hover', () => {
+    // `brightness` é filtro: clareia ou escurece o fundo sem que ninguém meça a
+    // razão resultante contra a cor do texto, então o estado interativo perde a
+    // garantia que o repouso tem. Era assim nos 3 botões acima e em
+    // `ParsePreviewTextArea.tsx`, que já usava o par no repouso.
+    const infratores = varrer(
+      /className="[^"]*bg-\[var\(--brand-solid\)\][^"]*hover:brightness-[^"]*"/,
+    );
+    expect(infratores).toEqual([]);
   });
 });
 

@@ -185,14 +185,56 @@ monta `src`, `srcSet`, `sizes`, `loading`, `decoding` e `fetchPriority` numa
 decisão só, consumida pelos 4 `<img>`. O `sizes` é do CHAMADOR, porque descreve
 o layout dele: `srcset` acompanhado de `sizes` mentiroso é pior que `srcset`
 nenhum — o navegador acredita na declaração e pode escolher variante menor que a
-caixa. `priority` só no herói da mesa e na mesa em destaque do perfil (os dois
-LCP); marcar tudo como prioritário tira do navegador o critério de fila.
+caixa. Marcar tudo como prioritário tira do navegador o critério de fila.
+
+**`priority` estava errado nos três pontos, e a correção mudou de forma: quem
+prioriza é o CONSUMIDOR, não o componente.** A primeira versão fixava
+`priority: true` dentro de `TableHero` e `MestreFeaturedTable` e não expunha a
+prop no card; os três achados vieram da review da PR #328 e os três foram
+medidos procedentes:
+
+- **`MestreFeaturedTable` não é o LCP do perfil.** O comentário dela afirmava
+  "é a primeira imagem da página" — falso. Medido em `MestrePage.tsx`:
+  `MestreHero` renderiza na linha 111 com banner (`MestreHero.tsx:227`) e avatar
+  (`:266`); a seção de mesas só entra na linha 169, depois do grupo "Sobre"
+  inteiro. Eager+high competia com as duas imagens de fato visíveis. `priority`
+  removido.
+- **`TableHero` tem TRÊS consumidores, e um deles é um `.map`.**
+  `MesaPage.tsx:183` (herói singular da rota), `DecisionBlock.tsx:16` e
+  `MasterTables.tsx:61`, que renderiza um herói por mesa do perfil. Fixo, toda
+  capa da lista saía `eager`+`high`. Virou prop com default `false`; só
+  `MesaPage` passa. Não se deriva de `variant`: `DecisionBlock` também é `full`
+  e não é herói de rota.
+- **O primeiro card do catálogo saía `lazy`.** `CatalogoPage.tsx:103` mapeava
+  sem índice e o card não tinha a prop, então o default `false` alcançava o
+  candidato a LCP da rota — a métrica que esta task existe para reduzir (5,9 s).
+  `TableCardComponent` recebe `priority`, e o catálogo passa `idx === 0`. Só o
+  primeiro, não a primeira fila: em `xl` a grade é
+  `auto-fill,minmax(280px,420px)` e o número de colunas depende da janela;
+  marcar 3 ou 4 por garantia gastaria prioridade em imagem fora da tela no
+  móvel, que é o perfil onde o LCP reprovava.
+
+**`sizes` da mesa destacada mentia por 2x.** Declarava
+`(min-width: 1200px) 1200px` — a largura do container — mas
+`.mestre-featured-table-link` é `grid-template-columns: 1fr 1fr`
+(`MestrePage.css:441`), uma coluna só em `max-width: 768px` (`:589`). A caixa
+real acima de 1200px é 600px, então um navegador DPR 1 escolhia a variante de
+1200w e transferia ~4x mais pixels numa mudança feita para reduzir payload.
+Agora `(min-width: 1200px) 600px, (min-width: 769px) 50vw, 100vw`.
+
+**Guarda:** `apps/mesas/frontend/src/utils/prioridadeCapa.test.ts`, 7 testes.
+Afirma sobre a FONTE dos consumidores, não sobre o DOM: a decisão que importa
+está na chamada, e montar `MestrePage` inteira exigiria react-query, router e
+`useAuth` para provar uma linha de JSX. Inclui um teste sobre o CSS, porque o
+`sizes` acima só está certo enquanto a grade tiver duas colunas — trocá-la faz o
+teste falhar apontando os dois arquivos. Provado vermelho: revertendo o `sizes`
+para `1200px`, falha 1 de 7.
 
 `applyTableImageFallback` agora zera `srcset` e `sizes` antes do `src`. Provado
 vermelho: removendo `img.srcset = ''`, falha exatamente 1 teste
 (`× limpa `srcset` ao aplicar o placeholder`).
 
-Medido: `mesas-frontend` 1209 testes em 90 arquivos (era 1193 em 89),
+Medido: `mesas-frontend` 1231 testes em 93 arquivos (era 1193 em 89),
 `tsc --noEmit` sem erro, `eslint` com 1 aviso pré-existente em
 `useBannerScrim.ts:251` (arquivo intocado, `git diff` vazio — mesma família de
 dep list incompleta desta spec, não introduzido aqui).
@@ -450,6 +492,132 @@ opacidade sobre fundo desconhecido não tem contraste garantido, o token tem.
 **Dois pontos seguem com laranja sólido, de propósito:** a asserção negativa do
 teste novo, e `TableEditor.tsx:508`, que é barra de progresso — sem texto por
 cima, o critério é o 3:1 de componente contra a trilha, outro par.
+
+**A varredura de `brightness` achou 4 fora dos 22, dos quais 3 NÃO foram
+corrigidos.** `rtk rg "brightness" apps packages` — `hover:brightness-*` não
+casa com nenhum dos padrões que acharam os 22, porque o defeito ali não é a
+classe de fundo, é o hover. Filtro de brilho clareia ou escurece o fundo sem que
+ninguém meça a razão resultante contra a cor do texto, então o estado
+interativo perde a garantia que o repouso tem.
+
+Corrigidos: `ParsePreviewTextArea.tsx:151` (já usava o par no repouso, só o
+hover era filtro) e `TextPasteArea.tsx:82`, que era o defeito inteiro —
+`bg-[var(--artificio-brand)]` + `text-white` fixo, **3,16:1** medido, o mesmo
+laranja cru dos 22.
+
+Os outros 3 **ficam com o filtro porque não existe par de token que os
+conserte**, medido com a fórmula normativa do WCAG:
+
+| ponto | fundo | texto | claro | escuro |
+|---|---|---|---|---|
+| `TableCardDashboard.tsx:246` | `--artificio-bronze` `#9c6b43` | `--fg` | **4,10:1** | **4,04:1** |
+| `VttPlatformsEditor.tsx:158` | `--special` | `--fg` | 2,68:1 | **3,50:1** |
+| `MestreContactForm.tsx:138` | `--special` | `--on-solid-fg` `#ffffff` | 6,98:1 | **3,96:1** |
+
+O rótulo dos três é texto normal, que pede 4,5:1. Bronze reprova nos DOIS temas
+com a única cor de texto que o pacote oferece. `--special` passa no claro com
+branco (`#7e22ce`) e reprova no escuro (`#a855f7`) com branco E com `--fg`.
+
+**NÃO escurecer os dois tokens, e não criar par para eles.** Essa era a saída
+que este bloco registrava (bronze para ~`#8a5c39`, roxo escuro para ~`#8b30d9`,
+os valores mais próximos dos atuais que passam 4,5:1). Foi retirada: o mantenedor
+declarou a identidade da marca, e a medição confirma que bronze e roxo não
+pertencem a ela.
+
+**Identidade, palavras dele:** `#020740` (navy), `#222222` (carvão), `#FF5722`
+(laranja) e branco. Confirmada em `midias/telaprincipal.png` (site antigo) e
+`midias/Logo-PNG-Negativo-2.png` — laranja, navy, branco e cinza neutro, zero
+bronze e zero roxo, e o único botão sólido da página antiga é o de busca, em
+laranja. Ele acrescentou: "botões normalmente são laranjas".
+
+Todas as combinações úteis das quatro passam AA, medido:
+
+| fundo | texto | razão |
+|---|---|---|
+| `#ff5722` | `#020740` navy | **6,00:1** |
+| `#ff5722` | `#222222` carvão | **5,03:1** |
+| `#ff5722` | branco | 3,16:1 — reprova |
+| `#020740` | branco | **18,97:1** |
+| `#020740` | `#ff5722` | **6,00:1** |
+| `#222222` | branco | **15,91:1** |
+| `#222222` | `#ff5722` | **5,03:1** |
+
+O único par que reprova é laranja puro + branco, que é exatamente o defeito que
+`--brand-solid` já resolve: laranja escurecido (`#cf4317`, 4,70:1) + branco no
+tema claro, laranja puro + navy (6,00:1) no escuro. **Nenhuma cor nova é
+necessária** — a identidade declarada já cobre os três botões.
+
+**`#222222` não existe no pacote.** `rtk rg "222222|#222\b" packages/ui/src/styles.css`
+devolve **zero**. O mais próximo é `--artificio-charcoal: #0f1014` (`:9`), que é
+outro valor.
+
+**NÃO trocar `--artificio-light-ink` por `#222222` — não nesta PR.** O mantenedor
+disse que `#222222` era "a fonte e links de menus e outros" sobre branco, e que
+"o tema light está muito estranho sem o 222222". Hoje esse papel é `--fg`, que no
+claro resolve para `--artificio-light-ink: #0b1220`. A troca é de uma linha e
+**quebraria o tema**, medido:
+
+- **`11, 18, 32` está escrito 27 vezes em RGB CRU, nenhuma derivada do token:**
+  `styles.css:143` e `:369`, `admin.css:41-44`, e `index.css` com 21 linhas — a
+  escada `--fg-muted`/`soft`/`low`/`faint`/`ghost` (`:191-195`) mais as 12 regras
+  `[data-theme="light"] .text-white\/NN` (`:242-253`). Trocar só o token deixaria
+  o texto principal em `#222222` e os 27 pontos em `#0b1220`: duas cores de texto
+  quase iguais no mesmo tema, pior que hoje.
+- **A escada reprovaria AA:** `#222222` a 66% sobre branco compõe `#7a7a7a` e
+  mede **4,29:1**, abaixo de 4,5:1. O `rgba(11,18,32,.66)` atual dá **6,21:1**.
+- **Há trava de paridade:** `check-token-parity.mjs:178-182` exige `lightInk`
+  idêntico em `tokens.ts:57` e `styles.css:44`. Mudar um só falha o script.
+- **Não é problema de contraste:** `#0b1220` mede **18,72:1** sobre branco e
+  `#222222` **15,91:1** — os dois passam AAA. A diferença é de tom, não de
+  legibilidade: `#0b1220` é navy escuro, `#222222` é cinza neutro. O navy
+  `#020740` É cor de marca declarada, então o texto puxar para navy é coerente;
+  o que ele reconhece do site antigo é o cinza.
+
+Fazer certo é PR própria: `tokens.ts` + `styles.css` + recalcular a escada de 5
+níveis + as 12 regras `.text-white\/NN` + `admin.css`, com verificação nos apps
+que consomem `--fg`. **Virou a spec 104, T1** — medição completa e o que falta
+investigar estão lá.
+
+**`--special` reprova como TEXTO no tema escuro — defeito maior que o dos
+botões, e atinge outro app.** O comentário do pacote declara "acento especial
+(roxo) — **AA sobre claro**" (`styles.css:160`). O claro cumpre: `#7e22ce` mede
+**6,98:1** sobre branco. O escuro (`#a855f7`, `:310`) **não**: **3,59:1** sobre
+`--artificio-dark-surface` `#1b2a4a` e **4,45:1** sobre `--artificio-dark-canvas`
+`#0f1830`. São **14 usos de texto e ícone** roxo (`MasterCard.tsx` 7,
+`TableMaster.tsx`, `TableActionPanel.tsx:298`, `ProfileEditPage.css:579`,
+`VttPlatformsEditor.tsx:116` e `:123`, e `ImportPreview.tsx:133` no
+**glossário**), fora os 2 de `focus:border` em `MestreContactForm.tsx:86` e
+`:102`, onde o critério é 3:1 de componente.
+
+O comentário do token diz o que ele foi projetado para fazer e não o que ele
+faz — a metade escura nunca foi medida. Falha em silêncio: passa build, passa
+teste, e o único sinal é o Lighthouse do tema escuro. **Virou a spec 104, T2**,
+junto com os 8 RGB crus, as 38 classes `purple-NNN` e o segundo consumidor de
+bronze.
+
+`packages/ui/src/styles.css:1` declara "paleta real (D038). Laranja = acento;
+navy = texto". `--artificio-bronze` (`:13`) está no bloco da paleta **sem
+comentário** que o justifique, e tem **1 consumidor** — `TableCardDashboard.tsx`.
+`--special` não está na paleta: nasce direto no bloco semântico (`:161` claro,
+`:310` escuro), também sem comentário. Roxo não aparece em nenhuma declaração de
+marca. Escurecer os dois seria gastar trabalho preservando duas cores que a marca
+não tem, e ainda deixaria o padrão ausente para o 4º ponto.
+
+A correção é o par que JÁ existe: os três botões passam a `--brand-solid` /
+`--brand-solid-fg` / `--brand-solid-hover`, mesmo papel dos 22 corrigidos acima
+— são botões de ação, não elementos de outra família. Sem cor nova, sem token
+novo, e a guarda existente passa a cobri-los.
+
+**Os 3 estão aplicados.** `TableCardDashboard.tsx:246` (botão "Arquivar", era
+bronze, 4,10:1 claro / 4,04:1 escuro), `VttPlatformsEditor.tsx:158` (era roxo +
+`--fg`, 2,68:1 / 3,50:1) e `MestreContactForm.tsx:138` (era roxo +
+`--on-solid-fg`, 6,98:1 claro mas **3,96:1** escuro — defeito num tema só, que é
+a razão de o par precisar virar junto). Os três perderam o `brightness` no hover.
+
+O que sobra de roxo e de bronze **não** é débito solto: virou a **spec 104, T2**,
+com a medição completa. Em particular, `--artificio-bronze` tem **2** consumidores e
+não 1 — `:246` (corrigido) e `:103`, o badge "🗄️ Arquivada", que segue bronze
+com o mesmo par reprovando e não foi tocado, porque badge não é botão.
 
 **Guarda:** `apps/mesas/frontend/src/utils/contrasteMarca.test.ts`, 9 testes. Ele
 **calcula** a razão a partir do valor do token lido de
@@ -1077,6 +1245,27 @@ Hipóteses testadas e **derrubadas**. Ficam escritas para ninguém reinvestigar:
 - **`curl` não serve para medir header** — `glossario` e `downloads` são SPAs:
   1.852 e 2.136 bytes de HTML, `<div id="root">` vazio, zero `<nav>`. Só browser
   com JS alcança.
+
+## T8 — MOVIDA para a spec 104
+
+Aberta aqui em 2026-09-20 e promovida a spec própria no mesmo dia, por decisão do
+mantenedor: "Pr e espec própria". O conteúdo inteiro — medição, blast radius e o
+que falta investigar — vive em `specs/104-cor-identidade-tema-claro-familia-roxa/`.
+
+Nada dela entra na PR #328. O que esta spec deixou de propósito para lá:
+
+- os **14 usos de texto e ícone** de `--special`, os **8 em RGB cru**
+  (`rgba(168,85,247,…)`, que não viram de tema) e as **38 classes `purple-NNN`**
+  do Tailwind fora do token (104 T2.1/T2.3);
+- `TableCardDashboard.tsx:103`, badge "🗄️ Arquivada", que segue com
+  `--artificio-bronze` (104 T2.4). Pareia com o botão "Arquivar" que esta spec
+  corrigiu; badge não é botão, e "botões normalmente são laranjas" não decide
+  badge;
+- a troca de `--artificio-light-ink` para `#222222` (104 T1).
+
+Os **3 botões sólidos** (bronze e roxo) ficaram aqui, em T3.2: são a mesma
+correção dos outros 22, e deixar parte deles na árvore seria estado
+inconsistente.
 
 ## Registro de medição — 2026-09-18 (T7)
 

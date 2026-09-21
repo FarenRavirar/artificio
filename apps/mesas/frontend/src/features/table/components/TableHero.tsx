@@ -20,6 +20,22 @@ interface TableHeroProps {
   vm: TableViewModel;
   variant?: TableHeroVariant;
   showOverlay?: boolean; // false = apenas imagem (MesaPage), true = com overlay e texto (catálogo, home)
+  /**
+   * `true` só onde este herói é o LCP da página. Default `false`.
+   *
+   * Era `priority: true` fixo no `<img>`, e o componente tem TRÊS consumidores:
+   * `MesaPage.tsx:183` (herói singular da rota da mesa), `DecisionBlock.tsx:16`
+   * e `MasterTables.tsx:61`, que o renderiza dentro de um `.map` — um herói por
+   * mesa do perfil. Fixo, toda capa da lista saía `loading="eager"` com
+   * `fetchpriority="high"`, inclusive as muito abaixo da dobra, o que baixa
+   * tudo de uma vez e elimina a priorização do conteúdo visível (achado de
+   * review, PR #328).
+   *
+   * Não se deriva de `variant`: prioridade é posição na página, não aparência.
+   * `DecisionBlock` usa `variant="full"` igual à `MesaPage` e não é herói de
+   * rota nenhuma.
+   */
+  priority?: boolean;
 }
 
 /**
@@ -27,7 +43,12 @@ interface TableHeroProps {
  * - showOverlay=false: Banner limpo (apenas imagem) - usado na MesaPage
  * - showOverlay=true: Banner com overlay e informações - usado em catálogo/home
  */
-export function TableHero({ vm, variant = 'full', showOverlay = true }: TableHeroProps) {
+export function TableHero({
+  vm,
+  variant = 'full',
+  showOverlay = true,
+  priority = false,
+}: TableHeroProps) {
   const badges = getTableBadges({
     is_ddal: vm.certifications.ddal !== undefined,
     is_covil: vm.certifications.covil !== undefined,
@@ -46,7 +67,7 @@ export function TableHero({ vm, variant = 'full', showOverlay = true }: TableHer
     <div className="relative rounded-2xl overflow-hidden">
       {/* Cover Image */}
       <img
-        {...tableImageAttrs(vm.coverUrl, { sizes: HERO_COVER_SIZES, priority: true })}
+        {...tableImageAttrs(vm.coverUrl, { sizes: HERO_COVER_SIZES, priority })}
         alt={vm.title}
         className="w-full aspect-[1200/650] object-cover"
         style={cropStyle}

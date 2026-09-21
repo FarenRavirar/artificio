@@ -76,10 +76,16 @@ export function TextPasteArea({ onImportSuccess, titleHint }: TextPasteAreaProps
       </Field>
 
       <div className="flex items-center gap-3 flex-wrap">
+        {/* Par sólido de marca (spec 103, T3.2), não o laranja cru: medido,
+            `--artificio-brand` (#ff5722) com branco dá 3,16:1, e o rótulo aqui
+            é texto normal, que pede 4,5:1. `hover:brightness-110` some pelo
+            mesmo motivo — filtro clareia o fundo sem medir a razão resultante
+            contra a cor do texto. `--brand-solid*` é medido por tema em
+            `contrasteMarca.test.ts`. */}
         <button
           type="submit"
           disabled={!canSubmit}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-[var(--artificio-brand)] text-white text-sm font-medium hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-[var(--brand-solid)] text-[var(--brand-solid-fg)] text-sm font-medium hover:bg-[var(--brand-solid-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
         >
           {state === 'sending' ? (
             <>

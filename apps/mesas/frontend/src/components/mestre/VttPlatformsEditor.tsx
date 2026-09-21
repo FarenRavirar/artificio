@@ -152,10 +152,18 @@ export function VttPlatformsEditor({
         <p className="text-[length:var(--text-support)] leading-[var(--leading-support)] text-[var(--fg-low)]">
           {selected.size} {selected.size === 1 ? 'plataforma selecionada' : 'plataformas selecionadas'}
         </p>
+        {/* Par sólido de marca (spec 103, T3.2). Era `bg-[var(--special)]` +
+            `text-[var(--fg)]`: medido, 2,68:1 no claro e 3,50:1 no escuro,
+            contra o 4,5:1 que texto normal pede — reprovava nos dois temas. O
+            roxo não é cor de marca: não está na paleta declarada
+            (`packages/ui/src/styles.css:1`, "Laranja = acento; navy = texto"),
+            nasce direto no bloco semântico e não aparece no logo nem na página
+            antiga. `hover:brightness-90` sai junto: filtro escurece o fundo sem
+            medir a razão resultante contra a cor do texto. */}
         <button
           onClick={handleSave}
           disabled={saving}
-          className="px-6 py-2 rounded-[var(--radius-md)] bg-[var(--special)] hover:brightness-90 disabled:opacity-50 text-[var(--fg)] font-[var(--weight-medium)] transition"
+          className="px-6 py-2 rounded-[var(--radius-md)] bg-[var(--brand-solid)] hover:bg-[var(--brand-solid-hover)] disabled:opacity-50 text-[var(--brand-solid-fg)] font-[var(--weight-medium)] transition"
         >
           {saving ? 'Salvando...' : 'Salvar'}
         </button>

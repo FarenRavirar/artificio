@@ -322,7 +322,26 @@ function useTableCardTracking(slug: string) {
   return { handleMouseEnter, handleClick };
 }
 
-export function TableCardComponent({ table }: { table: TableCard }) {
+/**
+ * `priority` é do CHAMADOR, e o default é `false`.
+ *
+ * O card é renderizado em grade (`CatalogoPage.tsx`, `MestreTablesGrid.tsx`) e
+ * só quem monta a grade sabe qual card cai acima da dobra — o componente não
+ * tem como descobrir a própria posição. Sem isto, o padrão `priority=false`
+ * punha `loading="lazy"` também no PRIMEIRO card do catálogo, que é o candidato
+ * a LCP da rota: o navegador adiava a descoberta da imagem justamente na
+ * métrica que ela domina (achado de review, PR #328).
+ *
+ * Prioridade em todos seria o mesmo defeito ao contrário — com tudo `high` o
+ * navegador perde o critério para ordenar a fila.
+ */
+export function TableCardComponent({
+  table,
+  priority = false,
+}: {
+  table: TableCard;
+  priority?: boolean;
+}) {
   // Fonte única de verdade para vagas (lógica de badge e CTA)
   const { isFull, open: slotsLeft } = getSlotsVisualState(table);
   const { isFavorited, isTogglingFavorite, handleToggleFavorite } = useTableFavorite(table.slug);
@@ -364,7 +383,7 @@ export function TableCardComponent({ table }: { table: TableCard }) {
             enquadramento que o mestre escolheu, que é justamente onde a capa
             mais precisa dele — o card é o primeiro contato com a mesa. */}
         <img
-          {...tableImageAttrs(table.cover_url, { sizes: CARD_COVER_SIZES })}
+          {...tableImageAttrs(table.cover_url, { sizes: CARD_COVER_SIZES, priority })}
           alt={table.title}
           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
           style={{

@@ -239,11 +239,19 @@ export function TableCardDashboard({
           />
         )}
 
+        {/* Par sólido de marca (spec 103, T3.2). Era
+            `bg-[var(--artificio-bronze)]` + `text-[var(--fg)]`: medido, 4,10:1
+            no claro e 4,04:1 no escuro, abaixo do 4,5:1 que texto normal pede.
+            Bronze não é cor de marca — a paleta declara "Laranja = acento;
+            navy = texto" (`packages/ui/src/styles.css:1`) e este era o ÚNICO
+            consumidor do token. `hover:brightness-110` sai junto: filtro
+            clareia o fundo sem medir a razão resultante contra a cor do
+            texto. */}
         {onArchive && (
           <button
             onClick={() => onArchive(table)}
             disabled={isArchiving}
-            className="col-span-2 py-2 text-xs bg-[var(--artificio-bronze)] hover:brightness-110 text-[var(--fg)] disabled:opacity-50 rounded-lg transition"
+            className="col-span-2 py-2 text-xs bg-[var(--brand-solid)] hover:bg-[var(--brand-solid-hover)] text-[var(--brand-solid-fg)] disabled:opacity-50 rounded-lg transition"
           >
             {isArchiving ? '⏳' : table.archived ? '♻️ Desarquivar' : '🗄️ Arquivar'}
           </button>
