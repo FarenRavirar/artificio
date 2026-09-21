@@ -145,4 +145,54 @@ describe("slots do grid do header (T7.1)", () => {
 
     expect(filhosDoGrid(html)).toContain("label.artificio-header-search");
   });
+
+  it("conta 6 filhos com busca EMBUTIDA mais ferramentas — a combinação do `downloads`", () => {
+    // O caso que faltava, e por onde o defeito passou: o teste acima passa só
+    // `showSearch` + `onSearchChange`, sem changelog nem tema, e asserta `toContain`
+    // em vez de contar. A combinação real do `downloads`
+    // (`apps/downloads/frontend/src/components/AppShell.tsx:142-154`) entrega SEIS
+    // filhos, e o `.artificio-nav-toggle` é `display: none` no desktop — 5 itens
+    // visíveis. Com 4 faixas o 5º caía em linha implícita e levava
+    // `.artificio-session`, medido em produção como `x:24 y:60`.
+    //
+    // A faixa extra vive em `styles.css` (`[data-has-search="true"]`, 5 faixas) e tem
+    // guard do outro lado em `styles.contract.test.ts`. Este arquivo trava a CONTAGEM
+    // de filhos; os dois juntos é que provam o alinhamento.
+    //
+    // `glossario`, `links` e `mesas` passam as mesmas três ferramentas e NÃO têm este
+    // filho a mais: eles usam `onSearch` (a lupa), que entra dentro de
+    // `.artificio-header-tools`.
+    const html = renderToStaticMarkup(
+      <Header
+        showSearch
+        onSearchChange={() => undefined}
+        showChangelog
+        onOpenChangelog={() => undefined}
+        showThemeToggle
+        sessionOverride={{ user: null, loading: false }}
+      />,
+    );
+
+    expect(filhosDoGrid(html)).toEqual([
+      "button.artificio-nav-toggle",
+      "a.artificio-brand",
+      "nav.",
+      "label.artificio-header-search",
+      "div.artificio-header-tools",
+      "div.artificio-session",
+    ]);
+  });
+
+  it("a lupa NÃO cria filho a mais: ela mora nas ferramentas", () => {
+    // O contraste que explica por que só o `downloads` quebrava. Mesmas três
+    // ferramentas do caso acima, trocando `onSearchChange` por `onSearch`: 5 filhos,
+    // 4 visíveis no desktop, dentro das faixas da regra base.
+    const html = renderToStaticMarkup(
+      <Header {...todasAsFerramentas} sessionOverride={{ user: null, loading: false }} />,
+    );
+
+    const filhos = filhosDoGrid(html);
+    expect(filhos).not.toContain("label.artificio-header-search");
+    expect(filhos).toHaveLength(5);
+  });
 });

@@ -551,9 +551,37 @@
 }
 
 /* Spec 087 — busca controlada embutida. Header fornece só apresentação e
-   evento; debounce/URL continuam responsabilidade do módulo consumidor. */
+   evento; debounce/URL continuam responsabilidade do módulo consumidor.
+
+   CINCO faixas, não quatro: a busca embutida é um filho DIRETO do grid
+   (`Header.tsx:370`), diferente da LUPA, que entra dentro de
+   `.artificio-header-tools`. São as duas formas de busca do mesmo componente, e
+   só a lupa cabia nas 4 faixas da regra base.
+
+   Até 2026-09-21 esta regra trocava só a LARGURA da 3ª faixa e seguia com 4
+   faixas para 5 itens. O 5º caía em linha IMPLÍCITA e levava
+   `.artificio-session` — o último filho do DOM — para a 2ª linha. Medido em
+   produção no `downloads` (1280px, 1440px e 1920px, as três idênticas):
+   `grid-template-rows: 44px 44px`, `.artificio-session` em `x:24 y:60`, grid de
+   104px contra os `min-height: 64px` do contrato. É o mesmo defeito do aviso de
+   contagem de slots mais abaixo neste arquivo, que só falava do mobile.
+
+   A largura nunca participou: `minmax(220px, 360px)` saturou em 360px nas três
+   larguras, então nenhuma delas se comportou diferente.
+
+   Por que a correção mora no pacote e não no app: o `Header` OFERECE
+   `onSearchChange` desde a spec 087, com CSS e guards próprios, e essa prop
+   quebrava o layout que o próprio pacote declara. `glossario`, `links` e `mesas`
+   passam as MESMAS ferramentas (`showThemeToggle` + `showSearch` +
+   `showChangelog`) e não quebram porque usam `onSearch`, a lupa. `downloads`
+   (`AppShell.tsx:142-154`) é só o primeiro consumidor da forma embutida, medido
+   como o único que passa `onSearchChange` ao `Header`.
+
+   A regra base (4 faixas) fica intocada, e os outros 6 consumidores não casam
+   este seletor — `data-has-search` só é emitido com `hasEmbeddedSearch`
+   (`Header.tsx:163`, `:333`). */
 .artificio-header-main[data-has-search="true"] {
-  grid-template-columns: auto minmax(0, 1fr) minmax(220px, 360px) auto;
+  grid-template-columns: auto minmax(0, 1fr) minmax(220px, 360px) auto auto;
 }
 
 .artificio-header-search {
@@ -2327,6 +2355,10 @@ select option:checked,
     padding: 8px 16px;
   }
 
+  /* Volta às 4 faixas: aqui a busca embutida sai da linha 1 (`grid-row: 2`, logo
+     abaixo), então não disputa coluna e a 5ª faixa do desktop sobraria vazia
+     comendo `gap`. Este override precisa acompanhar a contagem da regra de
+     desktop — as duas mudam juntas. */
   .artificio-header-main[data-has-search="true"] {
     grid-template-columns: auto 1fr auto auto;
   }

@@ -168,28 +168,20 @@ lerPayload((bruto) => {
   const amostra = turno.comandos.slice(0, 4).map((c) => `  - ${c}`).join('\n');
 
   const motivo = [
-    `[registro-anti-compactacao] ${turno.medicoes} medições neste turno, nenhuma escrita em doc de spec/governança.`,
-    '',
-    'Amostra do que foi medido:',
+    `[registro-anti-compactacao] ${turno.medicoes} medições, nenhuma escrita em spec/governança.`,
     amostra || '  (sem comando capturado)',
     '',
-    'A compactação apaga a medição e preserva a hipótese — é assim que o mesmo',
-    'achado é reinvestigado turno após turno. Se já descobriu, escreve.',
+    // ⚠️ Frase que o guard casa não pode ser partida entre dois itens do array:
+    // o `join("\n")` mete newline no meio dela. "falha em silêncio" e
+    // "prod e beta" são cobradas literais por `registro-anti-compactacao.test.js`.
+    'Registrar só isto: forma que não funciona (com sintoma), medição que',
+    'contradiz a spec, valor que varia entre prod e beta,',
+    'bug que falha em silêncio, decisão de NÃO fazer (com motivo).',
     '',
-    'Registrar SE (e só se) o turno produziu um destes:',
-    '  1. forma óbvia que não funciona — com o sintoma medido;',
-    '  2. medição que contradiz o que a spec afirmava;',
-    '  3. valor que varia entre prod e beta;',
-    '  4. bug latente que falha em silêncio;',
-    '  5. decisão de NÃO fazer algo, com o motivo.',
+    'Destino: comentário no código, ou `tasks.md` da spec ativa se muda estado',
+    'ou contrato. REESCREVER o bloco, nunca anexar.',
     '',
-    'Destino: comentário no código quando explica o código; `tasks.md` da spec',
-    'ativa quando muda estado ou contrato. Reescrever o bloco existente, nunca',
-    'anexar (AGENTS.md §Conclusão de Tarefas).',
-    '',
-    'Se nada disso se aplica — medição de rotina, leitura exploratória, confirmação',
-    'do que já estava escrito — responda dizendo isso e encerre. O gate não cobra',
-    'duas vezes no mesmo turno.',
+    'Rotina ou confirmação do já escrito: dizer isso e encerrar.',
   ].join('\n');
 
   // Canal de saída: `exit 2` + stderr. É a única forma em que a doc oficial do
