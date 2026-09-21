@@ -1,3 +1,5 @@
+import { readdirSync, readFileSync } from "node:fs";
+import { relative, resolve, sep } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   IMAGE_KINDS,
@@ -5,6 +7,8 @@ import {
   cropToObjectPosition,
   imageKindHint,
   imageKindSpec,
+  isArtificioHostedImage,
+  isCloudinaryTransformationSegment,
   isCropRect,
   isGoogleUserContentUrl,
   isImageKind,
@@ -377,5 +381,262 @@ describe("imageKindHint", () => {
   it("origem não confiável cai no banner de mesa, como o resto do módulo", () => {
     expect(imageKindHint("inexistente")).toBe(imageKindHint("table_banner"));
     expect(imageKindHint(undefined)).toBe(imageKindHint("table_banner"));
+  });
+});
+
+describe("isArtificioHostedImage", () => {
+  const CRUA =
+    "https://res.cloudinary.com/dnln0btbo/image/upload/v1788537783/artificio_profile_banners/khmxivtocytsah6o0pap.jpg";
+
+  it("reconhece a URL crua do nosso upload", () => {
+    expect(isArtificioHostedImage(CRUA)).toBe(true);
+  });
+
+  it.each([
+    ["entrega nossa", "q_auto/f_auto/w_800"],
+    ["componente único", "w_1200,c_fill"],
+    ["um parâmetro só", "w_400"],
+  ])("reconhece a MESMA imagem com transformação: %s", (_caso, transformacao) => {
+    // Regressão da spec 103, T2.1: pular só a versão fazia a URL transformada
+    // devolver `false`, e `ImageUploader` voltaria a exibir o link cru como se
+    // a imagem fosse de terceiro (spec 100, F6.4c).
+    const url = CRUA.replace("/upload/", `/upload/${transformacao}/`);
+    expect(isArtificioHostedImage(url)).toBe(true);
+  });
+
+  it.each([
+    ["host de terceiro", "https://exemplo.com/image/upload/v1/artificio_avatars/foto.jpg"],
+    ["conta de terceiro, pasta desconhecida", "https://res.cloudinary.com/demo/image/upload/v1/foto.jpg"],
+    ["sem segmento `upload`", "https://res.cloudinary.com/dnln0btbo/image/fetch/mesas_rpg/foto.jpg"],
+    [
+      // Achado de review, PR #328: `downloads-materials` é `resourceType: 'raw'`
+      // (`cloudinaryAdapter.ts:18`) e a URL sai `/raw/upload/…` (linha 34).
+      // Aceitá-la fazia `cloudinaryDeliveryUrl` inserir `q_auto/f_auto/w_*` numa
+      // URL de PDF.
+      "material raw do downloads",
+      "https://res.cloudinary.com/dnln0btbo/raw/upload/downloads-materials/manual.pdf",
+    ],
+    [
+      // `artificio/uploads` é pasta NOSSA e fica na lista, mas o `site` grava lá
+      // com `resourceType: "auto"` e aceita áudio/vídeo (`admin-api.ts:26-29`).
+      // O resource type na URL é o que separa.
+      "vídeo na pasta de upload do site",
+      "https://res.cloudinary.com/dnln0btbo/video/upload/v1/artificio/uploads/clipe.mp4",
+    ],
+    [
+      // `image` tem que ser o segmento IMEDIATAMENTE anterior, não qualquer um
+      // antes: senão `/raw/upload/` numa conta cujo caminho contenha `image`
+      // voltaria a passar.
+      "`image` fora da posição",
+      "https://res.cloudinary.com/dnln0btbo/image/x/raw/upload/mesas_rpg/foto.jpg",
+    ],
+    ["pasta fora de posição", "https://res.cloudinary.com/dnln0btbo/image/upload/v1/outra/mesas_rpg/foto.jpg"],
+    ["hostname que só termina parecido", "https://res.cloudinary.com.evil.tld/x/image/upload/mesas_rpg/f.jpg"],
+    ["texto que não é URL", "não é url"],
+  ])("recusa: %s", (_caso, url) => {
+    expect(isArtificioHostedImage(url)).toBe(false);
+  });
+
+  it("recusa quando a transformação é o último segmento, sem pasta", () => {
+    expect(
+      isArtificioHostedImage("https://res.cloudinary.com/dnln0btbo/image/upload/w_800/"),
+    ).toBe(false);
+  });
+
+  it.each([
+    [
+      "links, URL real de produção",
+      "https://res.cloudinary.com/dnln0btbo/image/upload/v1782019856/artificio/links/b9b5d9f233fda079f9f5eda966ea910d8ec65b7b953debfa4f91c7705f7d3c78.jpg",
+    ],
+    [
+      "avatar do accounts",
+      "https://res.cloudinary.com/dnln0btbo/image/upload/v1/artificio/accounts/avatars/abc.jpg",
+    ],
+    [
+      "capa do downloads",
+      "https://res.cloudinary.com/dnln0btbo/image/upload/v1/downloads-covers/abc.jpg",
+    ],
+  ])("reconhece pasta que grava sem `ImageKind`: %s", (_caso, url) => {
+    // Spec 103, T2.4: estas três devolviam `false` porque a lista vinha só de
+    // `IMAGE_KINDS`. Medido na URL real do `links` acima. A falha é silenciosa:
+    // `cloudinaryDeliveryUrl` devolve a URL intacta e o app segue servindo o
+    // original — 932 KiB de logo medidos em `links.artificiorpg.com` para
+    // exibir 13 caixas de 104px.
+    expect(isArtificioHostedImage(url)).toBe(true);
+  });
+
+  it("reconhece a pasta de dois segmentos mesmo com transformação de entrega", () => {
+    expect(
+      isArtificioHostedImage(
+        "https://res.cloudinary.com/dnln0btbo/image/upload/q_auto/f_auto/w_208/v1782019856/artificio/links/b9b5.jpg",
+      ),
+    ).toBe(true);
+  });
+
+  it.each([
+    [
+      "pasta que só começa parecido",
+      "https://res.cloudinary.com/dnln0btbo/image/upload/v1/artificio/linksxyz/a.jpg",
+    ],
+    [
+      "prefixo sem a barra que o separa",
+      "https://res.cloudinary.com/dnln0btbo/image/upload/v1/downloads-covers-antigo/a.jpg",
+    ],
+  ])("comparação por prefixo não vira comparação por substring: %s", (_caso, url) => {
+    // A comparação é `caminho === pasta || caminho.startsWith(`${pasta}/`)`. Sem
+    // a barra no segundo termo, `downloads-covers-antigo` passaria.
+    expect(isArtificioHostedImage(url)).toBe(false);
+  });
+});
+
+describe("isCloudinaryTransformationSegment", () => {
+  it.each(["w_800", "q_auto", "f_auto", "w_1200,c_fill", "ar_16:10,c_fill,g_auto", "dpr_2.0"])(
+    "reconhece transformação: %s",
+    (segmento) => {
+      expect(isCloudinaryTransformationSegment(segmento)).toBe(true);
+    },
+  );
+
+  it.each([
+    "mesas_rpg",
+    "artificio_avatars",
+    "artificio_profile_banners",
+    "khmxivtocytsah6o0pap",
+    "v1788537783",
+    "foto.jpg",
+    "",
+  ])("não confunde com pasta, id ou versão: %s", (segmento) => {
+    expect(isCloudinaryTransformationSegment(segmento)).toBe(false);
+  });
+
+  it("segmento ausente não é transformação", () => {
+    expect(isCloudinaryTransformationSegment(undefined)).toBe(false);
+  });
+});
+
+/**
+ * Guarda da lista de pastas nossas (achado de review, PR #328).
+ *
+ * `ARTIFICIO_UPLOAD_FOLDERS` é mantida à MÃO, e isso é a causa raiz: pasta nova
+ * de upload nasce num app, ninguém lembra de registrá-la aqui, e
+ * `isArtificioHostedImage` passa a devolver `false` para imagem que é nossa. A
+ * falha é silenciosa — `cloudinaryDeliveryUrl` devolve a URL intacta e o app
+ * segue servindo o original acreditando estar otimizado.
+ *
+ * Medido na PR #328: **cinco** pastas estavam fora. A pior era
+ * `artificio/uploads`, onde o `site` grava a capa do blog: com uma URL dessa
+ * pasta, `optimizedImageUrl` devolvia a URL crua e `responsiveSrcSet` devolvia
+ * string vazia. A capa nativa do blog não tinha nem transformação nem `srcset`.
+ *
+ * Este teste lê o CÓDIGO dos apps, não uma lista paralela: qualquer
+ * `folder: "..."` novo cai aqui. Conferir uma segunda lista escrita à mão só
+ * moveria o problema.
+ *
+ * **Pasta de `resourceType: 'raw'` ou `'video'` é ignorada**, e a primeira
+ * versão desta guarda não fazia essa distinção: ela cobrou `downloads-materials`
+ * (PDF de material, `cloudinaryAdapter.ts:18`) como se fosse imagem, e a pasta
+ * foi parar em `ARTIFICIO_UPLOAD_FOLDERS` só para calar o teste — defeito que a
+ * própria guarda criou (achado de review, PR #328). Guarda que cobra a coisa
+ * errada é pior que guarda ausente: ela produz a correção errada.
+ */
+describe("ARTIFICIO_UPLOAD_FOLDERS cobre toda pasta de upload do repo", () => {
+  interface PastaDeUpload {
+    readonly arquivo: string;
+    /** `image` quando o literal não declara `resourceType` — o default de `uploadBuffer`. */
+    readonly tipo: string;
+  }
+
+  /**
+   * Toda pasta de upload declarada no código de `apps/` e `packages/`, com o
+   * resource type em que ela é gravada.
+   */
+  const pastasDoRepo = (): Map<string, PastaDeUpload> => {
+    const raiz = resolve(__dirname, "../../..");
+    const pastas = new Map<string, PastaDeUpload>();
+
+    const varrer = (dir: string): void => {
+      for (const entrada of readdirSync(dir, { withFileTypes: true })) {
+        if (entrada.name === "node_modules" || entrada.name.startsWith(".")) continue;
+        const caminho = resolve(dir, entrada.name);
+        if (entrada.isDirectory()) {
+          varrer(caminho);
+          continue;
+        }
+        if (!/\.tsx?$/.test(entrada.name) || /\.test\.tsx?$/.test(entrada.name)) continue;
+        const fonte = readFileSync(caminho, "utf8");
+        const registrar = (pasta: string, tipo: string): void => {
+          pastas.set(pasta, { arquivo: relative(raiz, caminho).split(sep).join("/"), tipo });
+        };
+        // Template string (`${FOLDER}/x`) e variável não entram: o valor não
+        // está aqui. As constantes (`COVER_FOLDER`, `FOLDER`, `avatarFolder`)
+        // são resolvidas pela segunda busca, na própria declaração.
+        for (const achado of fonte.matchAll(/\bfolder:\s*["']([^"']+)["']/g)) {
+          // O `resourceType` do MESMO literal de opções decide o tipo. `folder`
+          // e `resourceType` são irmãos no objeto passado a `uploadBuffer`,
+          // então a janela é o trecho entre esta chave e a chave de fechamento
+          // do literal — `}` no início de uma linha, ou o fim do arquivo.
+          const restante = fonte.slice(achado.index ?? 0);
+          const fim = restante.search(/^\s*\}/m);
+          const literal = fim === -1 ? restante : restante.slice(0, fim);
+          // Ausente = `image`: é o default de `uploadBuffer`
+          // (`index.ts:293`, `opts.resourceType ?? "image"`).
+          const tipo = /\bresourceType:\s*["'](\w+)["']/.exec(literal)?.[1] ?? "image";
+          registrar(achado[1], tipo);
+        }
+        for (const [, pasta] of fonte.matchAll(
+          /\b(?:COVER_FOLDER|FOLDER|avatarFolder)\s*=\s*["']([^"']+)["']/g,
+        )) {
+          // Constante solta: o `resourceType` fica na chamada, longe daqui. Os
+          // dois consumidores atuais (`coverStorage.ts:192`, `app.ts:105`) sobem
+          // imagem, e o default do pacote é `image`.
+          registrar(pasta, "image");
+        }
+      }
+    };
+
+    for (const app of ["apps", "packages"]) varrer(resolve(raiz, app));
+
+    // A varredura tem que ACHAR algo: regex que não casa nada passaria vazia e
+    // o teste viraria decoração.
+    expect(pastas.size).toBeGreaterThanOrEqual(8);
+    return pastas;
+  };
+
+  it("nenhuma pasta de IMAGEM de app está fora da lista", () => {
+    const fora = [...pastasDoRepo()]
+      .filter(([, { tipo }]) => tipo === "image" || tipo === "auto")
+      .filter(([pasta]) => !isArtificioHostedImage(
+        `https://res.cloudinary.com/dnln0btbo/image/upload/v1788537783/${pasta}/x.jpg`,
+      ))
+      .map(([pasta, { arquivo }]) => `${pasta} (${arquivo})`)
+      .sort();
+
+    expect(fora).toEqual([]);
+  });
+
+  /**
+   * O inverso, e é ele que trava o defeito da PR #328: a lista de IMAGENS não
+   * pode conter pasta gravada como `raw` ou `video`. `downloads-materials` foi
+   * incluída por engano, e `cloudinaryDeliveryUrl` passaria a inserir
+   * `q_auto/f_auto/w_*` numa URL de PDF. Sem esta asserção, recolocá-la não
+   * deixa nada vermelho — `isArtificioHostedImage` recusa a URL `/raw/upload/`
+   * pelo resource type, então o teste de cima continuaria verde com a lista
+   * errada.
+   */
+  it("pasta de `raw` ou `video` nunca entra na lista de imagens", () => {
+    const naoImagem = [...pastasDoRepo()].filter(
+      ([, { tipo }]) => tipo === "raw" || tipo === "video",
+    );
+    // Hoje é `downloads-materials`. Zero aqui significaria varredura cega.
+    expect(naoImagem.length).toBeGreaterThanOrEqual(1);
+
+    const indevidas = naoImagem
+      .filter(([pasta]) => isArtificioHostedImage(
+        `https://res.cloudinary.com/dnln0btbo/image/upload/v1788537783/${pasta}/x.jpg`,
+      ))
+      .map(([pasta, { arquivo, tipo }]) => `${pasta} (${tipo}, ${arquivo})`)
+      .sort();
+
+    expect(indevidas).toEqual([]);
   });
 });

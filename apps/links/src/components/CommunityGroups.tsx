@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { EmptyState, ErrorState, LoadingState, Modal } from "@artificio/ui";
 import ReportButton from "./ReportButton.tsx";
+import { groupLogoAttrs } from "../lib/groupLogo.ts";
 
 interface ApiGroup {
   name: string;
@@ -166,7 +167,11 @@ export default function CommunityGroups() {
         />
       ) : (
         <div className="cards">
-          {filtered.map((g) => (
+          {filtered.map((g) => {
+            // Pede a logo no tamanho de exibição. `logo_url` vem da API e já
+            // passou pelo normalizador acima, então pode ser `null`.
+            const logo = groupLogoAttrs(g.logo_url, "card");
+            return (
             <div className="card-wrapper" key={g.slug ?? g.name}>
             <a
               className={`card${g.is_adult && !adultGate ? " card-adult" : ""}`}
@@ -180,7 +185,9 @@ export default function CommunityGroups() {
               )}
               <img
                 className="logo"
-                src={g.logo_url || "/placeholder.svg"}
+                src={logo.src}
+                srcSet={logo.srcset}
+                sizes={logo.sizes}
                 alt={`Logo do grupo ${g.name}`}
                 width={104}
                 height={104}
@@ -195,7 +202,8 @@ export default function CommunityGroups() {
             </a>
             {g.slug && <ReportButton slug={g.slug} groupName={g.name} />}
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

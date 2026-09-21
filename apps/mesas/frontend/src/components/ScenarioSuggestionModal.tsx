@@ -135,7 +135,7 @@ export const ScenarioSuggestionModal = ({ isOpen, onClose, onSuccess }: Scenario
               <button
                 type="submit"
                 disabled={loading || !name.trim()}
-                className="flex-1 px-4 py-2 bg-[var(--color-artificio-orange)] text-white font-semibold rounded-lg hover:bg-[var(--color-artificio-orange)]/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 px-4 py-2 bg-[var(--brand-solid)] text-[var(--brand-solid-fg)] font-semibold rounded-lg hover:bg-[var(--brand-solid-hover)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? 'Enviando...' : 'Enviar Sugestão'}
               </button>

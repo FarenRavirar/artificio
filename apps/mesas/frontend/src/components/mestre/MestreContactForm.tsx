@@ -131,11 +131,20 @@ export function MestreContactForm({ mestreSlug }: MestreContactFormProps) {
           </div>
         )}
 
-        {/* Botão */}
+        {/* Par sólido de marca (spec 103, T3.2). Era `bg-[var(--special)]` +
+            `text-[var(--on-solid-fg)]`: medido, o roxo do tema escuro (`#a855f7`)
+            com branco dá 3,96:1, contra o 4,5:1 que texto normal pede. O claro
+            passava (6,98:1), então o defeito vivia só num tema — a razão de o par
+            precisar virar JUNTO. `hover:brightness-90` sai junto: filtro escurece
+            o fundo sem medir a razão resultante contra a cor do texto.
+
+            O roxo não é cor de marca: não está na paleta declarada
+            (`packages/ui/src/styles.css:1`, "Laranja = acento; navy = texto").
+            O resto da família roxa é a spec 104 T2. */}
         <button
           type="submit"
           disabled={loading}
-          className="w-full py-3 rounded-[var(--radius-md)] bg-[var(--special)] hover:brightness-90 disabled:opacity-50 text-[var(--on-solid-fg)] font-[var(--weight-medium)] transition flex items-center justify-center gap-2"
+          className="w-full py-3 rounded-[var(--radius-md)] bg-[var(--brand-solid)] hover:bg-[var(--brand-solid-hover)] disabled:opacity-50 text-[var(--brand-solid-fg)] font-[var(--weight-medium)] transition flex items-center justify-center gap-2"
         >
           {loading ? (
             <>

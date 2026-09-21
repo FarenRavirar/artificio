@@ -3,6 +3,7 @@
 // o CTA de entrar fica na página do grupo. Exibe chips de tag (máx 3) + badge +18.
 // UX-1: gate +18 — overlay com confirmação; blur removido via script is:inline no Base.astro.
 import ReportButton from "./ReportButton.tsx";
+import { groupLogoAttrs } from "../lib/groupLogo.ts";
 
 interface Props {
   name: string;
@@ -13,7 +14,9 @@ interface Props {
   logoUrl?: string | null;
 }
 const { name, slug, description, tags = [], isAdult = false, logoUrl } = Astro.props;
-const fallback = "/placeholder.svg";
+// Pede a logo no tamanho de exibição em vez do original. O placeholder é o
+// fallback de `groupLogoAttrs`.
+const logo = groupLogoAttrs(logoUrl, "card");
 ---
 <div class="card-wrapper">
 <a
@@ -30,7 +33,9 @@ const fallback = "/placeholder.svg";
   }
   <img
     class="logo"
-    src={logoUrl || fallback}
+    src={logo.src}
+    srcset={logo.srcset}
+    sizes={logo.sizes}
     alt={`Logo do grupo ${name}`}
     width="104"
     height="104"

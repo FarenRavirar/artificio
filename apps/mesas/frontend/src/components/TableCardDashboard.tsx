@@ -2,7 +2,17 @@ import { useState } from 'react';
 import { getSlotsVisualState } from '../utils/slots';
 import { SystemBadge } from './SystemBadge';
 import { CertificationBadges } from './CertificationBadges';
-import { applyTableImageFallback, resolveTableImageSource } from '../utils/tableImage';
+import { applyTableImageFallback, tableImageAttrs } from '../utils/tableImage';
+
+/**
+ * Card do painel do mestre, grid medido em `PainelMestrePage.tsx:734`:
+ * `grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4`. Em `xl` o container do
+ * Tailwind vale 1280px, menos `px-6` e dois `gap-4`: ≈ 400px por coluna.
+ *
+ * Tela autenticada, atrás de login — não está no caminho do LCP público, então
+ * nenhuma imagem aqui é prioritária.
+ */
+const DASHBOARD_COVER_SIZES = '(min-width: 1280px) 400px, (min-width: 768px) 50vw, 100vw';
 import { InlineDeleteConfirmation } from './InlineDeleteConfirmation';
 import type { TableDetail } from '../types/tables';
 import { CopyAnnouncementButton } from '../features/table/components/CopyAnnouncementButton';
@@ -88,9 +98,19 @@ export function TableCardDashboard({
         </div>
       )}
 
-      {/* BADGE DE ARQUIVAMENTO (D-MESAS1) — some do catálogo público */}
+      {/* BADGE DE ARQUIVAMENTO (D-MESAS1) — some do catálogo público.
+
+          Par sólido de marca, igual ao botão "Arquivar" logo abaixo: os dois
+          são a mesma ação e pareavam em bronze. Era
+          `bg-[var(--artificio-bronze)]` + `text-[var(--fg)]`, medido 4,10:1 no
+          claro e 4,04:1 no escuro — abaixo do 4,5:1 de texto normal nos DOIS
+          temas. O par mede 4,70:1 e 6,00:1.
+
+          Bronze não é cor de marca: a paleta declara "Laranja = acento; navy =
+          texto" (`packages/ui/src/styles.css:1`), e este era o último
+          consumidor do token. */}
       {table.archived && (
-        <div className="absolute top-2 left-2 bg-[var(--artificio-bronze)] text-[var(--fg)] text-xs px-2 py-1 rounded-md font-medium z-20">
+        <div className="absolute top-2 left-2 bg-[var(--brand-solid)] text-[var(--brand-solid-fg)] text-xs px-2 py-1 rounded-md font-medium z-20">
           🗄️ Arquivada
         </div>
       )}
@@ -103,7 +123,7 @@ export function TableCardDashboard({
         }`}
       >
         <img
-          src={resolveTableImageSource(table.image_url)}
+          {...tableImageAttrs(table.image_url, { sizes: DASHBOARD_COVER_SIZES })}
           alt={table.title}
           className="w-full h-full object-cover"
           onError={applyTableImageFallback}
@@ -229,11 +249,19 @@ export function TableCardDashboard({
           />
         )}
 
+        {/* Par sólido de marca (spec 103, T3.2). Era
+            `bg-[var(--artificio-bronze)]` + `text-[var(--fg)]`: medido, 4,10:1
+            no claro e 4,04:1 no escuro, abaixo do 4,5:1 que texto normal pede.
+            Bronze não é cor de marca — a paleta declara "Laranja = acento;
+            navy = texto" (`packages/ui/src/styles.css:1`) e este era o ÚNICO
+            consumidor do token. `hover:brightness-110` sai junto: filtro
+            clareia o fundo sem medir a razão resultante contra a cor do
+            texto. */}
         {onArchive && (
           <button
             onClick={() => onArchive(table)}
             disabled={isArchiving}
-            className="col-span-2 py-2 text-xs bg-[var(--artificio-bronze)] hover:brightness-110 text-[var(--fg)] disabled:opacity-50 rounded-lg transition"
+            className="col-span-2 py-2 text-xs bg-[var(--brand-solid)] hover:bg-[var(--brand-solid-hover)] text-[var(--brand-solid-fg)] disabled:opacity-50 rounded-lg transition"
           >
             {isArchiving ? '⏳' : table.archived ? '♻️ Desarquivar' : '🗄️ Arquivar'}
           </button>

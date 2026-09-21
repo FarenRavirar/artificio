@@ -109,7 +109,7 @@ export const MesaPage = () => {
           <Link
             to="/catalogo"
             id="mesa-encerrada-link-catalogo"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--color-artificio-orange)] hover:bg-[var(--color-artificio-orange-hover)] transition-colors"
+            className="text-[var(--brand-solid-fg)] inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--brand-solid)] hover:bg-[var(--brand-solid-hover)] transition-colors"
           >
             <Compass className="w-4 h-4" /> Clique aqui para ver novas mesas
           </Link>
@@ -142,7 +142,7 @@ export const MesaPage = () => {
           <Link
             to="/catalogo"
             id="mesa-link-voltar-catalogo"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--color-artificio-orange)] hover:bg-[var(--color-artificio-orange-hover)] transition-colors"
+            className="text-[var(--brand-solid-fg)] inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--brand-solid)] hover:bg-[var(--brand-solid-hover)] transition-colors"
           >
             <Compass className="w-4 h-4" /> Voltar ao catálogo
           </Link>
@@ -180,7 +180,11 @@ export const MesaPage = () => {
 
             {/* Fase 2.2: TableHero (substituindo hero section de 74 linhas) */}
             {/* showOverlay={false} = banner limpo (apenas imagem), informações estão na sidebar */}
-            {vm && <TableHero vm={vm} variant="full" showOverlay={false} />}
+            {/* `priority`: esta é a única rota onde o `TableHero` é o herói
+                singular e primeira imagem da página, logo o LCP dela. Na lista
+                do perfil (`MasterTables.tsx`) o mesmo componente aparece uma vez
+                por mesa e lá o default `false` é o certo. */}
+            {vm && <TableHero vm={vm} variant="full" showOverlay={false} priority />}
 
             {/* Fase 2.3: TableSchedules (substituindo schedules section de 68 linhas) */}
             {vm && <TableSchedules vm={vm} />}

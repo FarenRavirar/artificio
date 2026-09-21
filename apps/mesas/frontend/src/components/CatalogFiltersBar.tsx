@@ -276,7 +276,7 @@ export function CatalogFiltersBar({
               {advancedCount > 0 && (
                 <span
                   aria-label={`${advancedCount} ${advancedCount === 1 ? 'filtro avançado ativo' : 'filtros avançados ativos'}`}
-                  className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-[var(--color-artificio-orange)] px-1 text-xs font-black text-white"
+                  className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-[var(--brand-solid)] px-1 text-xs font-black text-[var(--brand-solid-fg)]"
                 >
                   {advancedCount}
                 </span>
@@ -289,7 +289,11 @@ export function CatalogFiltersBar({
             <button
               id="catalog-search-submit"
               type="submit"
-              className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-[var(--color-artificio-orange)] px-4 text-sm font-semibold whitespace-nowrap text-white transition-colors hover:bg-[var(--color-artificio-orange-hover)] focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-[var(--artificio-focus)]"
+              /* Mesmo par sólido de marca do `#btn-anunciar-mesa-home`
+                 (`CatalogoPage.tsx`): o rótulo também é `text-sm
+                 font-semibold`, então vale o AA de 4,5:1, e laranja cru com
+                 branco dá 3,16:1. Ver a medição completa lá. */
+              className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-[var(--brand-solid)] px-4 text-sm font-semibold whitespace-nowrap text-[var(--brand-solid-fg)] transition-colors hover:bg-[var(--brand-solid-hover)] focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-[var(--artificio-focus)]"
             >
               <Search className="h-4 w-4 shrink-0" />
               Buscar

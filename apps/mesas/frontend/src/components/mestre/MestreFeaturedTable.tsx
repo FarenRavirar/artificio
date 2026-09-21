@@ -7,7 +7,27 @@ import { SystemBadge } from '../SystemBadge';
 import { markdownToPlainText } from '@artificio/content-editor/sanitize';
 import { CertificationBadges } from '../CertificationBadges';
 import { getSlotsVisualState } from '../../utils/slots';
-import { applyTableImageFallback, resolveTableImageSource } from '../../utils/tableImage';
+import { applyTableImageFallback, tableImageAttrs } from '../../utils/tableImage';
+
+/**
+ * A capa ocupa METADE do card, não a largura do container.
+ *
+ * Medido em `MestrePage.css`: `.mestre-featured-table-link` é
+ * `grid-template-columns: 1fr 1fr` (linha 441), e só em `max-width: 768px` vira
+ * `1fr` (linha 589). O `.container` do perfil lê `--page-max: 1200px`
+ * (`MestrePage.css:22`, `:48-49`).
+ *
+ * A primeira versão declarava `(min-width: 1200px) 1200px, 100vw` — a largura
+ * do CONTAINER, ignorando a divisão em duas colunas. Um navegador DPR 1 acredita
+ * no `sizes` e escolheria a variante de 1200w para uma caixa de 600px,
+ * transferindo cerca de quatro vezes mais pixels numa mudança feita para reduzir
+ * payload (achado de review, PR #328). `sizes` de mentira é pior que não ter
+ * `srcset`.
+ *
+ * `50vw` entre 769px e 1200px porque ali o container acompanha a janela; acima
+ * de 1200px ele trava e a metade é fixa em 600px.
+ */
+const FEATURED_COVER_SIZES = '(min-width: 1200px) 600px, (min-width: 769px) 50vw, 100vw';
 
 interface Props {
   table: TableCard;
@@ -40,9 +60,18 @@ export function MestreFeaturedTable({ table }: Props) {
         <div className="mestre-featured-table-cover">
           {/* Mesma regra do card e do hero: sem `object-position` a capa é
               cortada pelo centro geométrico e o enquadramento escolhido pelo
-              mestre é ignorado. */}
+              mestre é ignorado.
+
+              SEM `priority`: a versão anterior marcava `priority: true` com a
+              justificativa de ser "a primeira imagem da página". Medido em
+              `MestrePage.tsx`, é falso — `MestreHero` renderiza na linha 111 com
+              banner (`MestreHero.tsx:227`) e avatar (`:266`), e a seção de mesas
+              só entra na linha 169, depois do grupo "Sobre" inteiro. Eager+high
+              aqui fazia esta capa, normalmente abaixo da dobra, competir com as
+              duas imagens realmente visíveis do hero (achado de review,
+              PR #328). */}
           <img
-            src={resolveTableImageSource(table.cover_url)}
+            {...tableImageAttrs(table.cover_url, { sizes: FEATURED_COVER_SIZES })}
             alt={table.title}
             style={{
               objectPosition: cropToObjectPosition(

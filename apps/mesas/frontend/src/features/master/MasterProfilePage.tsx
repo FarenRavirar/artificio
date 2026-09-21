@@ -81,7 +81,7 @@ export function MasterProfilePage() {
           <p className="text-white/70 mb-5">{error ?? 'Mestre não encontrado.'}</p>
           <Link
             to="/catalogo"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--color-artificio-orange)] hover:bg-[var(--color-artificio-orange-hover)] transition-colors"
+            className="text-[var(--brand-solid-fg)] inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--brand-solid)] hover:bg-[var(--brand-solid-hover)] transition-colors"
           >
             <Compass className="w-4 h-4" /> Voltar ao catálogo
           </Link>
@@ -107,7 +107,7 @@ export function MasterProfilePage() {
                   block: 'start'
                 });
               }}
-              className="px-6 py-3 rounded-lg bg-[var(--color-artificio-orange)] hover:bg-[var(--color-artificio-orange-hover)] transition-colors font-semibold text-lg"
+              className="text-[var(--brand-solid-fg)] px-6 py-3 rounded-lg bg-[var(--brand-solid)] hover:bg-[var(--brand-solid-hover)] transition-colors font-semibold text-lg"
             >
               Ver mesas disponíveis
             </button>

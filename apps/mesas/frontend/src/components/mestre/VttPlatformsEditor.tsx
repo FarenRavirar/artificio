@@ -118,10 +118,20 @@ export function VttPlatformsEditor({
                 }
               `}
             >
-              {/* Checkmark */}
+              {/* Checkmark — par sólido de marca.
+
+                  Ícone é gráfico, então o critério é o 3:1 de componente de
+                  interface (WCAG 1.4.11) e não o 4,5:1 de texto. Era
+                  `bg-[var(--special)]` + `<Check>` em `--fg`, e reprovava
+                  mesmo nesse limite mais baixo: medido 2,68:1 no claro e
+                  3,50:1 no escuro. O par mede 4,70:1 e 6,00:1.
+
+                  Achado pela varredura de `contrasteMarca.test.ts`, não por
+                  lista — não estava no levantamento dos 22 botões nem no dos
+                  5 seguintes. */}
               {isSelected && (
-                <div className="absolute top-2 right-2 w-5 h-5 rounded-[var(--radius-pill)] bg-[var(--special)] flex items-center justify-center">
-                  <Check className="w-3 h-3 text-[var(--fg)]" />
+                <div className="absolute top-2 right-2 w-5 h-5 rounded-[var(--radius-pill)] bg-[var(--brand-solid)] flex items-center justify-center">
+                  <Check className="w-3 h-3 text-[var(--brand-solid-fg)]" />
                 </div>
               )}
 
@@ -152,10 +162,18 @@ export function VttPlatformsEditor({
         <p className="text-[length:var(--text-support)] leading-[var(--leading-support)] text-[var(--fg-low)]">
           {selected.size} {selected.size === 1 ? 'plataforma selecionada' : 'plataformas selecionadas'}
         </p>
+        {/* Par sólido de marca (spec 103, T3.2). Era `bg-[var(--special)]` +
+            `text-[var(--fg)]`: medido, 2,68:1 no claro e 3,50:1 no escuro,
+            contra o 4,5:1 que texto normal pede — reprovava nos dois temas. O
+            roxo não é cor de marca: não está na paleta declarada
+            (`packages/ui/src/styles.css:1`, "Laranja = acento; navy = texto"),
+            nasce direto no bloco semântico e não aparece no logo nem na página
+            antiga. `hover:brightness-90` sai junto: filtro escurece o fundo sem
+            medir a razão resultante contra a cor do texto. */}
         <button
           onClick={handleSave}
           disabled={saving}
-          className="px-6 py-2 rounded-[var(--radius-md)] bg-[var(--special)] hover:brightness-90 disabled:opacity-50 text-[var(--fg)] font-[var(--weight-medium)] transition"
+          className="px-6 py-2 rounded-[var(--radius-md)] bg-[var(--brand-solid)] hover:bg-[var(--brand-solid-hover)] disabled:opacity-50 text-[var(--brand-solid-fg)] font-[var(--weight-medium)] transition"
         >
           {saving ? 'Salvando...' : 'Salvar'}
         </button>

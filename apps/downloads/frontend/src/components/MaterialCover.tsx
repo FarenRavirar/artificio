@@ -17,6 +17,26 @@ interface MaterialCoverProps {
   className?: string;
 }
 
+// Spec 103 (T2.4). Medido no catalogo de producao
+// (`/api/v1/materials?limit=200`): 16 materiais, 15 com capa, somando
+// **4.207.820 bytes** — a maior 621 KiB, para exibir dentro de 176px de altura
+// (`max-h-44`). Todas as 15 estao em `img.itch.zone`, host de terceiro.
+//
+// Reescrever a URL do itch NAO e opcao, e isso foi medido: a variante de tamanho
+// dele e assinada por asset, nao parametro livre. `110x87#` responde 200 num
+// asset que o itch publica e 404 nas nossas URLs; `original` responde 200 nas
+// nossas e 404 na dele. Montar a variante daria 404 — o mesmo defeito que
+// `apps/site/src/lib/images.ts` tinha com conta de terceiro.
+//
+// Sobra o que nao depende do host: nao baixar de imediato o que esta fora da
+// tela. Sem `loading`, o navegador busca as 15 capas no primeiro paint.
+const LOADING: Record<'card' | 'detail', 'lazy' | 'eager'> = {
+  // Prateleira: a maioria dos cards nasce fora da viewport.
+  card: 'lazy',
+  // Ficha: a capa e o elemento visual principal e costuma ser o LCP.
+  detail: 'eager',
+};
+
 // Spec 088 (T1.1) — REGRA UNICA de exibicao de capa, consumida por todo ponto
 // que mostra capa. Antes havia duas implementacoes divergentes: o card usava
 // `h-32 w-full object-cover` (altura fixa que RECORTA) e a ficha `w-full
@@ -89,6 +109,11 @@ export function MaterialCover({
         // `justify-center` do frame centraliza, entao as laterais absorvem a
         // diferenca entre capas de proporcoes distintas.
         className={`${IMAGE_CEILING[size]} h-auto w-auto max-w-full object-contain`}
+        loading={LOADING[size]}
+        // `sync` na ficha porque a capa ali e o elemento principal: decodificar
+        // fora da thread atrasaria justamente o que o visitante veio ver.
+        decoding={size === 'detail' ? 'sync' : 'async'}
+        fetchPriority={size === 'detail' ? 'high' : 'auto'}
         onError={() => setFailed(true)}
       />
     </div>

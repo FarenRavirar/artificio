@@ -38,7 +38,7 @@ export function SealToggle({ active, onClick, variant, icon, children, activeCla
   }[variant];
 
   const activeDefault = {
-    pill: 'bg-[var(--color-artificio-orange)] font-semibold text-white',
+    pill: 'bg-[var(--brand-solid)] font-semibold text-[var(--brand-solid-fg)]',
     toolbar: 'border-white/10 bg-white/10 text-white',
     drawer: 'border-white/10 bg-white/10 text-white',
   }[variant];

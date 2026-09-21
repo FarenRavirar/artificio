@@ -54,7 +54,7 @@ export function AdminSidebar({ pendenciaCount }: Props) {
               {group.slug === 'visao-geral' && pendenciaCount !== undefined && pendenciaCount > 0 && (
                 <span
                   title="Pendências no total (sugestões + rascunhos)"
-                  className="ml-auto min-w-5 rounded-full bg-[var(--color-artificio-orange)] px-1.5 py-0.5 text-center text-xs font-semibold tabular-nums text-white"
+                  className="ml-auto min-w-5 rounded-full bg-[var(--brand-solid)] px-1.5 py-0.5 text-center text-xs font-semibold tabular-nums text-[var(--brand-solid-fg)]"
                 >
                   {pendenciaCount}
                 </span>

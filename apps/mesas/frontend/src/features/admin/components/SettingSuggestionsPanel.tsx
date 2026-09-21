@@ -183,7 +183,7 @@ export function SettingSuggestionsPanel() {
             type="button"
             onClick={() => void save()}
             disabled={saving}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--color-artificio-orange)] px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--brand-solid)] px-3 py-2 text-sm font-medium text-[var(--brand-solid-fg)] disabled:opacity-50"
           >
             <Save size={15} /> {form.id ? 'Salvar' : 'Criar'}
           </button>

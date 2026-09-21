@@ -9,7 +9,7 @@ export function MestreNotFound() {
         <Link
           to="/catalogo"
           id="mestre-link-catalogo"
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-[var(--radius-md)] bg-[var(--color-artificio-orange)] hover:bg-[var(--color-artificio-orange-hover)] transition-colors"
+          className="text-[var(--brand-solid-fg)] inline-flex items-center gap-2 px-4 py-2 rounded-[var(--radius-md)] bg-[var(--brand-solid)] hover:bg-[var(--brand-solid-hover)] transition-colors"
         >
           Voltar ao catálogo
         </Link>
