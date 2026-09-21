@@ -277,6 +277,36 @@ a {
   font-weight: 700;
 }
 
+/*
+  Espaçamentos que estavam em atributo `style=""` na `index.astro`. A CSP por hash
+  NÃO cobre atributo de estilo (só `unsafe-hashes` cobriria), então em produção os
+  dois eram recusados e o espaçamento sumia — medido em 2026-09-21.
+*/
+.suggest-form-wrap {
+  margin-top: 1.5rem;
+}
+/*
+  Duas classes no seletor de propósito: `.section-title:first-of-type` tem
+  especificidade (0,2,0) e vencia uma classe sozinha, e este `<h2>` É o primeiro
+  do tipo na página. O `style=""` que estava aqui vencia por ser atributo.
+*/
+.section-title.section-title--espacada {
+  margin-top: 3.5rem;
+}
+.link-marca {
+  color: var(--brand);
+  font-weight: 700;
+}
+.page-lead--espacada {
+  margin-top: 2rem;
+}
+.icone-externo {
+  display: inline;
+  vertical-align: middle;
+  margin-left: 5px;
+  opacity: 0.7;
+}
+
 /* ---- Regras (accordion) ---- */
 .regras-intro {
   background: var(--surface-soft);

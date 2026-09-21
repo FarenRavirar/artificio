@@ -1,5 +1,6 @@
 import type { SyntheticEvent } from 'react';
 import {
+  cloudinaryDeliveryUrl,
   cloudinarySrcset,
   imageKindWidths,
 } from '@artificio/media/delivery-url';
@@ -83,6 +84,31 @@ export function tableImageAttrs(
     decoding: priority ? 'sync' : 'async',
     fetchPriority: priority ? 'high' : 'auto',
   };
+}
+
+/**
+ * URL de avatar pedindo a largura que o layout realmente usa.
+ *
+ * Existe porque o avatar era o único consumo de imagem do `mesas` que não passava
+ * por `@artificio/media`: medido em produção em 2026-09-21, 6 URLs saíam como
+ * `/upload/v17…/artificio_avatars/…`, sem transformação nenhuma, somando **507 KiB**
+ * — a maior com 217 KiB para renderizar em 24 px (`TableCard`).
+ *
+ * Largura fixa em vez de `srcset` porque `imageKindWidths('profile_avatar')` começa
+ * em 140 px (o piso do perfil público), e o menor consumo aqui é de 24 px: o
+ * `srcset` só ofereceria candidatas grandes demais. Quem chama diz o tamanho do
+ * layout e esta função dobra para cobrir tela 2x, que é onde o avatar borrado
+ * apareceria.
+ *
+ * URL que a função não entende (link de terceiro, já transformada) volta intacta —
+ * `cloudinaryDeliveryUrl` garante isso, e pedir tamanho nunca é requisito.
+ */
+export function avatarSrc(
+  rawSrc: string | null | undefined,
+  larguraDeLayout: number,
+): string | undefined {
+  if (!rawSrc) return undefined;
+  return cloudinaryDeliveryUrl(rawSrc, larguraDeLayout * 2);
 }
 
 export { bannerPlaceholder };

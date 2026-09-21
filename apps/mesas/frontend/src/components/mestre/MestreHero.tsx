@@ -4,6 +4,7 @@ import { CheckCircle2, Medal, Sparkles, Crown, Award, Users, Star, MessageSquare
 import type { TableCard } from '../../types/tables';
 import type { MestrePublicData } from '../../hooks/useMestre';
 import { isUsableImageSrc } from '../../utils/imageSource';
+import { avatarSrc } from '../../utils/tableImage';
 import { cropToObjectPosition } from '@artificio/media/image-kinds';
 import { Badge, toFiniteNumber, type BadgeVariant } from '@artificio/ui';
 // Spec 099 B10: o hero carrega o PRÓPRIO CSS (movido de MestrePage.css) para
@@ -264,8 +265,9 @@ export function MestreHero({ profile, mappedTables }: MestreHeroProps) {
           <div className="hero-avatar">
             {isUsableImageSrc(profile.avatar_url) && !avatarFailed ? (
               <img
-                src={profile.avatar_url}
+                src={avatarSrc(profile.avatar_url, 96)}
                 alt={profile.display_name}
+                decoding="async"
                 style={{
                   objectPosition: cropToObjectPosition(
                     profile.avatar_crop_data,

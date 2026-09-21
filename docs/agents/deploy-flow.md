@@ -367,7 +367,15 @@ tomada sobre informação errada.
 `promote-prod-fast-forward.yml` **só move o ponteiro Git** (`main` fast-forward
 para `dev`). Não chama `deploy.yml`, não builda, não sobe container.
 
-**Produção só atualiza com dispatch manual explícito:**
+O promote exige o input `confirm`, e sem ele o dispatch nem chega a rodar:
+`could not create workflow dispatch event: HTTP 422: Required input 'confirm'
+not provided`. O valor é literal (`promote-prod-fast-forward.yml:8-11`):
+
+```bash
+gh workflow run promote-prod-fast-forward.yml --ref main -f confirm=PROMOTE_DEV_TO_MAIN
+```
+
+**Produção só atualiza com dispatch manual explícito, um módulo por vez:**
 
 ```bash
 gh workflow run deploy.yml --ref main -f module=<modulo> -f mode=deploy -f env=prod

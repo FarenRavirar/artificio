@@ -8,8 +8,8 @@ Task só fecha com o comando que a mediu na mesma linha. "Local", "parcial" e
 
 ## T1 — `` `}{` `` na busca do portal
 
-Entregue no commit `fca55ef`, PR #327 (base `dev`), junto da T7. Falta só a T1.2,
-que depende de deploy.
+Entregue no commit `fca55ef`, PR #327 (base `dev`), junto da T7. **Fechada** — a
+T1.2 foi confirmada em produção em 2026-09-21.
 
 ### [x] T1.1 — Template do Pagefind volta a ser HTML cru
 
@@ -27,13 +27,12 @@ presente. Contar backtick no arquivo inteiro NÃO mede isto: a linha do
 `astro-island` bundlado tem backtick próprio e devolve falso positivo — restringir
 a contagem às linhas do corpo do template.
 
-### [ ] T1.2 — Confirmar em produção depois do deploy
+### [x] T1.2 — Confirmado em produção (2026-09-21)
 
-Bloqueado: depende de deploy, que exige autorização nominal.
-
-**Aceite:** `curl -s "https://artificiorpg.com/busca/?cb=$(date +%s%N)"` e conferir o
-bloco `text/pagefind-template` sem `` ` ``. Sem o cache-buster mede-se a borda da
-Cloudflare (`max-age=7200`), não a origem.
+`curl -s "https://artificiorpg.com/busca/?cb=$(date +%s%N)"` devolveu `200`, e o
+bloco `text/pagefind-template` (559 caracteres) tem **0 backtick**, com
+`{{#if meta.categoria}}` presente. O cache-buster é o que faz a medição valer: sem
+ele mede-se a borda da Cloudflare (`max-age=7200`), não a origem.
 
 ### [x] T1.3 — Buscar um termo e ver o resultado renderizado
 
@@ -239,11 +238,79 @@ Medido: `mesas-frontend` 1231 testes em 93 arquivos (era 1193 em 89),
 `useBannerScrim.ts:251` (arquivo intocado, `git diff` vazio — mesma família de
 dep list incompleta desta spec, não introduzido aqui).
 
-### [ ] T2.3 — Medir o ganho em produção
+### [ ] T2.3 — Medido em produção: metade do aceite passa, LCP NÃO
 
 **Aceite:** Lighthouse móvel em `mesas.artificiorpg.com`, mediana de **3** rodadas.
 Economia de imagem < 1.000 KiB (era 10.644) e LCP < 2,5 s (era 5,9 s). Uma rodada só
 não fecha — o Lighthouse varia.
+
+**Medido em 2026-09-21** (`npx lighthouse --only-categories=performance`, preset móvel
+padrão, 3 rodadas, cache-buster por rodada):
+
+| rodada | LCP | payload total |
+|---|---|---|
+| 1 | 8,37 s | 1.996 KiB |
+| 2 | 8,14 s | 1.997 KiB |
+| 3 | 8,27 s | 1.995 KiB |
+
+Mediana **8,27 s**. Performance 0,63 nas três.
+
+**A economia de imagem passa; o LCP reprova, e piorou em relação aos 5,9 s do
+enunciado.** Os 5,9 s foram medidos noutro build, então a comparação direta não é
+confiável — o que é medição desta rodada é o 8,27 s contra o alvo de 2,5 s.
+
+**Não use a auditoria `uses-responsive-images` como prova aqui.** Ela não existe no
+JSON do Lighthouse 13.4.0, e ler a chave ausente devolve economia `0 KiB` — zero por
+ausência de medição, não por ausência de desperdício (AGENTS.md §Evidência item 8). O
+que foi medido de fato: **1.242 KiB em 18 imagens**, de 1.997 KiB totais.
+
+**O `srcset` da T2.2 está no ar e correto**, medido no HTML servido: 21 `<img>` com
+`srcSet` de `600w, 1200w, 1600w` e `sizes="(min-width: 1280px) 420px, (min-width: 768px) 50vw, 100vw"`.
+Em 412 CSS px com DPR 1,75 o navegador precisa de ~721 px e escolhe **1200w**, a
+candidata imediatamente acima — comportamento correto do navegador, não defeito do
+atributo. A lacuna é de largura disponível: `imageKindWidths`
+(`packages/media/src/deliveryUrl.ts:183`) parte de `minWidth` dobrando, o que dá
+600 → 1200 e nenhuma candidata entre as duas.
+
+**O gargalo não é só imagem:** FCP de 5,0 s na mesma rodada, com documento entregue em
+185 ms e `server-response-time` de 100 ms. O throttling simulado é de 1.638 kbps, e
+2 MB nessa banda dão ~10 s de download — 576 KiB são de script, em 41 requisições.
+
+**Segue aberta.** Fechar exige decidir o que cortar (largura intermediária no registro
+de `IMAGE_KINDS`, avatares sem transformação — ver abaixo —, ou peso de JS), e isso
+muda o que o visitante recebe.
+
+**Achado lateral, CORRIGIDO no mesmo trabalho (AGENTS.md §Bug achado):** 6 URLs do
+Cloudinary (**507 KiB**) saíam sem transformação nenhuma
+(`/upload/v17…/artificio_avatars/…`), a maior com 217 KiB para renderizar em
+`w-6 h-6` (24 px). `cloudinaryDeliveryUrl` já tratava `artificio_avatars`
+(`deliveryUrl.test.ts:66-67`), mas o único consumidor de
+`@artificio/media/delivery-url` no `mesas` era `utils/tableImage.ts`, que só cobre
+capa — quem renderizava avatar importava `image-kinds` (`cropToObjectPosition`) e
+montava o `src` cru. É a exceção por app que §Compartilhado por padrão nomeia.
+
+`avatarSrc(src, larguraDeLayout)` entrou em `utils/tableImage.ts`, ao lado de
+`tableImageAttrs`, e os **5** pontos que renderizavam avatar passaram a usá-lo, com
+a largura que o CSS de cada um declara: `TableCard.tsx:188` (24 px),
+`ProfileEditPage.tsx:162` (80 px, `ProfileEditPage.css:38`), `MestreHero.tsx:267`
+(96 px, `MestreHero.css:139`), `PlayerPage.tsx:146` (120 px, `PlayerPage.css:73`) e
+`MestreBio.tsx:36` (240 px, `MestrePage.css:427`).
+
+**Largura fixa, não `srcset`, e isso foi medido:** `imageKindWidths('profile_avatar')`
+começa em `minWidth` 140 (`imageKinds.ts:113`), o piso do perfil público — para um
+avatar de 24 px o `srcset` só ofereceria candidatas grandes demais. A função dobra a
+largura de layout para cobrir tela 2x, que é onde o avatar borrado apareceria.
+
+`onError` de `MestreHero` segue recebendo `profile.avatar_url` cru de propósito: ali
+a URL é chave de falha, não fonte de exibição.
+
+**Guarda:** 5 testes novos em `tableImage.test.ts` — dobra a largura, entrega com
+`q_auto`/`f_auto`, devolve `undefined` sem src (para o React omitir o atributo), não
+reescreve URL de terceiro e não empilha transformação sobre URL que já tem uma.
+
+**Validação:** `mesas-frontend` **1239/1239** (eram 1234), `lint` 0 erro, `build`
+exit 0, `pnpm verify:api` breaking=0 nos 6 apps. **Falta a medição em produção**, que
+depende de deploy.
 
 ### [x] T2.4 — Cruzar com os outros apps
 
@@ -529,7 +596,15 @@ dois é `text-sm font-semibold`, ou seja 14px/600. "Texto grande" no WCAG 2.2
 começa em 18,66px bold ou 24px, e o `@theme` do app (`index.css:7-16`) só
 redefine cores — não sobrescreve `--text-sm`. Os dois estados reprovam.
 
-### [ ] T3.2 — Corrigir na origem certa — código pronto, aceite espera deploy
+### [x] T3.2 — Corrigido na origem certa, confirmado em produção (2026-09-21)
+
+**Aceite fechado:** Lighthouse Acessibilidade em `mesas.artificiorpg.com` com
+cache-buster devolveu categoria **1,0** e `color-contrast` com **score 1 e lista de
+achados vazia**. Os dois botões que a spec nomeava estão na página medida, com o par
+de token no HTML servido: `#btn-anunciar-mesa-home` sai
+`bg-[var(--brand-solid)] … text-[var(--brand-solid-fg)] hover:bg-[var(--brand-solid-hover)]`,
+e `#catalog-search-submit` está presente. Zero ocorrência de `ff5722` cru no HTML
+contra 75 de `brand-solid`.
 
 Os dois usam token `--color-*` de `packages/ui`. Se o token reprova, o defeito é dos
 6 apps e a correção é no token — com verificação nos consumidores. Se só o uso local
@@ -744,11 +819,16 @@ Comentários fora antes de casar — a mesma pegadinha já registrada em
 
 Falta o Lighthouse do aceite, que exige deploy.
 
-### [ ] T3.3 — Ordem de heading no catálogo — código pronto, aceite espera deploy
+### [x] T3.3 — Ordem de heading no catálogo, confirmada em produção (2026-09-21)
 
 `<h3>` sem `<h2>` antes, nos cards.
 
-**Aceite:** Lighthouse sem o achado de ordem de heading.
+**Aceite fechado:** Lighthouse Acessibilidade em `mesas.artificiorpg.com` não reprova
+`heading-order` (categoria 1,0, nenhuma auditoria binária em falha). Medido no HTML
+servido: **1 `<h1>`, 1 `<h2>`, 24 `<h3>`**, com o `<h2>` sendo a contagem de
+resultados (`37+ mesas encontradas`, `class="text-sm font-normal"`) entre o `<h1>` e
+os cards — a hierarquia que a correção criou, e com o `font-normal` que mantém o
+texto visível inalterado.
 
 **Investigado e confirmado.** A rota do catálogo tem exatamente dois níveis:
 `<h1>` em `CatalogoPage.tsx:481` e `<h3>` no título da mesa em
@@ -920,9 +1000,14 @@ vez de contar.
 `mesas-frontend` 1234/1234 · build do pacote exit 0.
 
 **Aceite:** `.artificio-session` com `y < 60` nas três larguras, nos 5 apps, e nenhum
-consumidor regredido. **Falta a metade de aceite que exige deploy** — a medição
-em produção acima é do CSS ANTES da correção, e `beta.downloads` respondeu `000`
-(sem deploy). O guard cobre o contrato; a confirmação na tela pede o deploy.
+consumidor regredido.
+
+**Fechado em produção (2026-09-21), via Playwright contra os domínios reais:**
+`downloads` mede `y = 12` em **1280, 1440 e 1920 px**, com
+`grid-template-columns` de **5 faixas** nas três (`90px 523px 360px 84px 96px` em
+1280). Os outros quatro consumidores também medem `y = 12`, e nenhum deles emite
+`data-has-search` — confirmação de que a 5ª faixa só alcança quem usa a busca
+embutida, como o seletor promete.
 
 ---
 
@@ -1364,10 +1449,14 @@ reconferido verde.
 `weekday=sábado` → 23 com o ramo do hint e 15 sem ele; `daypart=noite` → 55;
 `sábado` + `noite` no mesmo `EXISTS` → 12; `daypart=madrugada` → 0.
 
-### [ ] T7.4 — Desktop: controle no painel de filtros avançados
+### [x] T7.4 — Desktop: controle no painel de filtros avançados
 
-Código escrito e verde em teste de componente; **não fecha** porque o aceite pede
-verificação em browser e não há Playwright no repo (T6.2, bloqueada).
+**Fechado em 2026-09-21**, Playwright a 1440×900 contra `mesas.artificiorpg.com`: com
+o painel aberto, clicar "Sexta" leva a URL a `?weekday=sexta` **sem clique extra**, e
+"Noite" a `?weekday=sexta&daypart=noite`. O resultado passa de `37+ mesas
+encontradas` para `4 mesas encontradas` com 4 cards, o badge do botão vira
+`Mais filtros2` e os dois chips ficam com `aria-pressed="true"`. As 4 mesas batem com
+o `total: 4` que a API devolve para a mesma combinação (T7.10).
 
 `ScheduleFacetPicker.tsx` novo, montado por `CatalogAdvancedFilters.tsx` nas duas
 superfícies. `advancedCount` já conta dia e faixa: `activeCatalogFiltersCount` passou
@@ -1377,10 +1466,7 @@ Posição no painel: agenda **antes** de experiência/tipo. Decisão técnica de
 (AGENTS.md §Produto vs. técnico) — "quando posso jogar" filtra mais gente, e foi o
 pedido original do usuário anônimo. Reverter é mover um bloco JSX.
 
-**Falta para fechar:** Playwright 1440×900 — marcar "sexta" e "noite" mudam URL e
-resultado sem clique extra; badge incrementa em cada um.
-
-### [ ] T7.5 — Mobile: mesmo controle no `FilterDrawer`
+### [x] T7.5 — Mobile: mesmo controle no `FilterDrawer`
 
 O drawer é `md:hidden` (`FilterDrawer.tsx:84,95`) e usa draft + botões Aplicar/Limpar
 (`CatalogoPage.tsx:476-497`). Dia e faixa entram no `mobileAdvancedDraft` junto de
@@ -1389,7 +1475,13 @@ O drawer é `md:hidden` (`FilterDrawer.tsx:84,95`) e usa draft + botões Aplicar
 
 Duas superfícies, uma definição (R15). Componente duplicado aqui é o defeito.
 
-Código escrito; **não fecha** sem browser (mesmo motivo de T7.4).
+**Fechado em 2026-09-21**, Playwright a 390×844 contra produção: o drawer traz os
+mesmos dois `fieldset` ("Dia da semana" com 7 chips, "Horário" com 4) mais os botões
+`Limpar`/`Aplicar`. Marcar "Sexta" e depois "Noite" **não** mexe na URL (segue
+vazia); o clique em `Aplicar` a leva a `?weekday=sexta&daypart=noite`, com
+`4 mesas encontradas` e badge `2`. Reabrindo o drawer, `Limpar` zera os dois grupos
+junto do resto (nenhum `aria-pressed="true"` sobra) e o `Aplicar` seguinte devolve a
+URL limpa — a constante `EMPTY_ADVANCED_DRAFT` fazendo efeito.
 
 Dois pontos que a execução mudou, ambos para eliminar lista repetida — cada
 repetição era um lugar onde dia e faixa seriam esquecidos em silêncio:
@@ -1401,10 +1493,6 @@ repetição era um lugar onde dia e faixa seriam esquecidos em silêncio:
   seal: '', styles: [] }`). Mantido assim, dia e faixa **sobreviveriam ao "Limpar"** e
   nenhum tipo reclamaria — o literal era atribuído a um `Pick` mais largo via
   `setState`. Virou a constante `EMPTY_ADVANCED_DRAFT`, um lugar só.
-
-**Falta para fechar:** Playwright 390×844 — abrir drawer, marcar "sexta" e "noite",
-conferir que a URL **não** muda antes do clique em Aplicar e muda depois; "Limpar"
-zera dia e faixa junto do resto.
 
 ### [x] T7.6 — Chip de filtro ativo
 
@@ -1421,7 +1509,7 @@ resto do código não espera.
 os chips derivam de `WEEKDAY_OPTIONS`/`DAYPART_OPTIONS` (label da fonte única, valor
 do banco), e o clique chama `onRemove` com a chave e só aquele valor.
 
-### [ ] T7.7 — Acessibilidade e alvo de toque do controle novo
+### [x] T7.7 — Acessibilidade e alvo de toque do controle novo
 
 Dois grupos (dia e faixa), cada um com `fieldset`/`legend` ou `role="group"` +
 `aria-label`, alvo ≥ 44×44 no mobile, foco visível com o mesmo token
@@ -1438,11 +1526,20 @@ token `--artificio-focus`, sem valor próprio.
 aprovação, e os testes existentes usam `fireEvent` — os novos seguiram `fireEvent`,
 sem pedir dependência.
 
-**Aceite parcial (medido 2026-09-18):** `ScheduleFacetPicker.test.tsx` verde — grupos
-com nome acessível, opção vazia fora da ordem de tabulação, controle acionável por
-teclado. **Falta** o alvo de 44px medido em browser: jsdom não faz layout
-(`getBoundingClientRect()` devolve zero — `plan.md` §6.2), então a classe está
-escrita mas não verificada em pixel. Mesmo bloqueio de T6.2.
+**Aceite (medido 2026-09-18):** `ScheduleFacetPicker.test.tsx` verde — grupos com nome
+acessível, opção vazia fora da ordem de tabulação, controle acionável por teclado.
+
+**O pixel que faltava foi medido em 2026-09-21**, Playwright contra produção, que é o
+que jsdom não alcança (`getBoundingClientRect()` devolve zero — `plan.md` §6.2). Os
+**11** chips dos dois grupos medem **44 px de altura** nas duas superfícies (desktop
+1440×900 e drawer mobile 390×844); a largura varia com o rótulo (71–105 px). Os dois
+`fieldset` trazem `legend` "Dia da semana" e "Horário", nome acessível nativo, sem
+`aria-label` manual. O foco vem do token compartilhado: `focus-visible:outline-[3px]`
+com `outline-[var(--artificio-focus)]`, e `--artificio-focus` resolve para `#e64a19`
+no documento; `tabIndex` é 0.
+
+Como efeito colateral útil, a contagem de cada chip confere com a API: "Sexta(5)",
+"Domingo(3)", "Noite(24)", "Manhã(2)" batem com `/api/v1/tables/schedule-facets`.
 
 ### [~] T7.8 — BLOQUEADA por D4 (`spec.md` §6.6)
 
@@ -1565,13 +1662,40 @@ de rede, para nenhuma opção ser desabilitada por dado ausente.
 `mesas breaking=0 non-breaking=1`, rota registrada como `add` em
 `api-diff.generated.md` e presente em `api-index.generated.md` como `public`.
 
-### [ ] T7.10 — Conferir em produção depois do deploy
+### [x] T7.10 — Conferido em produção (2026-09-21)
 
-**Aceite:** `curl -s "https://mesas.artificiorpg.com/api/tables?weekday=sexta&daypart=noite&cb=$(date +%s%N)"`
-com resultado coerente, e a página de catálogo nos dois viewports com os dois filtros
-funcionando. Sem cache-buster mede-se a borda da Cloudflare, não a origem.
+**A rota do enunciado estava errada:** é `/api/v1/tables`, não `/api/tables`
+(`apps/mesas/backend/src/routes/tables.ts:346`).
 
-### [ ] T7.11 — Reporte do `401 /api/auth/refresh` — nada a corrigir
+Medido com cache-buster em cada chamada — sem ele mede-se a borda da Cloudflare, não
+a origem. O campo que conta é `pagination.total`; o tamanho de `data` é o limite de
+página (12) e daria falso positivo:
+
+| query | total |
+|---|---|
+| sem filtro | 37 |
+| `weekday=sexta` | 5 |
+| `weekday=domingo` | 3 |
+| `weekday=sexta,domingo` | 8 |
+| `daypart=noite` | 24 |
+| `daypart=manha` | 2 |
+| `daypart=noite,manha` | 26 |
+| `weekday=sexta&daypart=noite` | 4 |
+
+Os totais fecham com `/api/v1/tables/schedule-facets`, que devolve os mesmos números
+por valor, e a soma de união confere (5 + 3 = 8; 24 + 2 = 26). Valor inválido é
+descartado em silêncio como o contrato promete: `weekday=funday` devolve 37 e
+`weekday=sexta,funday` devolve 5.
+
+`weekday=sexta&weekday=domingo` (chave repetida) devolve 37, ou seja filtro vazio.
+**É o comportamento documentado**, não defeito: `parseEnumCsvQuery` exige `string` e
+Express entrega array na chave repetida (`tables.ts:110-116`). O formato multivalor é
+o CSV, e ele funciona.
+
+A metade de interface fechou junto de T7.4 (desktop 1440×900) e T7.5 (mobile
+390×844), com os mesmos 4 resultados que a API devolve.
+
+### [x] T7.11 — Reporte do `401 /api/auth/refresh` — nada a corrigir
 
 Medido: `packages/auth/src/client.ts:31` chama `/api/auth/refresh` com
 `credentials: "include"` no boot; visitante anônimo sem cookie recebe `401`, que é a
@@ -1579,6 +1703,63 @@ resposta correta do contrato (`apps/accounts/src/app.ts:479`).
 
 Fecha como "não é defeito", sem alteração de código. Registrado para o próximo
 reporte igual não virar investigação nova.
+
+Reconfirmado em 2026-09-21: o `401` aparece no console de `mesas`, `links` e dos
+demais consumidores, e some quando há cookie de sessão. Em preview local ele vem
+acompanhado de erro de CORS, porque `localhost` não está na allowlist do SSO — também
+artefato, não defeito.
+
+### [x] T7.13 — ACHADO NOVO no `links`: CSP matava 5 comportamentos em produção
+
+Encontrado ao conferir o header do `links` para a T4.3, e corrigido no mesmo trabalho
+(AGENTS.md §Bug achado). **Não tem relação com o resto da spec 103** — é defeito de
+produção que estava no caminho.
+
+**Medido em 2026-09-21** em `links.artificiorpg.com` com cache-buster: **9 erros de
+console**, dos quais 7 de CSP. Batendo o SHA-256 de cada `<script>` inline do HTML
+servido contra os 7 hashes da `<meta http-equiv="content-security-policy">`, **5 não
+constavam** e eram recusados com `The action has been blocked`:
+
+- tema anti-FOUC (`Base.astro`);
+- toggle da sidebar mobile (`Sidebar.astro`);
+- banner de onboarding (`index.astro`);
+- gate de conteúdo +18 (`Base.astro` e `grupo/[slug].astro`);
+- botão de voltar ao topo (`Base.astro`).
+
+**Falhavam em silêncio:** build verde, HTML válido, página renderizando. Medido no
+browser: o clique em `.sidebar-toggle` não mudava `aria-expanded` nem tirava a barra
+de `x: -280`, e `#scroll-top` ficava com `opacity: 0` mesmo a 900 px de rolagem. Mais
+2 atributos `style=""` recusados — hash **não** cobre atributo de estilo, só
+`unsafe-hashes` cobriria.
+
+**Causa, já registrada no repo e não aplicada aqui:** a CSP do Astro 6 só hasheia o
+que ele **bundla**; `<script is:inline>` nunca entra no `script-src`. É o
+`BL-SITE-CSP-INLINE` de `specs/backlog.md:202`, resolvido no `site` e nunca no
+`links`, cujo `astro.config.mjs` não tinha `scriptDirective`.
+
+**Correção, na forma que o `site` já usa:** os 5 scripts pós-carga perderam o
+`is:inline` e passaram a ser bundlados — o Astro os hasheia sozinho, e hash manual
+que quebra a cada edição deixa de existir para eles. Só o anti-FOUC continua inline,
+porque precisa rodar antes da primeira pintura, e entra por hash em
+`scriptDirective.hashes`. Os 4 `style=""` (2 na home, 1 na 404, 1 na página de grupo)
+viraram classes em `global.css`.
+
+`.section-title--espacada` precisou de **dois nomes no seletor**: o `<h2>` alvo é o
+primeiro do tipo na página, e `.section-title:first-of-type` (0,2,0) vencia uma
+classe sozinha. Medido no preview: 8 px em vez dos 56 px pretendidos, antes da
+correção.
+
+**Validação:** build do `links` verde (17 páginas); varredura do `dist` inteiro
+devolve **0** script inline fora da CSP e **0** atributo `style=`. No preview, o
+console cai de 9 erros para 1 (favicon 404) mais o CORS do SSO contra `localhost`, e
+as funcionalidades voltam: sidebar abre (`x: -280` → `0`) e fecha, banner visível,
+`#scroll-top` com `opacity: 1`, espaçamentos em 56 px e 24 px, 404 e página de grupo
+idênticas ao original. `lint` verde; o `links` não tem suíte de teste.
+
+**Gate +18 não estava exposto:** a API devolve **0** grupos com `is_adult` hoje, e o
+blur é CSS, então a falha fechava segura — o que não funcionava era o desbloqueio.
+
+**Falta a confirmação em produção**, que depende de deploy.
 
 ---
 

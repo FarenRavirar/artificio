@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   applyTableImageFallback,
+  avatarSrc,
   bannerPlaceholder,
   resolveTableImageSource,
   tableImageAttrs,
@@ -127,4 +128,43 @@ describe('resolveTableImageSource', () => {
       expect(resolveTableImageSource(src)).toBe(bannerPlaceholder);
     },
   );
+});
+
+/**
+ * Avatar hospedado na nossa conta, na forma que produção servia: SEM
+ * transformação nenhuma. Foi essa forma que somou 507 KiB em 6 URLs na medição de
+ * 2026-09-21, uma delas com 217 KiB para 24 px de exibição.
+ */
+const AVATAR_NOSSO =
+  'https://res.cloudinary.com/dnln0btbo/image/upload/v1788501588/artificio_avatars/abc123.png';
+
+describe('avatarSrc', () => {
+  it('pede o dobro da largura de layout, para cobrir tela 2x', () => {
+    expect(avatarSrc(AVATAR_NOSSO, 24)).toContain('/w_48/');
+    expect(avatarSrc(AVATAR_NOSSO, 120)).toContain('/w_240/');
+  });
+
+  it('entrega com `q_auto`/`f_auto`, não o arquivo original', () => {
+    const url = avatarSrc(AVATAR_NOSSO, 24) ?? '';
+    expect(url).toContain('q_auto');
+    expect(url).toContain('f_auto');
+    expect(url).not.toBe(AVATAR_NOSSO);
+  });
+
+  it('devolve `undefined` sem src, para o React omitir o atributo', () => {
+    expect(avatarSrc(null, 24)).toBeUndefined();
+    expect(avatarSrc(undefined, 24)).toBeUndefined();
+    expect(avatarSrc('', 24)).toBeUndefined();
+  });
+
+  it('não reescreve URL de terceiro: reescrever daria 404', () => {
+    const alheia = 'https://exemplo.com/image/upload/v1/artificio_avatars/foto.jpg';
+    expect(avatarSrc(alheia, 24)).toBe(alheia);
+  });
+
+  it('não empilha transformação sobre URL que já tem uma', () => {
+    const jaTransformada =
+      'https://res.cloudinary.com/dnln0btbo/image/upload/w_300/v1788501588/artificio_avatars/abc123.png';
+    expect(avatarSrc(jaTransformada, 24)).toBe(jaTransformada);
+  });
 });

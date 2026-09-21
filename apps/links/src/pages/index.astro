@@ -81,7 +81,7 @@ const jsonLd = {
           seu aqui? Sugira abaixo.
         </p>
         <CommunityGroups client:visible />
-        <div style="margin-top:1.5rem">
+        <div class="suggest-form-wrap">
           <SuggestForm client:visible />
         </div>
       </section>
@@ -93,7 +93,7 @@ const jsonLd = {
         >.
       </p>
 
-      <h2 class="section-title" id="regras" style="margin-top:3.5rem">
+      <h2 class="section-title section-title--espacada" id="regras">
         Regras dos grupos
       </h2>
       <p class="regras-intro">{REGRAS_INTRO}</p>
@@ -126,7 +126,8 @@ const jsonLd = {
       </footer>
     </main>
   </div>
-  <script is:inline>
+  {/* Bundlado, não `is:inline`: inline não recebe hash na CSP e o banner nunca aparecia. */}
+  <script>
     (function () {
       if (typeof window === "undefined") return;
       var seen = false;

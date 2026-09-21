@@ -28,6 +28,17 @@ export default defineConfig({
         // ilhas falam com a própria API (mesma origem) + SSO (accounts.artificiorpg.com)
         "connect-src 'self' https://accounts.artificiorpg.com",
       ],
+      scriptDirective: {
+        resources: ["'self'"],
+        // Astro 6 CSP só hasheia o que ele BUNDLA; `<script is:inline>` nunca entra.
+        // Medido em produção em 2026-09-21: 5 scripts inline recusados, e com eles o
+        // anti-FOUC do tema, o toggle da sidebar mobile, o banner de onboarding, o
+        // gate +18 e o botão de voltar ao topo. Os quatro últimos deixaram de ser
+        // inline; só o anti-FOUC precisa rodar antes da pintura, então entra por hash.
+        hashes: [
+          "sha256-0gPq+Lu9XIQYtJy3WkJ113qHqpjRCqOGgEA0Jgr7e9M=", // Base.astro: tema (anti-FOUC, lê cookie/localStorage)
+        ],
+      },
       styleDirective: {
         resources: ["'self'"],
       },

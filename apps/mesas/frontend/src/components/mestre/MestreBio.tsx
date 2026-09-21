@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { MestrePublicData } from '../../hooks/useMestre';
 import { MarkdownContent } from '@artificio/content-editor';
+import { avatarSrc } from '../../utils/tableImage';
 
 interface Props {
   profile: MestrePublicData;
@@ -33,8 +34,10 @@ export function MestreBio({ profile }: Props) {
           {profile.avatar_url && !avatarLoadFailed && (
             <div className="mestre-bio-photo">
               <img
-                src={profile.avatar_url}
+                src={avatarSrc(profile.avatar_url, 240)}
                 alt={profile.display_name}
+                loading="lazy"
+                decoding="async"
                 onError={() => setAvatarLoadFailed(true)}
               />
             </div>
