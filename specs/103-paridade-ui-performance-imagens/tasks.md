@@ -292,12 +292,59 @@ proporção errada mudaria o recorte de toda capa. `203` é o arredondamento de
 `apps/site/src/data/posts.json` tem 8 posts, 8 com `image`, e o hostname de
 **todos** é `artificiorpg.com` — zero Cloudinary. É a T2.5 (capas 404 do
 WordPress legado). A versão antiga também não transformava nada, porque exigia
-`res.cloudinary.com`. Logo: nenhuma regressão visual na unificação, e o caminho
-passa a funcionar sozinho quando a T2.5 for decidida.
+`res.cloudinary.com`. Logo: nenhuma regressão visual na unificação.
+
+**O que este bloco afirmava e a medição desmentiu:** que o caminho do `site`
+"passa a funcionar sozinho quando a T2.5 for decidida". **Não passava.** Achado
+de review (Codex, PR #328) e medido com uma URL da pasta real do `site`:
+`optimizedImageUrl` devolvia a URL **INTACTA** e `responsiveSrcSet` devolvia
+**string vazia**.
+
+A causa é `ARTIFICIO_UPLOAD_FOLDERS`, que não tinha `artificio/uploads` — a pasta
+onde `apps/site/server/lib/media-store.ts:26` grava a capa enviada pela
+biblioteca do admin, e que `apps/site/db/export.ts:61` entrega ao card como
+`image`. Sem a pasta na lista, `isArtificioHostedImage` devolve `false` e as duas
+funções não fazem nada.
+
+Latente e silencioso: hoje nenhum post usa Cloudinary, então nada aparece. A
+primeira capa nativa do blog nasceria sem `srcset` e sem transformação, sem erro
+em lugar nenhum — exatamente o que T2.4 existe para dar.
+
+**A varredura achou 5 pastas fora da lista, não 1.** `rtk rg "folder:" apps packages`:
+`artificio/uploads` (`site`), `downloads-materials`
+(`downloads/backend/src/storage/cloudinaryAdapter.ts:16`), `discord-imports`
+(`mesas/backend/src/discord/uploadDiscordImage.ts:32`), `mesas_rpg/dev_feedback`
+(`mesas/backend/src/services/cloudinary.ts:57`) e `glossario_rpg/dev_feedback`
+(`glossario/backend/src/services/cloudinary.ts:35`). As cinco entraram.
+
+**A causa raiz é a lista ser mantida à mão**, não o esquecimento de quem criou a
+pasta. `deliveryUrl`/`imageKinds.test.ts` ganhou guarda que varre `folder:` em
+`apps/` e `packages/` e falha se alguma pasta não estiver na lista — lê o CÓDIGO
+dos apps, não uma segunda lista paralela, que só moveria o problema. Provado
+vermelho: removendo `artificio/uploads`, falha 1 de 82 apontando
+`artificio/uploads (apps/site/server/lib/media-store.ts)`.
 
 `images.ts` **não tinha teste nenhum**, o que deixou as cinco divergências
-passarem sem ruído. Agora tem 11. `site`: 192 testes em 18 arquivos verdes,
+passarem sem ruído. Agora tem 11. `site`: 203 testes em 19 arquivos verdes,
 `tsc --noEmit` sem erro, `eslint` limpo.
+
+**Esses 11 testes não exercitavam o `site`, medido.** Usavam uma URL de
+`mesas_rpg` — pasta de OUTRO app —, então passavam sem depender de
+`artificio/uploads` estar na lista. Foi assim que o defeito acima nasceu coberto
+por teste verde: o arquivo testava o pacote, não o caminho do `site`. Achado de
+review (Codex, PR #328); a URL passou a ser a da pasta real.
+
+**Trocar a URL revelou uma armadilha de ambiente.** Com a pasta real, 3 dos 11
+falharam mesmo com `imageKinds.ts` já corrigido: o `exports` de
+`@artificio/media` aponta para `./dist/*.js`, e o `dist` local estava velho. Só
+ficou verde depois de `pnpm --filter @artificio/media build`.
+
+No CI isso não acontece — `ci.yml:78` roda `turbo run build` antes dos testes, e
+`dist` é ignorado (`.gitignore:7`). É falso-verde LOCAL, e da pior espécie: se a
+URL tivesse continuado em `mesas_rpg`, os 3 nunca falhariam e a correção seria
+declarada pronta sem nunca ter sido exercitada. Regra registrada no cabeçalho de
+`images.test.ts`: editou o pacote e o teste do consumidor não mudou de resultado
+— buildar o pacote antes de concluir.
 
 **`links` servia o original, medido em produção.** `links.artificiorpg.com/api/groups`:
 13 grupos publicados, 12 com logo na nossa conta Cloudinary, 1 sem, **zero de
@@ -368,7 +415,7 @@ acrescentá-la mexeria em `package.json` e Dockerfile
 terceiro, otimizar URL ali não economizaria byte nenhum — fica para quando
 `downloads-covers` servir capa de fato (`DOWNLOADS_CLOUDINARY_COVERS_ENABLED`).
 
-**Validado:** `@artificio/media` 138 testes em 3 arquivos (era 132), build e
+**Validado:** `@artificio/media` 139 testes em 3 arquivos (era 132), build e
 `eslint` limpos; `downloads-frontend` 326 em 55 (era 321/54), `tsc --noEmit` e
 `eslint` limpos; `downloads-backend` 570; `links` build 17 páginas, `tsc` e
 `eslint` limpos (`"test"` do app é `echo "(links) no tests"`, então a cobertura
@@ -608,11 +655,27 @@ A correção é o par que JÁ existe: os três botões passam a `--brand-solid` 
 — são botões de ação, não elementos de outra família. Sem cor nova, sem token
 novo, e a guarda existente passa a cobri-los.
 
-**Os 3 estão aplicados.** `TableCardDashboard.tsx:246` (botão "Arquivar", era
-bronze, 4,10:1 claro / 4,04:1 escuro), `VttPlatformsEditor.tsx:158` (era roxo +
-`--fg`, 2,68:1 / 3,50:1) e `MestreContactForm.tsx:138` (era roxo +
-`--on-solid-fg`, 6,98:1 claro mas **3,96:1** escuro — defeito num tema só, que é
-a razão de o par precisar virar junto). Os três perderam o `brightness` no hover.
+**Os 5 estão aplicados** — 3 botões mais 2 pontos que a própria guarda achou:
+
+- `TableCardDashboard.tsx` botão "Arquivar" (era bronze, 4,10:1 / 4,04:1);
+- `VttPlatformsEditor.tsx` botão "Salvar" (era roxo + `--fg`, 2,68:1 / 3,50:1);
+- `MestreContactForm.tsx` (era roxo + `--on-solid-fg`, 6,98:1 claro mas
+  **3,96:1** escuro — defeito num tema só, que é a razão de o par precisar virar
+  junto);
+- `TableCardDashboard.tsx` badge "🗄️ Arquivada" (era bronze, mesmas razões do
+  botão irmão) — **não estava em lista nenhuma**, apareceu na varredura;
+- `VttPlatformsEditor.tsx` fundo do checkmark de seleção (era roxo, 2,68:1 /
+  3,50:1). Ali o conteúdo é um `<Check>`, então o critério é o **3:1** de
+  componente (WCAG 1.4.11), e reprovava mesmo nesse limite mais baixo. Também
+  achado pela varredura.
+
+Os cinco perderam o `brightness` no hover onde havia. O par mede 4,70:1 no claro
+e 6,00:1 no escuro — acima do 4,5:1 de texto e do 3:1 de componente.
+
+`--artificio-bronze` ficou **sem nenhum consumidor**: `rtk rg "artificio-bronze"
+apps packages` devolve só a declaração, o `check-token-parity.mjs:80` e
+comentários. Remover é mudança de contrato de `packages/ui` — fica na 104 T2.4,
+com autorização própria.
 
 O que sobra de roxo e de bronze **não** é débito solto: virou a **spec 104, T2**,
 com a medição completa. Em particular, `--artificio-bronze` tem **2** consumidores e
@@ -1257,15 +1320,14 @@ Nada dela entra na PR #328. O que esta spec deixou de propósito para lá:
 - os **14 usos de texto e ícone** de `--special`, os **8 em RGB cru**
   (`rgba(168,85,247,…)`, que não viram de tema) e as **38 classes `purple-NNN`**
   do Tailwind fora do token (104 T2.1/T2.3);
-- `TableCardDashboard.tsx:103`, badge "🗄️ Arquivada", que segue com
-  `--artificio-bronze` (104 T2.4). Pareia com o botão "Arquivar" que esta spec
-  corrigiu; badge não é botão, e "botões normalmente são laranjas" não decide
-  badge;
+- decidir se `--artificio-bronze` sai do pacote (104 T2.4): depois desta spec o
+  token ficou **sem nenhum consumidor**, mas remover token é mudança de contrato
+  de `packages/ui` e exige autorização nominal própria;
 - a troca de `--artificio-light-ink` para `#222222` (104 T1).
 
-Os **3 botões sólidos** (bronze e roxo) ficaram aqui, em T3.2: são a mesma
-correção dos outros 22, e deixar parte deles na árvore seria estado
-inconsistente.
+Todo fundo SÓLIDO de bronze e de roxo ficou aqui, em T3.2 — os 3 botões, o badge
+"🗄️ Arquivada" e o checkmark de seleção. São a mesma correção dos outros 22, e
+deixar parte deles na árvore seria estado inconsistente.
 
 ## Registro de medição — 2026-09-18 (T7)
 

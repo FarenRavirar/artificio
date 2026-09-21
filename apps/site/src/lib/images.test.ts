@@ -4,11 +4,32 @@ import { optimizedImageUrl, responsiveSrcSet } from "./images";
 /**
  * Este arquivo não tinha teste nenhum antes da spec 103 (T2.4), o que deixou
  * cinco divergências contra a doc e contra o pacote passarem sem ruído.
+ *
+ * **Estes testes leem `@artificio/media` pelo `dist`, não pelo `src`** — o
+ * `exports` do pacote aponta para `./dist/*.js`. Local, isso dá falso-verde
+ * depois de editar o pacote: medido nesta spec, a correção de
+ * `ARTIFICIO_UPLOAD_FOLDERS` só apareceu aqui depois de
+ * `pnpm --filter @artificio/media build`. No CI não acontece, porque
+ * `ci.yml:78` roda `turbo run build` antes dos testes. Editou o pacote e o teste
+ * do consumidor não mudou de resultado? Buildar o pacote antes de concluir.
  */
 
-/** Capa hospedada na nossa conta. A pasta é o que a torna reconhecível. */
+/**
+ * Capa hospedada na nossa conta, na pasta REAL do `site`.
+ *
+ * `artificio/uploads` é onde `apps/site/server/lib/media-store.ts:26` grava a
+ * imagem enviada pela biblioteca do admin, e `apps/site/db/export.ts:61` a
+ * entrega ao card como `image`.
+ *
+ * A primeira versão deste arquivo usava `mesas_rpg`, pasta de OUTRO app, e isso
+ * deixou passar o defeito que a review da PR #328 achou: `artificio/uploads`
+ * não estava em `ARTIFICIO_UPLOAD_FOLDERS`, então neste caminho
+ * `optimizedImageUrl` devolvia a URL intacta e `responsiveSrcSet` devolvia
+ * string vazia. Com `mesas_rpg` o teste passava de qualquer jeito — testava o
+ * pacote, não o `site`.
+ */
 const CAPA_NOSSA =
-  "https://res.cloudinary.com/dnln0btbo/image/upload/v1788537783/mesas_rpg/capa.jpg";
+  "https://res.cloudinary.com/dnln0btbo/image/upload/v1788537783/artificio/uploads/capa.jpg";
 
 describe("optimizedImageUrl", () => {
   it("pede o tamanho e recorta na proporção do card", () => {

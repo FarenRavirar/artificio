@@ -98,9 +98,19 @@ export function TableCardDashboard({
         </div>
       )}
 
-      {/* BADGE DE ARQUIVAMENTO (D-MESAS1) — some do catálogo público */}
+      {/* BADGE DE ARQUIVAMENTO (D-MESAS1) — some do catálogo público.
+
+          Par sólido de marca, igual ao botão "Arquivar" logo abaixo: os dois
+          são a mesma ação e pareavam em bronze. Era
+          `bg-[var(--artificio-bronze)]` + `text-[var(--fg)]`, medido 4,10:1 no
+          claro e 4,04:1 no escuro — abaixo do 4,5:1 de texto normal nos DOIS
+          temas. O par mede 4,70:1 e 6,00:1.
+
+          Bronze não é cor de marca: a paleta declara "Laranja = acento; navy =
+          texto" (`packages/ui/src/styles.css:1`), e este era o último
+          consumidor do token. */}
       {table.archived && (
-        <div className="absolute top-2 left-2 bg-[var(--artificio-bronze)] text-[var(--fg)] text-xs px-2 py-1 rounded-md font-medium z-20">
+        <div className="absolute top-2 left-2 bg-[var(--brand-solid)] text-[var(--brand-solid-fg)] text-xs px-2 py-1 rounded-md font-medium z-20">
           🗄️ Arquivada
         </div>
       )}

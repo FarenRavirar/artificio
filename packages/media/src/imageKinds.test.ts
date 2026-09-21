@@ -1,3 +1,5 @@
+import { readdirSync, readFileSync } from "node:fs";
+import { relative, resolve, sep } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   IMAGE_KINDS,
@@ -487,5 +489,70 @@ describe("isCloudinaryTransformationSegment", () => {
 
   it("segmento ausente não é transformação", () => {
     expect(isCloudinaryTransformationSegment(undefined)).toBe(false);
+  });
+});
+
+/**
+ * Guarda da lista de pastas nossas (achado de review, PR #328).
+ *
+ * `ARTIFICIO_UPLOAD_FOLDERS` é mantida à MÃO, e isso é a causa raiz: pasta nova
+ * de upload nasce num app, ninguém lembra de registrá-la aqui, e
+ * `isArtificioHostedImage` passa a devolver `false` para imagem que é nossa. A
+ * falha é silenciosa — `cloudinaryDeliveryUrl` devolve a URL intacta e o app
+ * segue servindo o original acreditando estar otimizado.
+ *
+ * Medido na PR #328: **cinco** pastas estavam fora. A pior era
+ * `artificio/uploads`, onde o `site` grava a capa do blog: com uma URL dessa
+ * pasta, `optimizedImageUrl` devolvia a URL crua e `responsiveSrcSet` devolvia
+ * string vazia. A capa nativa do blog não tinha nem transformação nem `srcset`.
+ *
+ * Este teste lê o CÓDIGO dos apps, não uma lista paralela: qualquer
+ * `folder: "..."` novo cai aqui. Conferir uma segunda lista escrita à mão só
+ * moveria o problema.
+ */
+describe("ARTIFICIO_UPLOAD_FOLDERS cobre toda pasta de upload do repo", () => {
+  it("nenhum `folder:` de app está fora da lista", () => {
+    const raiz = resolve(__dirname, "../../..");
+    const pastas = new Map<string, string>();
+
+    const varrer = (dir: string): void => {
+      for (const entrada of readdirSync(dir, { withFileTypes: true })) {
+        if (entrada.name === "node_modules" || entrada.name.startsWith(".")) continue;
+        const caminho = resolve(dir, entrada.name);
+        if (entrada.isDirectory()) {
+          varrer(caminho);
+          continue;
+        }
+        if (!/\.tsx?$/.test(entrada.name) || /\.test\.tsx?$/.test(entrada.name)) continue;
+        const fonte = readFileSync(caminho, "utf8");
+        const registrar = (pasta: string): void => {
+          pastas.set(pasta, relative(raiz, caminho).split(sep).join("/"));
+        };
+        // Template string (`${FOLDER}/x`) e variável não entram: o valor não
+        // está aqui. As constantes (`COVER_FOLDER`, `FOLDER`, `avatarFolder`)
+        // são resolvidas pela segunda busca, na própria declaração.
+        for (const [, pasta] of fonte.matchAll(/\bfolder:\s*["']([^"']+)["']/g)) registrar(pasta);
+        for (const [, pasta] of fonte.matchAll(
+          /\b(?:COVER_FOLDER|FOLDER|avatarFolder)\s*=\s*["']([^"']+)["']/g,
+        )) {
+          registrar(pasta);
+        }
+      }
+    };
+
+    for (const app of ["apps", "packages"]) varrer(resolve(raiz, app));
+
+    // A varredura tem que ACHAR algo: regex que não casa nada passaria vazia e
+    // o teste viraria decoração.
+    expect(pastas.size).toBeGreaterThanOrEqual(8);
+
+    const fora = [...pastas]
+      .filter(([pasta]) => !isArtificioHostedImage(
+        `https://res.cloudinary.com/dnln0btbo/image/upload/v1788537783/${pasta}/x.jpg`,
+      ))
+      .map(([pasta, arquivo]) => `${pasta} (${arquivo})`)
+      .sort();
+
+    expect(fora).toEqual([]);
   });
 });

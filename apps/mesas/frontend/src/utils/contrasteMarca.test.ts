@@ -183,21 +183,39 @@ describe('nenhum botão sólido usa cor fora do par, nem filtro no hover', () =>
     // casou nos próprios comentários (5 achados, 4 falsos). É a mesma pegadinha
     // de `linha 33` e de `TableEditor.test.tsx:444`, agora na terceira forma.
     const infratores = varrer(/className="[^"]*bg-\[var\(--(?:special|artificio-bronze)\)\][^"]*"/);
-    // Os dois que restam estão NOMEADOS, e não filtrados em silêncio, para que
-    // o próximo não entre escondido atrás da exceção deles. Ambos são spec 104:
+    // Lista VAZIA, sem exceção nomeada. Os dois últimos pontos foram corrigidos
+    // na mesma rodada em que esta varredura os achou:
     //
-    // - `TableCardDashboard.tsx:103` — badge "🗄️ Arquivada" com bronze (4,10:1
-    //   claro / 4,04:1 escuro). Pareia com o botão "Arquivar", que virou laranja
-    //   nesta spec; separar o par é decisão do mantenedor, não do agente.
-    // - `VttPlatformsEditor.tsx:123` — fundo do checkmark de seleção, com um
-    //   `<Check>` em `--fg` dentro. Ícone é gráfico, então o critério é o 3:1 de
-    //   componente (WCAG 1.4.11) e não o 4,5:1 de texto. **Reprova mesmo
-    //   assim:** medido 2,68:1 no claro e 3,50:1 no escuro. Foi esta varredura
-    //   que o achou — não estava em nenhuma lista.
-    expect(infratores).toEqual([
-      'components/TableCardDashboard.tsx:103',
-      'components/mestre/VttPlatformsEditor.tsx:123',
-    ]);
+    // - o badge "🗄️ Arquivada" (`TableCardDashboard.tsx`), que pareia com o
+    //   botão "Arquivar" e media 4,10:1 / 4,04:1;
+    // - o fundo do checkmark de seleção (`VttPlatformsEditor.tsx`), que media
+    //   2,68:1 / 3,50:1 e reprovava até o 3:1 de componente (WCAG 1.4.11),
+    //   critério mais baixo porque ali o conteúdo é um ícone.
+    //
+    // Sem exceção é de propósito: lista com item tolerado é onde o próximo
+    // defeito entra escondido.
+    expect(infratores).toEqual([]);
+  });
+
+  it('o par de marca vem completo: fundo e cor de conteúdo na mesma classe', () => {
+    // `bg-[var(--brand-solid)]` sem `--brand-solid-fg` é meio par, e meio par
+    // reprova num dos temas por construção: no claro o fundo é `#cf4317`
+    // (precisa de branco) e no escuro é `#ff5722` (precisa de navy). Foi assim
+    // que `text-white` fixo passou nos 22 botões originais.
+    //
+    // A exceção são as linhas que herdam a cor do ancestral: sem `text-` na
+    // classe, quem define o conteúdo é o elemento de fora, e este teste não
+    // alcança. Por isso o critério é ter `text-` de OUTRA cor, não a ausência.
+    const infratores = varrer(
+      /className="[^"]*bg-\[var\(--brand-solid\)\][^"]*"/,
+    ).filter((local) => {
+      const [caminho, linha] = local.split(':');
+      const fonte = readFileSync(resolve(__dirname, '..', caminho), 'utf8').split(/\r?\n/);
+      const classe = fonte[Number(linha) - 1];
+      const temTexto = /\btext-\[?[a-z]/.test(classe);
+      return temTexto && !classe.includes('text-[var(--brand-solid-fg)]');
+    });
+    expect(infratores).toEqual([]);
   });
 
   it('nenhum botão de marca usa `brightness` no hover', () => {

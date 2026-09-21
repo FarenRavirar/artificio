@@ -82,10 +82,10 @@ saber apaga distinção que o usuário pode estar usando. Não é medível — �
 8 RGB crus mais as 38 classes `purple-NNN` têm que migrar para ele — senão o par
 nasce e ninguém usa.
 
-**D3 — o badge "🗄️ Arquivada"** (`TableCardDashboard.tsx:103`) segue bronze,
-pareando visualmente com o botão "Arquivar" que a 103 passou para laranja. Mexer
-num sem o outro separa o par. "Botões normalmente são laranjas" decide botão, não
-badge.
+**D3 — RESPONDIDA.** O badge "🗄️ Arquivada" (`TableCardDashboard.tsx`) pareava
+com o botão "Arquivar", e o mantenedor mandou corrigir junto — os dois estão em
+laranja na 103. Sobrou só decidir se `--artificio-bronze`, agora sem nenhum
+consumidor, sai do pacote (`tasks.md` T2.4).
 
 ## 6. Blast radius
 

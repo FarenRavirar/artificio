@@ -172,17 +172,37 @@ export function isCloudinaryTransformationSegment(segmento: string | undefined):
  * - `artificio/links` — `apps/links/server/lib/cloudinary.ts:5`;
  * - `artificio/accounts/avatars` — `apps/accounts/src/app.ts:105`;
  * - `downloads-covers` — `COVER_FOLDER` em
- *   `apps/downloads/backend/src/services/coverStorage.ts:6`.
+ *   `apps/downloads/backend/src/services/coverStorage.ts:6`;
+ * - `artificio/uploads` — `apps/site/server/lib/media-store.ts:26`;
+ * - `downloads-materials` —
+ *   `apps/downloads/backend/src/storage/cloudinaryAdapter.ts:16`;
+ * - `discord-imports` — `apps/mesas/backend/src/discord/uploadDiscordImage.ts:32`;
+ * - `mesas_rpg/dev_feedback` — `apps/mesas/backend/src/services/cloudinary.ts:57`;
+ * - `glossario_rpg/dev_feedback` —
+ *   `apps/glossario/backend/src/services/cloudinary.ts:35`.
  *
  * Derivar a lista só de `IMAGE_KINDS` fazia `isArtificioHostedImage` devolver
- * `false` para as três. Medido numa URL real de produção do `links`
+ * `false` para todas. Medido numa URL real de produção do `links`
  * (`/image/upload/v1782019856/artificio/links/b9b5…jpg`): `false`. A
  * consequência é silenciosa — `cloudinaryDeliveryUrl` devolve a URL intacta, e
  * o app continua servindo o original acreditando estar otimizado.
  *
- * A comparação é por PREFIXO de caminho, não por segmento: duas dessas pastas
- * têm barra (`artificio/links`), e igualdade de um segmento só nunca casaria
- * com elas nem se estivessem na lista.
+ * **As cinco últimas entraram por achado de review na PR #328**, e o caso do
+ * `site` mostra o custo: `storeUpload` grava a capa do blog em
+ * `artificio/uploads`, o export a entrega ao card como `image`
+ * (`apps/site/db/export.ts:61`), e medido com uma URL dessa pasta,
+ * `optimizedImageUrl` devolvia a URL INTACTA e `responsiveSrcSet` devolvia
+ * STRING VAZIA. A capa nativa do blog não recebia nem transformação nem
+ * `srcset` — exatamente o que a spec 103 T2.4 existe para dar, ausente em
+ * silêncio.
+ *
+ * `deliveryUrl.test.ts` tem a guarda que impede a próxima pasta de nascer fora
+ * daqui: ela varre `folder:` em `apps/` e `packages/` e falha se alguma não
+ * estiver nesta lista. Lista mantida à mão é a causa raiz, não o esquecimento.
+ *
+ * A comparação é por PREFIXO de caminho, não por segmento: várias dessas pastas
+ * têm barra (`artificio/links`, `mesas_rpg/dev_feedback`), e igualdade de um
+ * segmento só nunca casaria com elas nem se estivessem na lista.
  */
 const ARTIFICIO_UPLOAD_FOLDERS: readonly string[] = [
   ...new Set([
@@ -190,6 +210,11 @@ const ARTIFICIO_UPLOAD_FOLDERS: readonly string[] = [
     "artificio/links",
     "artificio/accounts/avatars",
     "downloads-covers",
+    "artificio/uploads",
+    "downloads-materials",
+    "discord-imports",
+    "mesas_rpg/dev_feedback",
+    "glossario_rpg/dev_feedback",
   ]),
 ];
 

@@ -112,36 +112,41 @@ revisão, não só a cor do texto.
 papel nos DOIS temas; zero RGB cru de roxo; `ImportPreview.tsx:133` do
 **glossário** verificado, porque é outro app.
 
-### [ ] T2.4a — Checkmark de seleção reprova até o 3:1 de componente
+### [x] T2.4a — Checkmark de seleção: corrigido na spec 103
 
-`VttPlatformsEditor.tsx:123` — fundo `bg-[var(--special)]` num círculo de 20px,
-com `<Check className="text-[var(--fg)]">` dentro. Ícone é gráfico, então o
-critério é o **3:1** de componente de interface (WCAG 1.4.11), não o 4,5:1 de
-texto. Reprova mesmo nesse limite mais baixo: medido **2,68:1** no claro e
-**3,50:1** no escuro.
+`VttPlatformsEditor.tsx` — fundo `bg-[var(--special)]` num círculo de 20px, com
+`<Check className="text-[var(--fg)]">` dentro. Ícone é gráfico, então o critério
+é o **3:1** de componente de interface (WCAG 1.4.11), não o 4,5:1 de texto.
+Reprovava mesmo nesse limite mais baixo: medido **2,68:1** no claro e **3,50:1**
+no escuro. Passou ao par de marca (4,70:1 / 6,00:1).
 
 **Achado pela guarda**, não por lista: foi a varredura de fundo sólido escrita na
 spec 103 que o encontrou. Não estava em nenhum levantamento anterior — nem no dos
-22 botões, nem no dos 3, nem nos 46 pontos de roxo.
+22 botões, nem no dos 5 seguintes, nem nos 46 pontos de roxo.
 
-Está nomeado na exceção de `contrasteMarca.test.ts` para não sumir em silêncio.
-Corrigir aqui junto com T2.3, porque o destino depende de D2.
+### [x] T2.4b — Badge "🗄️ Arquivada": corrigido na spec 103
 
-**Aceite:** razão ≥ 3:1 nos dois temas, com o papel declarado como componente; a
-exceção correspondente sai da guarda.
+`TableCardDashboard.tsx` — era `--artificio-bronze` + `--fg`, **4,10:1** claro e
+**4,04:1** escuro. Pareia com o botão "Arquivar" logo abaixo, que virou laranja
+na mesma spec; deixar os dois em cores diferentes separaria o par. D3 resolvida:
+o mantenedor mandou corrigir junto.
 
-### [ ] T2.4 — Bronze: o badge e o token
+### [ ] T2.4 — Remover ou manter `--artificio-bronze`
 
-`TableCardDashboard.tsx:103` (badge "🗄️ Arquivada") segue com `--artificio-bronze`
-+ `--fg`: **4,10:1** claro, **4,04:1** escuro. Pareia visualmente com o botão
-"Arquivar" que a 103 passou para laranja — mexer num sem o outro separa o par (D3).
+O token ficou **sem nenhum consumidor real**. Medido depois das correções da
+spec 103, `rtk rg "artificio-bronze" apps packages` devolve só: a declaração
+(`styles.css:13`), o script de paridade (`check-token-parity.mjs:80`), e
+comentários que citam o valor antigo.
 
-Removendo o token: `check-token-parity.mjs:80` trava `--artificio-bronze` nas duas
-fontes e precisa ser ajustado junto.
+Não foi removido junto porque remover token é mudança de contrato de
+`packages/ui`, que serve 7 apps, e exige autorização nominal própria (AGENTS.md
+§Autorização, "Pacotes compartilhados"). Token morto não é urgente; contrato
+mudado sem aprovação é.
 
-**Aceite:** o badge com razão medida ≥ 4,5:1 nos dois temas; se o token sair, as
-duas fontes e o script limpos, e `rtk rg "artificio-bronze" apps packages`
-devolvendo zero.
+**Aceite:** decisão do mantenedor registrada. Saindo, as duas fontes de token e
+o `check-token-parity.mjs:80` limpos, e `rtk rg "artificio-bronze" apps packages`
+devolvendo zero — inclusive os comentários, que passam a citar só a razão medida
+sem o nome do token morto.
 
 ---
 
