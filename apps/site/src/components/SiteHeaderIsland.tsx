@@ -1,4 +1,4 @@
-import { Header, StaticChangelogModal, useChangelogBadge, CHANGELOG_UPDATE_MARKERS, type NavItem, type UserMenuItem } from "@artificio/ui";
+import { Header, NotificationBell, StaticChangelogModal, useChangelogBadge, CHANGELOG_UPDATE_MARKERS, type NavItem, type UserMenuItem } from "@artificio/ui";
 import { useState } from "react";
 import rawChangelogs from "../data/changelogs.json";
 
@@ -122,6 +122,14 @@ export function SiteHeaderIsland({
         moduleNav={sections as NavItem[]}
         moduleCurrentHref={secaoAtiva}
         moduleLabel="Seções do blog"
+        /* O sino vai por `actions`, que o `Header` renderiza dentro do painel de sessão
+           (`.artificio-usermenu-actions`, `Header.tsx:281`) — mesmo caminho de
+           `downloads` (`AppShell.tsx:154`). A primeira versão desta troca o perdeu: o
+           header antigo o montava direto no dropdown, e sem a prop o portal ficou sem
+           sino, sem contagem de não lidas e sem acesso às notificações. Medido no
+           `dist/index.html`: zero ocorrências de "otification". Achado do Codex (P1) na
+           PR #329. */
+        actions={<NotificationBell sourceApp="site" />}
         userMenu={userMenu}
         showThemeToggle
         showSearch

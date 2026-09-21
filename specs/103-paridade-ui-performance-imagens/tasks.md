@@ -987,6 +987,27 @@ subnav irmã, `artificio-nav-toggle` de ≤860px e os 11 links do SSR. `eslint` 
 `artificio-nav-link`, 1 `artificio-subnav`, 1 `artificio-nav-toggle`, 2
 `artificio-brand-logo`, 1 `artificio-header-tools`.
 
+**Achado P1 do Codex na PR #329 — procede, corrigido.** A primeira versão da troca não
+passou `actions` ao `Header`, e o sino sumiu do portal: o header antigo montava
+`<NotificationBell sourceApp="site" />` direto no dropdown, enquanto o compartilhado só
+renderiza conteúdo de módulo que chega por `actions` (`Header.tsx:281`). Usuário logado
+ficava sem sino, sem contagem de não lidas e sem acesso às notificações. Medido no
+`dist/index.html` daquele commit: **zero** ocorrências de "otification". Corrigido com
+`actions={<NotificationBell sourceApp="site" />}`, o mesmo caminho de `downloads`
+(`AppShell.tsx:154`). Provado no artefato: `dist/_astro/SiteHeaderIsland.*.js` passou a
+conter `sourceApp:"site"` e as rotas `/api/v1/notifications`, `/unread`.
+
+**Vão de teste que deixou o P1 passar — ABERTO.** Nenhuma das 6 suítes do `site` cobre o
+sino, e não é descuido: ele vive dentro do painel de sessão, que exige usuário logado E
+clique no avatar (`Header.tsx:260`, estado `open` interno). O guard de estrutura
+renderiza o `.astro` real, mas em SSR `useSession` devolve `user: null` e o dropdown nem
+existe — a mesma limitação que `Header.sessao.test.tsx` registra no pacote ("o HTML
+servido mostra a barra, nunca o menu aberto"). Um guard de verdade precisa de jsdom mais
+`@testing-library/react`, que está em 8 pacotes do monorepo mas **não** no `apps/site`
+(`package.json` não o lista). Acrescentá-lo é pacote novo e mexe no `pnpm-lock.yaml` —
+exige autorização nominal (AGENTS.md §Autorização). O guard foi escrito e removido da
+árvore; falta a decisão sobre a dependência.
+
 **Não medido:** aparência em browser real e o comportamento em ≤860px. Os guards cobrem
 estrutura e HTML servido, não layout computado — é o mesmo vão que T6.2 registra (jsdom
 não faz layout).
