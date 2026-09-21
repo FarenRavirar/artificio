@@ -339,8 +339,8 @@ export function TableCardComponent({
   table,
   priority = false,
 }: {
-  table: TableCard;
-  priority?: boolean;
+  readonly table: TableCard;
+  readonly priority?: boolean;
 }) {
   // Fonte única de verdade para vagas (lógica de badge e CTA)
   const { isFull, open: slotsLeft } = getSlotsVisualState(table);

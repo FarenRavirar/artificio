@@ -385,6 +385,10 @@ gh pr comment <N> --body "@coderabbitai full review"
 gh pr comment <N> --body "@codex full review"
 ```
 
+`@codex review` (sem `full`) também aciona — medido na PR #328: disparo às
+03:08:47Z, review dele publicada às 03:13:55Z. Preferir a forma da tabela por
+consistência, mas não redisparar só por causa da palavra.
+
 **Não esperar a revisão de um para comentar o outro.** São serviços
 independentes, com filas independentes; serializar só soma a espera de um à do
 outro. Medido na PR #304: comentei o CodeRabbit às 02:37, esperei a revisão dele
@@ -530,6 +534,19 @@ gh api repos/<owner>/<repo>/commits/<sha>/check-runs   --jq '.check_runs[] | sel
 Por que script e não comandos soltos: os filtros já custaram bug medido —
 `gh api --jq` não aceita `--arg`, e `--paginate` concatena arrays que o `jq`
 precisa fundir com `-s add`. Montar isso de cabeça a cada volta reintroduz o erro.
+
+**Colher à mão perde fonte inteira, medido na PR #328 (2026-09-21).** O agente
+montou os `gh api` de cabeça em vez de rodar o `colher.sh`, e colheu só os
+comentários inline: achou os 2 achados de bot e **perdeu as 2 issues do Sonar**
+(`Mark the props of the component as read-only`, em `TableCard.tsx:338` e
+`TableHero.tsx:46` — as duas em linhas escritas naquela mesma volta). O
+comentário do Sonar existia e dizia `Quality Gate passed` com `2 New issues` na
+mesma linha, exatamente a armadilha que a seção acima descreve. Rodar o script
+depois devolveu as duas em uma chamada.
+
+A colheita à mão não é mais rápida: é a mesma consulta sem as quatro fontes,
+sem o cruzamento de SHA do Sonar e sem a contagem de falhas que impede fechar o
+laço cego.
 
 ### Achado inline não é tudo: nitpick vive no BODY DA REVIEW
 

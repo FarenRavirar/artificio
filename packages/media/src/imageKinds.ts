@@ -174,8 +174,6 @@ export function isCloudinaryTransformationSegment(segmento: string | undefined):
  * - `downloads-covers` — `COVER_FOLDER` em
  *   `apps/downloads/backend/src/services/coverStorage.ts:6`;
  * - `artificio/uploads` — `apps/site/server/lib/media-store.ts:26`;
- * - `downloads-materials` —
- *   `apps/downloads/backend/src/storage/cloudinaryAdapter.ts:16`;
  * - `discord-imports` — `apps/mesas/backend/src/discord/uploadDiscordImage.ts:32`;
  * - `mesas_rpg/dev_feedback` — `apps/mesas/backend/src/services/cloudinary.ts:57`;
  * - `glossario_rpg/dev_feedback` —
@@ -187,7 +185,22 @@ export function isCloudinaryTransformationSegment(segmento: string | undefined):
  * consequência é silenciosa — `cloudinaryDeliveryUrl` devolve a URL intacta, e
  * o app continua servindo o original acreditando estar otimizado.
  *
- * **As cinco últimas entraram por achado de review na PR #328**, e o caso do
+ * **Pasta que não é de imagem não entra aqui**, e a distinção não é cosmética:
+ * `downloads-materials` chegou a entrar nesta lista e foi retirada (achado de
+ * review, PR #328). `apps/downloads/backend/src/storage/cloudinaryAdapter.ts:18`
+ * grava com `resourceType: 'raw'`, e a URL que o app monta é
+ * `/raw/upload/downloads-materials/…` (linha 34 do mesmo arquivo). Tratá-la como
+ * imagem faria `cloudinaryDeliveryUrl` inserir `q_auto/f_auto/w_*` numa URL de
+ * PDF. `isArtificioHostedImage` passou a exigir o segmento `image` antes de
+ * `upload`, então a URL raw é recusada pelos DOIS lados.
+ *
+ * `artificio/uploads` fica, e é o caso limítrofe: o `site` grava lá com
+ * `resourceType: "auto"` e a allowlist de `admin-api.ts:26-29` aceita áudio e
+ * vídeo além de imagem. O Cloudinary devolve esses como `/video/upload/`, e a
+ * exigência do segmento `image` os recusa sem precisar de lista separada por
+ * pasta — o resource type está na própria URL.
+ *
+ * **As quatro últimas entraram por achado de review na PR #328**, e o caso do
  * `site` mostra o custo: `storeUpload` grava a capa do blog em
  * `artificio/uploads`, o export a entrega ao card como `image`
  * (`apps/site/db/export.ts:61`), e medido com uma URL dessa pasta,
@@ -211,7 +224,6 @@ const ARTIFICIO_UPLOAD_FOLDERS: readonly string[] = [
     "artificio/accounts/avatars",
     "downloads-covers",
     "artificio/uploads",
-    "downloads-materials",
     "discord-imports",
     "mesas_rpg/dev_feedback",
     "glossario_rpg/dev_feedback",
@@ -271,7 +283,17 @@ export function isArtificioHostedImage(url: string): boolean {
   // exigida: o primeiro segmento depois de `upload` que não seja transformação
   // nem versão.
   const segmentos = parsed.pathname.split("/").filter(Boolean);
-  const posUpload = segmentos.indexOf("upload");
+  // O RESOURCE TYPE é exigido, não só o `upload`: a URL do Cloudinary é
+  // `/<cloud>/<resource_type>/<delivery_type>/…`, e `image` é o único tipo que
+  // aceita transformação de imagem. Procurar só `upload` fazia
+  // `/raw/upload/downloads-materials/manual.pdf` passar, e aí
+  // `cloudinaryDeliveryUrl` inseria `q_auto/f_auto/w_*` numa URL de PDF —
+  // arquivo servido com 404 ou corrompido, em silêncio (achado de review,
+  // PR #328). Vale igual para `/video/upload/`, que `artificio/uploads` produz
+  // quando o admin sobe áudio ou vídeo (`resourceType: "auto"`).
+  const posUpload = segmentos.findIndex(
+    (segmento, i) => segmento === "upload" && segmentos[i - 1] === "image",
+  );
   if (posUpload === -1) return false;
 
   let posPasta = posUpload + 1;

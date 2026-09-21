@@ -315,14 +315,57 @@ em lugar nenhum — exatamente o que T2.4 existe para dar.
 (`downloads/backend/src/storage/cloudinaryAdapter.ts:16`), `discord-imports`
 (`mesas/backend/src/discord/uploadDiscordImage.ts:32`), `mesas_rpg/dev_feedback`
 (`mesas/backend/src/services/cloudinary.ts:57`) e `glossario_rpg/dev_feedback`
-(`glossario/backend/src/services/cloudinary.ts:35`). As cinco entraram.
+(`glossario/backend/src/services/cloudinary.ts:35`). Entraram **quatro**:
+`downloads-materials` não é imagem, e o parágrafo seguinte é sobre isso.
 
 **A causa raiz é a lista ser mantida à mão**, não o esquecimento de quem criou a
-pasta. `deliveryUrl`/`imageKinds.test.ts` ganhou guarda que varre `folder:` em
-`apps/` e `packages/` e falha se alguma pasta não estiver na lista — lê o CÓDIGO
-dos apps, não uma segunda lista paralela, que só moveria o problema. Provado
-vermelho: removendo `artificio/uploads`, falha 1 de 82 apontando
+pasta. `imageKinds.test.ts` ganhou guarda que varre `folder:` em `apps/` e
+`packages/` e falha se alguma pasta não estiver na lista — lê o CÓDIGO dos apps,
+não uma segunda lista paralela, que só moveria o problema. Provado vermelho:
+removendo `artificio/uploads`, falha apontando
 `artificio/uploads (apps/site/server/lib/media-store.ts)`.
+
+**O contrato da lista inclui RESOURCE TYPE**, e essa primeira guarda cobrou a
+coisa errada. Ela varria `folder:` sem olhar `resourceType`, então cobrou
+`downloads-materials` — PDF de material, gravado com `resourceType: 'raw'`
+(`cloudinaryAdapter.ts:18`), servido em `/raw/upload/…` (linha 34 do mesmo
+arquivo) — e a pasta foi incluída na lista de IMAGENS só para calar o teste.
+Guarda que cobra a coisa errada produz a correção errada. Achado de review
+(Codex, PR #328), e o defeito era da própria correção da volta anterior.
+
+Duas causas somadas, e o conserto é nas duas porque cada uma esconde a outra:
+
+- `isArtificioHostedImage` procurava `indexOf("upload")`, **sem exigir o
+  segmento `image` antes** — embora o comentário da própria função declarasse
+  `/<cloud>/image/upload/…` desde o início. `/raw/upload/downloads-materials/x.pdf`
+  passava, e `cloudinaryDeliveryUrl` inseria `q_auto/f_auto/w_*` numa URL de PDF.
+  Agora o `image` é exigido na posição imediatamente anterior.
+- `downloads-materials` saiu de `ARTIFICIO_UPLOAD_FOLDERS`.
+
+`artificio/uploads` **fica** na lista, e é o caso limítrofe: o `site` grava lá com
+`resourceType: "auto"` e a allowlist de `admin-api.ts:26-29` aceita `audio/mpeg`,
+`audio/ogg`, `audio/wav`, `video/mp4` e `video/webm` além de imagem. O Cloudinary
+entrega esses como `/video/upload/`, e a exigência do `image` os recusa sem
+precisar de lista separada por pasta — o resource type está na própria URL.
+
+A guarda passou a ler o `resourceType` irmão no mesmo literal de opções (ausente
+= `image`, que é o default de `uploadBuffer` em `index.ts:293`) e alimenta duas
+asserções, provadas vermelhas uma a uma:
+
+- pasta de imagem fora da lista → `downloads-materials (apps/downloads/…/cloudinaryAdapter.ts)`
+  quando a exclusão por tipo é removida;
+- pasta `raw`/`video` DENTRO da lista de imagens →
+  `downloads-materials (raw, apps/downloads/…/cloudinaryAdapter.ts)`.
+
+A segunda existe porque sem ela recolocar a pasta não deixa nada vermelho: o
+predicado novo recusa a URL `/raw/upload/` pelo resource type, então a primeira
+asserção continuaria verde com a lista errada. Defesa em duas camadas exige teste
+em duas camadas.
+
+**Dano em produção era zero, medido:** `rtk rg "isArtificioHostedImage|cloudinaryDeliveryUrl"`
+dá 4 consumidores (`site/src/lib/images.ts`, `links/src/lib/groupLogo.ts`,
+`mesas/frontend/src/components/ImageUploader.tsx`, `packages/media/src/deliveryUrl.ts`)
+e nenhum recebe URL de material. Bug latente, não ativo.
 
 `images.ts` **não tinha teste nenhum**, o que deixou as cinco divergências
 passarem sem ruído. Agora tem 11. `site`: 203 testes em 19 arquivos verdes,

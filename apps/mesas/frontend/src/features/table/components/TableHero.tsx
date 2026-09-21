@@ -17,9 +17,9 @@ import { applyTableImageFallback, tableImageAttrs } from '../../../utils/tableIm
 const HERO_COVER_SIZES = '(min-width: 1280px) 868px, (min-width: 1024px) 60vw, 100vw';
 
 interface TableHeroProps {
-  vm: TableViewModel;
-  variant?: TableHeroVariant;
-  showOverlay?: boolean; // false = apenas imagem (MesaPage), true = com overlay e texto (catálogo, home)
+  readonly vm: TableViewModel;
+  readonly variant?: TableHeroVariant;
+  readonly showOverlay?: boolean; // false = apenas imagem (MesaPage), true = com overlay e texto (catálogo, home)
   /**
    * `true` só onde este herói é o LCP da página. Default `false`.
    *
@@ -35,7 +35,7 @@ interface TableHeroProps {
    * `DecisionBlock` usa `variant="full"` igual à `MesaPage` e não é herói de
    * rota nenhuma.
    */
-  priority?: boolean;
+  readonly priority?: boolean;
 }
 
 /**
