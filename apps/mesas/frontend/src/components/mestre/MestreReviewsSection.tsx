@@ -3,6 +3,7 @@ import { GmReviewForm, GmReviewList, type GmReviewItem } from '@artificio/ui';
 import { useAuth } from '../../contexts/useAuth';
 import { authPost } from '../../services/apiClient';
 import { startSsoLogin } from '../../utils/auth';
+import { avatarSrc } from '../../utils/tableImage';
 import toast from 'react-hot-toast';
 
 interface MestreReviewsSectionProps {
@@ -16,21 +17,35 @@ function normalizeReviews(data: unknown): GmReviewItem[] {
   const rawList = (data as { data: unknown }).data;
   if (!Array.isArray(rawList)) return [];
 
-  return rawList.filter((item): item is GmReviewItem => {
-    if (!item || typeof item !== 'object') return false;
-    const r = item as Record<string, unknown>;
-    return (
-      typeof r.id === 'string' &&
-      typeof r.rating === 'number' &&
-      r.rating >= 1 &&
-      r.rating <= 5 &&
-      Array.isArray(r.tags) &&
-      (r.comment === null || typeof r.comment === 'string') &&
-      typeof r.created_at === 'string' &&
-      typeof r.author_name === 'string' &&
-      (r.author_avatar === null || typeof r.author_avatar === 'string')
-    );
-  });
+  return rawList
+    .filter((item): item is GmReviewItem => {
+      if (!item || typeof item !== 'object') return false;
+      const r = item as Record<string, unknown>;
+      return (
+        typeof r.id === 'string' &&
+        typeof r.rating === 'number' &&
+        r.rating >= 1 &&
+        r.rating <= 5 &&
+        Array.isArray(r.tags) &&
+        (r.comment === null || typeof r.comment === 'string') &&
+        typeof r.created_at === 'string' &&
+        typeof r.author_name === 'string' &&
+        (r.author_avatar === null || typeof r.author_avatar === 'string')
+      );
+    })
+    // O avatar do autor é pedido no tamanho em que `GmReviewList` o exibe —
+    // `h-8 w-8`, 32px (`packages/ui/src/GmReviewPanel.tsx:103`). Sem isto a lista
+    // baixa o arquivo original do Cloudinary por avaliação, que foi o defeito
+    // medido nos outros consumidores de avatar (spec 103, T2.3).
+    //
+    // A normalização acontece AQUI, e não no pacote, porque `GmReviewList` é
+    // compartilhado e não conhece o tamanho em que cada consumidor o monta —
+    // quem sabe o tamanho é quem renderiza. Mexer no pacote alcançaria 6 apps e
+    // exigiria aprovação (AGENTS.md §Autorização), sem resolver melhor.
+    .map((review) => ({
+      ...review,
+      author_avatar: avatarSrc(review.author_avatar, 32) ?? null,
+    }));
 }
 
 async function fetchReviews(slug: string, signal?: AbortSignal): Promise<GmReviewItem[]> {

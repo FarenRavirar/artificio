@@ -35,6 +35,14 @@ export default defineConfig({
         // anti-FOUC do tema, o toggle da sidebar mobile, o banner de onboarding, o
         // gate +18 e o botão de voltar ao topo. Os quatro últimos deixaram de ser
         // inline; só o anti-FOUC precisa rodar antes da pintura, então entra por hash.
+        //
+        // `resources: ["'self'"]` basta para os outros quatro, e isso foi MEDIDO no
+        // `dist`, não deduzido: os quatro saem como arquivo externo em `_astro/*.js`
+        // (`Base.astro_astro_type_script_index_{0,1}`, `Sidebar.astro_…`,
+        // `index.astro_…`), que `'self'` cobre. A revisão da PR #330 levantou o risco
+        // de o Astro inlinar algum deles e a CSP bloquear; varrido o `dist` inteiro,
+        // há 53 scripts inline e ZERO sem hash — quando o Astro inlina algo que ele
+        // bundlou, ele também gera o hash. O que fica de fora é só `is:inline`.
         hashes: [
           "sha256-0gPq+Lu9XIQYtJy3WkJ113qHqpjRCqOGgEA0Jgr7e9M=", // Base.astro: tema (anti-FOUC, lê cookie/localStorage)
         ],
