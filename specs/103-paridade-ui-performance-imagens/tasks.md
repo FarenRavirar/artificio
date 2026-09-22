@@ -1812,6 +1812,26 @@ não as mostra em filtro nenhum. Quebra medida: `manual 1` (visível 1),
 `imported 11` (visíveis 0). O predicado de visibilidade entrou no terceiro ramo e no
 contador justamente por isso — sem ele, o filtro prometeria 12 e a lista mostraria 1.
 
+**Correção do achado P1 do Codex (PR #331):** o ramo do `to_define` entrava no `OR`
+**sem a condição de faixa**. Combinar `weekday=to_define` com `daypart=noite` traria
+qualquer mesa de dia indefinido, inclusive as de outro horário — quebrando a
+conjunção dia+faixa que os outros ramos respeitam. A faixa passou a entrar no ramo
+com `AND`.
+
+Medido em produção ao corrigir, e o caso é real, não teórico: existe **1 mesa** com
+`schedule_day_status='to_define'` e `schedule_time_status='defined'`. Ela tem
+`schedule_time_hint='19:00'` e **zero linhas em `table_schedules`** — conferir só
+`ts.start_time` a perderia em silêncio. A condição cobre as duas colunas
+(`schedule_time_hint` OU `EXISTS` sobre `table_schedules`).
+
+**Testes diretos do predicado** (achado do CodeRabbit, mesma PR), em
+`tables.schedule-filter.test.ts`: `weekday=to_define` sozinho; combinado com dia
+nomeado; combinado com `daypart` (o caso do P1); e o contador de
+`/schedule-facets`. O teste do contador compila o SQL real pelo dialeto — medido
+que o executor recebe o nó cru (`kind`/`sqlFragments`/`parameters`), não um objeto
+compilado, então ler `.sql` direto devolvia string vazia e a asserção passava sem
+medir nada. Verificado invertendo a asserção: falha com o SQL real na mensagem.
+
 **Não confundir** com as mesas `defined` + hint: têm dia conhecido, entram pelo ramo
 do hint em T7.3, não dependem de D4.
 

@@ -37,9 +37,27 @@ const dbMocks = vi.hoisted(() => ({
   selectFrom: vi.fn(),
 }));
 
+/**
+ * `/schedule-facets` monta a query com o template `sql\`...\`` e chama
+ * `.execute(db)`, que não passa por `selectFrom` — o mock do builder não a
+ * alcança. Interceptar `executeQuery` do driver é o ponto onde o nó já está
+ * compilado, então o teste lê o SQL real em vez de inspecionar o template.
+ */
+const rawExecute = vi.hoisted(() => vi.fn());
+
 vi.mock('../db/index.js', () => ({
   db: {
     selectFrom: dbMocks.selectFrom,
+    // `sql\`...\`.execute(db)` chama `db.getExecutor().executeQuery(node)`.
+    getExecutor: () => ({
+      transformQuery: (node: unknown) => node,
+      compileQuery: (node: unknown) => node,
+      executeQuery: rawExecute,
+      provideConnection: async (consumer: (conn: unknown) => unknown) =>
+        consumer({ executeQuery: rawExecute }),
+      takeQueryEndListeners: () => [],
+      adapter: new PostgresAdapter(),
+    }),
   },
 }));
 
@@ -123,6 +141,21 @@ function capturedRawSql(): string {
     .join('\n---\n');
 }
 
+/**
+ * SQL das queries cruas que passaram pelo executor, em minúsculas.
+ *
+ * Medido: o mock recebe o NÓ (`kind`/`sqlFragments`/`parameters`), não um objeto
+ * já compilado — `compileQuery` do executor falso devolve o próprio nó. Então o
+ * texto sai pelo compilador do dialeto real, o mesmo `compilerDb` que os outros
+ * helpers usam, e o teste lê SQL de verdade em vez da estrutura do template.
+ */
+function facetsSqlLower(): string {
+  return rawExecute.mock.calls
+    .map(([node]) => compilerDb.getExecutor().compileQuery(node as never, { queryId: 'facets' } as never).sql)
+    .join('\n')
+    .toLowerCase();
+}
+
 /** O fragmento de agenda é o único que menciona `table_schedules`. */
 function scheduleFilterSql(): string {
   return capturedRawSql()
@@ -146,6 +179,8 @@ beforeEach(() => {
   dbMocks.execute.mockReset();
   dbMocks.executeTakeFirst.mockReset();
   dbMocks.selectFrom.mockReset();
+  rawExecute.mockReset();
+  rawExecute.mockResolvedValue({ rows: [] });
 
   dbMocks.execute.mockResolvedValue([]);
   dbMocks.executeTakeFirst.mockImplementation(async () => {
@@ -298,6 +333,57 @@ describe('GET /api/v1/tables — filtro de agenda (spec 103 §6)', () => {
     expect(existsBody).toMatch(/day_of_week in[\s\S]*and[\s\S]*start_time/);
   });
 
+  it('D4: weekday=to_define casa status e ausência de hint, sem IN de dia', async () => {
+    await request(makeApp()).get('/api/v1/tables?weekday=to_define').expect(200);
+
+    const filterSql = scheduleFilterSqlLower();
+    expect(filterSql).toContain("t.schedule_day_status = 'to_define'");
+    expect(filterSql).toContain('t.schedule_day_hint is null');
+    // `to_define` não existe no CHECK de `day_of_week` nem no de
+    // `schedule_day_hint`: num IN devolveria zero linha em silêncio.
+    expect(filterSql).not.toContain("'to_define')");
+    expect(filterSql).not.toContain('day_of_week in');
+  });
+
+  it('D4: to_define combinado com dia nomeado mantém os dois ramos', async () => {
+    await request(makeApp()).get('/api/v1/tables?weekday=sexta,to_define').expect(200);
+
+    const filterSql = scheduleFilterSqlLower();
+    // O dia nomeado segue no IN, sem o sentinela junto.
+    expect(filterSql).toContain("ts.day_of_week in ('sexta')");
+    expect(filterSql).toContain("t.schedule_day_status = 'to_define'");
+    // Os ramos são alternativos: mesa de sexta OU mesa de agenda desconhecida.
+    expect(filterSql).toContain(' or ');
+  });
+
+  it('P1: to_define + daypart preserva o AND da faixa (achado Codex PR #331)', async () => {
+    await request(makeApp()).get('/api/v1/tables?weekday=to_define&daypart=noite').expect(200);
+
+    const filterSql = scheduleFilterSqlLower();
+    // Sem o AND da faixa, o ramo do `to_define` entrava no OR sozinho e trazia
+    // QUALQUER mesa de dia indefinido, inclusive as que jogam de manhã —
+    // contrariando a conjunção dia+faixa que os outros ramos já respeitam.
+    const tbdBranch = filterSql.slice(filterSql.indexOf("t.schedule_day_status = 'to_define'"));
+    expect(tbdBranch).toContain("t.schedule_time_status = 'defined'");
+    expect(tbdBranch).toContain("'18:00:00'");
+
+    // O horário pode estar no hint OU em `table_schedules`: medido em produção,
+    // a única mesa com dia 'to_define' e horário 'defined' tem
+    // `schedule_time_hint='19:00'` e ZERO linhas em `table_schedules`.
+    expect(tbdBranch).toContain('t.schedule_time_hint');
+    expect(tbdBranch).toContain('ts_tbd.start_time');
+  });
+
+  it('D4: to_define sozinho não exige horário nenhum', async () => {
+    await request(makeApp()).get('/api/v1/tables?weekday=to_define').expect(200);
+
+    const filterSql = scheduleFilterSqlLower();
+    // Sem daypart na URL não há faixa a conferir; exigir `time_status` aqui
+    // esconderia as mesas com os DOIS eixos indefinidos, que são a maioria.
+    expect(filterSql).not.toContain("t.schedule_time_status = 'defined'");
+    expect(filterSql).not.toContain('ts_tbd');
+  });
+
   it('não aplica filtro de agenda quando nenhum parâmetro vem na URL', async () => {
     await request(makeApp()).get('/api/v1/tables').expect(200);
 
@@ -308,5 +394,36 @@ describe('GET /api/v1/tables — filtro de agenda (spec 103 §6)', () => {
     await request(makeApp()).get('/api/v1/tables?daypart=brunch').expect(200);
 
     expect(scheduleFilterSql()).toBe('');
+  });
+});
+
+describe('GET /api/v1/tables/schedule-facets — contador de agenda (D4)', () => {
+  it('conta "A definir" fora do CTE, com o mesmo predicado do filtro', async () => {
+    rawExecute.mockResolvedValue({
+      rows: [
+        { kind: 'weekday', value: 'sexta', count: '14' },
+        { kind: 'weekday', value: 'to_define', count: '1' },
+        { kind: 'daypart', value: 'noite', count: '55' },
+      ],
+    });
+
+    const response = await request(makeApp()).get('/api/v1/tables/schedule-facets').expect(200);
+
+    // A opção precisa vir do backend com contagem própria: a mesa de agenda
+    // desconhecida não tem linha no CTE `agenda` (os dois ramos do UNION exigem
+    // dia ou hint), então sem o SELECT extra ela voltaria com zero e a UI a
+    // ofereceria como filtro que não traz nada.
+    expect(response.body.data.weekdays).toContainEqual({ value: 'to_define', count: 1 });
+
+    const facetsSql = facetsSqlLower();
+    expect(facetsSql).toContain("'to_define' as value");
+    // Mesmo predicado do terceiro ramo do filtro, senão contador e resultado
+    // divergem: o usuário veria "1" e a lista traria outra coisa.
+    expect(facetsSql).toContain("t.schedule_day_status = 'to_define'");
+    expect(facetsSql).toContain('t.schedule_day_hint is null');
+    // O predicado de visibilidade entra aqui também. Medido em produção: das 12
+    // mesas com dia 'to_define' e sem hint, 11 são `origin='imported'` fora da
+    // janela e invisíveis no catálogo — sem ele o contador prometeria 12.
+    expect(facetsSql).toContain('origin');
   });
 });

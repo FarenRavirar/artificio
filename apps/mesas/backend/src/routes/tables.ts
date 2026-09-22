@@ -429,10 +429,37 @@ router.get('/', async (req: Request, res: Response) => {
           // Terceiro ramo (D4): agenda desconhecida de fato. Exige status
           // `to_define` E ausência de hint — mesa com hint já é alcançável pelo
           // dia do hint, e apareceria nas duas opções se entrasse aqui também.
-          // Só o eixo DIA decide: `schedule_time_status` fica de fora porque o
-          // filtro que o usuário marcou é o de dia.
+          //
+          // A faixa selecionada entra AQUI TAMBÉM, com `AND`. Dia e faixa são
+          // conjuntivos em todos os outros ramos; sem isto, `weekday=to_define`
+          // combinado com `daypart=noite` traria qualquer mesa de dia indefinido,
+          // inclusive as que jogam de manhã. Achado P1 do Codex na PR #331.
+          //
+          // O horário dessa mesa pode estar em `table_schedules` OU no
+          // `schedule_time_hint` da própria `tables`: medido em produção, a única
+          // mesa com dia `to_define` e horário `defined` tem `time_hint='19:00'` e
+          // ZERO linhas em `table_schedules`. Conferir só `ts.start_time` a
+          // perderia em silêncio, que é a mesma classe de bug que este ramo veio
+          // corrigir.
           ...(wantsToDefine
-            ? [sql<boolean>`(t.schedule_day_status = 'to_define' AND t.schedule_day_hint IS NULL)`]
+            ? [
+                sql<boolean>`(
+            t.schedule_day_status = 'to_define'
+            AND t.schedule_day_hint IS NULL
+            ${
+              dayparts.length > 0
+                ? sql`AND t.schedule_time_status = 'defined' AND (
+              (${daypartRangesFor(sql.raw('t.schedule_time_hint'))})
+              OR EXISTS (
+                SELECT 1 FROM table_schedules ts_tbd
+                WHERE ts_tbd.table_id = t.id
+                  AND (${daypartRangesFor(sql.raw('ts_tbd.start_time'))})
+              )
+            )`
+                : sql``
+            }
+          )`,
+              ]
             : []),
         ];
 
