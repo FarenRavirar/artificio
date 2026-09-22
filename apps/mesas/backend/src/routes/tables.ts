@@ -86,7 +86,18 @@ export function parseStylesQuery(styles: unknown): string[] {
  * traduzir para código numérico: o banco guarda texto, e um id paralelo criaria
  * tradução entre URL, query e coluna.
  */
-const WEEKDAY_VALUES = ['segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado', 'domingo'] as const;
+const WEEKDAY_TO_DEFINE = 'to_define' as const;
+
+/**
+ * `to_define` entra na MESMA lista dos dias (D4, respondida em 2026-09-22) porque
+ * o parser aceita um eixo só: é a faceta "sem valor" do filtro de dia, não um
+ * oitavo dia. O literal repete `SCHEDULE_DEFINITION_STATUSES` do validator, que é
+ * o que a coluna `schedule_day_status` guarda.
+ *
+ * Quem consome esta lista SEPARA os dois antes de montar SQL — `to_define` não
+ * pode entrar em `IN (...)` contra `day_of_week`, cujo CHECK não o conhece.
+ */
+const WEEKDAY_VALUES = ['segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado', 'domingo', WEEKDAY_TO_DEFINE] as const;
 type WeekdayValue = (typeof WEEKDAY_VALUES)[number];
 
 /**
@@ -349,8 +360,14 @@ router.get('/', async (req: Request, res: Response) => {
         Object.keys(DAYPART_RANGES) as readonly DaypartValue[],
       );
 
-      if (weekdays.length > 0 || dayparts.length > 0) {
-        const dayList = sql.join(weekdays.map((day) => sql.lit(day)));
+      // `to_define` sai da lista de dias ANTES de virar SQL: o CHECK de
+      // `day_of_week` e o de `schedule_day_hint` não o conhecem, então incluí-lo
+      // num `IN (...)` devolveria zero linhas em silêncio em vez das 11 mesas.
+      const wantsToDefine = weekdays.includes(WEEKDAY_TO_DEFINE);
+      const namedWeekdays = weekdays.filter((day) => day !== WEEKDAY_TO_DEFINE);
+
+      if (namedWeekdays.length > 0 || dayparts.length > 0 || wantsToDefine) {
+        const dayList = sql.join(namedWeekdays.map((day) => sql.lit(day)));
 
         // Faixas selecionadas viram um OU de intervalos sobre a coluna dada.
         const daypartRangesFor = (column: ReturnType<typeof sql.raw>) =>
@@ -378,7 +395,7 @@ router.get('/', async (req: Request, res: Response) => {
         // tabela, não pelo dia da linha — aqui o filtro passa a fazer o mesmo.
         // Achado P1 do Codex na PR #327.
         const scheduleConditions = [
-          ...(weekdays.length > 0
+          ...(namedWeekdays.length > 0
             ? [sql<boolean>`(t.schedule_day_status = 'defined' AND ts.day_of_week IN (${dayList}))`]
             : []),
           ...(dayparts.length > 0
@@ -393,18 +410,33 @@ router.get('/', async (req: Request, res: Response) => {
         // no eixo 'defined' (`tableValidators.ts`), então aqui o `IS NOT NULL` já
         // implica o status — não há gate a repetir.
         const hintConditions = [
-          ...(weekdays.length > 0 ? [sql<boolean>`t.schedule_day_hint IN (${dayList})`] : []),
+          ...(namedWeekdays.length > 0 ? [sql<boolean>`t.schedule_day_hint IN (${dayList})`] : []),
           ...(dayparts.length > 0 ? [sql<boolean>`(${daypartRangesFor(sql.raw('t.schedule_time_hint'))})`] : []),
         ];
 
-        query = query.where(sql<boolean>`(
-          EXISTS (
+        // Os dois ramos acima só existem se sobrou eixo com valor: pedir só
+        // "A definir" não tem dia nem faixa para conferir, e um `AND` de lista
+        // vazia viraria SQL inválido.
+        const matchBranches = [
+          ...(scheduleConditions.length > 0
+            ? [sql<boolean>`EXISTS (
             SELECT 1 FROM table_schedules ts
             WHERE ts.table_id = t.id
               AND ${sql.join(scheduleConditions, sql` AND `)}
-          )
-          OR (${sql.join(hintConditions, sql` AND `)})
-        )`);
+          )`]
+            : []),
+          ...(hintConditions.length > 0 ? [sql<boolean>`(${sql.join(hintConditions, sql` AND `)})`] : []),
+          // Terceiro ramo (D4): agenda desconhecida de fato. Exige status
+          // `to_define` E ausência de hint — mesa com hint já é alcançável pelo
+          // dia do hint, e apareceria nas duas opções se entrasse aqui também.
+          // Só o eixo DIA decide: `schedule_time_status` fica de fora porque o
+          // filtro que o usuário marcou é o de dia.
+          ...(wantsToDefine
+            ? [sql<boolean>`(t.schedule_day_status = 'to_define' AND t.schedule_day_hint IS NULL)`]
+            : []),
+        ];
+
+        query = query.where(sql<boolean>`(${sql.join(matchBranches, sql` OR `)})`);
       }
     }
 
@@ -665,6 +697,19 @@ router.get('/schedule-facets', async (_req: Request, res: Response) => {
       FROM agenda
       WHERE agenda.start_time IS NOT NULL
       GROUP BY ${daypartCaseSql}
+      UNION ALL
+      -- "A definir" (D4): conta fora do CTE porque a mesa de agenda desconhecida
+      -- não tem linha em agenda: os dois ramos do UNION exigem dia ou hint, e
+      -- ela não tem nenhum dos dois. Sem este SELECT a opção voltaria com zero e
+      -- a UI a ofereceria como filtro que não traz nada.
+      -- Mesmo predicado do terceiro ramo do filtro, senão contador e resultado
+      -- divergem.
+      SELECT 'weekday' AS kind, 'to_define' AS value, COUNT(*) AS count
+      FROM tables t
+      WHERE t.status = 'active' AND t.archived_at IS NULL
+        AND ${importedTableIsCurrentSql('t')}
+        AND t.schedule_day_status = 'to_define'
+        AND t.schedule_day_hint IS NULL
     `.execute(db);
 
     // Opção sem nenhuma mesa não volta do GROUP BY; a UI completa o zero a partir

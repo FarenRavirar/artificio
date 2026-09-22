@@ -9,6 +9,7 @@ import {
   isWeekdayOption,
   normalizeEnumMulti,
   WEEKDAY_OPTIONS,
+  WEEKDAY_TO_DEFINE,
   WEEKDAY_VALUES,
 } from './catalogFilterOptions';
 import { buildCatalogParams, parseCatalogFilters } from './catalogFilters';
@@ -30,7 +31,10 @@ describe('fonte única de dia e faixa (R6)', () => {
     // Igual a `table_schedules.day_of_week` (migration 12, linha 16) e a
     // `tables.schedule_day_hint` (migration 124, linha 46). Perder o acento aqui
     // faria o filtro não casar nenhuma linha — o banco guarda o texto acentuado.
-    expect([...WEEKDAY_VALUES]).toEqual([
+    //
+    // `to_define` é excluído de propósito: ele NÃO existe nesses dois CHECK, e é
+    // justamente por isso que o backend o separa antes de montar o `IN (...)`.
+    expect(WEEKDAY_VALUES.filter((value) => value !== WEEKDAY_TO_DEFINE)).toEqual([
       'segunda',
       'terça',
       'quarta',
@@ -39,6 +43,18 @@ describe('fonte única de dia e faixa (R6)', () => {
       'sábado',
       'domingo',
     ]);
+  });
+
+  it('“A definir” é o último valor e repete o literal do status do banco', () => {
+    // Último porque não é dia de calendário, é a ausência dele (D4). O literal
+    // vem de `SCHEDULE_DEFINITION_STATUSES` (`tableValidators.ts:38`), que é o
+    // que `schedule_day_status` guarda — sentinela paralelo criaria tradução.
+    expect(WEEKDAY_TO_DEFINE).toBe('to_define');
+    expect(WEEKDAY_VALUES[WEEKDAY_VALUES.length - 1]).toBe(WEEKDAY_TO_DEFINE);
+    expect(WEEKDAY_OPTIONS[WEEKDAY_OPTIONS.length - 1]).toEqual({
+      value: 'to_define',
+      label: 'A definir',
+    });
   });
 
   it('as 4 faixas cobrem 24 h sem sobreposição e sem buraco', () => {
