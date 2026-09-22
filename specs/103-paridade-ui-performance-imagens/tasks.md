@@ -1,15 +1,47 @@
 # Tasks — Spec 103
 
-Convenção: `[ ]` aberta · `[x]` fechada com medição citada · `[~]` bloqueada.
+Convenção: `[ ]` aberta · `[x]` fechada com medição citada · `[~]` bloqueada ·
+`[!]` débito ou achado aguardando decisão do mantenedor.
 Task só fecha com o comando que a mediu na mesma linha. "Local", "parcial" e
 "falta deploy" não fecham (AGENTS.md §Erros que não podem se repetir).
 
 ---
 
+## O que falta
+
+### Aceite que depende de deploy
+
+- **T7.13** — CSP do `links`: deployar e conferir que o console não traz violação,
+  que o toggle da sidebar move a barra de `x: -280` para `0`, e que `#scroll-top`
+  aparece após 300 px de rolagem.
+- **T2.3** — remedir o LCP com `--throttling-method=devtools`, 3 rodadas, contra os
+  3,69 s de antes da correção.
+- **T7.8** — conferir que a opção "A definir" aparece com a contagem que o
+  `/schedule-facets` devolver, e que marcá-la traz as mesas do terceiro ramo.
+
+### Débito e herança (decidido, não pendente)
+
+- **T2.3b** — DÉBITO por decisão dele (2026-09-21): sem chave do Chrome UX Report ou
+  Search Console, o número de SEO é laboratório. Não bloqueia o fechamento.
+- **T5.1 / T5.2** — HERDADAS pela spec 104 por decisão dele (2026-09-22): cor de
+  header e política de subnav se decidem lá, junto com a identidade.
+
+### Aberto como trabalho técnico
+
+- **T5.3 / T5.4** — enunciado incorreto (não há divergência de peso entre apps) e a
+  restrição que o guard de T6.1 precisa respeitar.
+- **T6.1** — contrato de CSS para a paridade; **T6.2** e **T6.3** bloqueadas por D3
+  e pelo alcance de `packages/ui`.
+
+Nenhuma decisão de produto segue pendente na 103. T2.5 saiu: medido em 2026-09-22
+que produção serve 126/126 capas do Cloudinary — não era decisão, era medição no
+lugar errado.
+
+---
+
 ## T1 — `` `}{` `` na busca do portal
 
-Entregue no commit `fca55ef`, PR #327 (base `dev`), junto da T7. **Fechada** — a
-T1.2 foi confirmada em produção em 2026-09-21.
+Fechada: a T1.2 foi confirmada em produção em 2026-09-21.
 
 ### [x] T1.1 — Template do Pagefind volta a ser HTML cru
 
@@ -314,9 +346,9 @@ mas afeta payload: 1.242 KiB em 18 imagens, de 1.997 KiB totais.
 JSON do Lighthouse 13.4.0, e ler a chave ausente devolve economia `0 KiB` — zero por
 ausência de medição, não por ausência de desperdício (AGENTS.md §Evidência item 8).
 
-**Segue aberta**, e o que falta agora é medição, não decisão: a correção do `lazy` só
-existe na árvore local, então **não há medida do efeito dela em produção**. O caminho
-para fechar, em ordem de custo:
+**Segue aberta**, e o que falta agora é medição, não decisão: a correção está em `dev`
+desde o merge de `9d8208c` (2026-09-22), mas **não foi deployada**, então não há medida
+do efeito dela em produção. O caminho para fechar, em ordem de custo:
 
 1. deployar e remedir com `--throttling-method=devtools`, 3 rodadas, para saber
    quanto os preloads de imagem valiam de fato dos 3,69 s;
@@ -533,11 +565,14 @@ produzir `ar_undefined`.
 proporção errada mudaria o recorte de toda capa. `203` é o arredondamento de
 `202.5`, pré-existente, e `Card.astro` segue intocado.
 
-**Medido nos dados: a otimização do `site` é no-op hoje**, e já era antes.
-`apps/site/src/data/posts.json` tem 8 posts, 8 com `image`, e o hostname de
-**todos** é `artificiorpg.com` — zero Cloudinary. É a T2.5 (capas 404 do
-WordPress legado). A versão antiga também não transformava nada, porque exigia
-`res.cloudinary.com`. Logo: nenhuma regressão visual na unificação.
+**Medido nos dados: a otimização do `site` é no-op no build de fixture.**
+`apps/site/src/data/posts.json` tem 8 posts, 8 com `image`, hostname de **todos**
+`artificiorpg.com` — zero Cloudinary. A versão antiga também não transformava nada,
+porque exigia `res.cloudinary.com`. Logo: nenhuma regressão visual na unificação.
+
+**Corrigido em 2026-09-22:** este parágrafo atribuía o no-op à "T2.5 (capas 404)".
+Produção serve 126/126 do Cloudinary e é transformada normalmente — ver T2.5. O
+no-op vale só para o fixture de 8 posts, não para o site no ar.
 
 **O que este bloco afirmava e a medição desmentiu:** que o caminho do `site`
 "passa a funcionar sozinho quando a T2.5 for decidida". **Não passava.** Achado
@@ -715,38 +750,48 @@ As URLs do `srcset` foram conferidas servidas, não só montadas: `w_52` 1.240 B
 `w_104` 2.472 B, `w_208` 4.800 B, `w_256` 6.804 B, todas HTTP 200 e
 `image/webp`.
 
-### [!] T2.5 — ACHADO NOVO: toda capa de post do blog é 404 em produção
+### [x] T2.5 — NÃO HÁ 404: produção serve as capas do Cloudinary (2026-09-22)
 
-Descoberto em 2026-09-19 ao conferir o card renderizado da T1.3 — as 7 capas saíram
-como placeholder cinza. Não é artefato do preview local.
+O achado original (2026-09-19) mediu o **lugar errado** e concluiu por ele. Fica
+registrado porque o erro é de método, e a busca custou uma sessão inteira.
 
-Medido com cache-buster (`?cb=$(date +%s%N)`), 3 URLs, 3 × **404**, enquanto o HTML
-do post devolve **200**:
-- `/wp-content/uploads/2026/01/old-school-vs-new-school-consistencia-decisoes-do-mestre-banner-1200x680-1.webp`
-- `/wp-content/uploads/2026/01/cold-open-no-rpg-capa-design-narrativo.webp`
-- `/wp-content/uploads/2026/03/Glossario-Unificado-para-Traducoes-de-DD.webp`
+**Onde a capa do blog mora de verdade — medir sempre aqui:**
 
-Causa medida: `apps/site/src/data/posts.json` guarda URL **absoluta** do WordPress
-legado (`https://artificiorpg.com/wp-content/uploads/...`). Não existe `wp-content`
-no `dist` nem em `apps/site/public/` (só `og-default.png`) — o WordPress foi
-desligado e os arquivos não vieram. Nenhum rewrite serve a rota.
+| Camada | Onde | O que tem |
+|---|---|---|
+| Produção | `site-prod-db`, tabela `posts`, colunas `featured_url` e `og_image` | 126 posts, **126 Cloudinary, 0 `wp-content`** |
+| Mapa do import | `site-prod-db`, `media_map` (`wp_url` → `cloudinary_url`, ambos `NOT NULL`) | 444 linhas |
+| Acervo | `site-prod-db`, `media` (`wp_url`, `cloudinary_url`, `cloudinary_public_id`) | 125 linhas |
+| Snapshot do repo | `apps/site/src/data/posts.json` | **8 posts**, fixture de teste, `wp-content` congelado |
 
-**Alcance maior que a busca:** a mesma URL está no `<img>` do corpo do post e no
-`og:image` (medido no `dist` de `/blog/old-school-vs-new-school-rules-vs-rulings/`),
-então atinge o blog inteiro e o preview de link em rede social.
+Comandos que medem (read-only, §Autorização permite):
 
-**Falha em silêncio.** Build verde, HTML válido, CSP permitindo — só o arquivo não
-existe. Nenhum teste cobre URL de imagem externa.
+```
+ssh faren "docker exec site-prod-db psql -U admin -d site -c \"select count(*) filter (where featured_url like '%wp-content%') as feat_wp, count(*) filter (where featured_url like '%cloudinary%') as feat_cdn, count(*) as total from posts;\""
+```
 
-**Contradiz comentário no código:** `apps/site/astro.config.mjs:66-70` afirma que em
-produção `'self'` "cobriria por acaso". A CSP cobre; o arquivo não existe. O
-comentário descreve a CSP corretamente e a existência do arquivo incorretamente.
+devolveu `feat_wp 0 | feat_cdn 126 | total 126`. O usuário do container é `admin`,
+a base é `site` (`POSTGRES_USER`/`POSTGRES_DB` do `docker inspect`); `-U postgres`
+falha com `FATAL: role "postgres" does not exist`.
 
-**Bloqueada — decisão de produto pendente.** Onde as capas passam a morar muda o que
-o usuário vê. Medido como viável: Cloudinary (o repo já usa com signed preset, e a
-CSP já libera `res.cloudinary.com`) ou `apps/site/public/`. **Não medi** se os
-arquivos originais ainda existem em algum lugar — sem eles nenhuma das duas roda.
-Perguntado ao mantenedor em 2026-09-19; aguardando resposta.
+**HTML de produção, com cache-buster:** `/blog/glossario-unificado-para-traducoes-de-dnd/`
+devolve `wp-content` **0 vezes**, `res.cloudinary.com` **10 vezes**, e o `og:image` é
+`res.cloudinary.com/dnln0btbo/.../Glossario-Unificado-para-Traducoes-de-DD.webp`.
+As duas capas citadas como 404 respondem **200** no Cloudinary
+(`curl -o /dev/null -w '%{http_code}'` com `?cb=$(date +%s%N)`).
+
+**Por que o achado de 2026-09-19 errou:** mediu `posts.json`, que é fixture de 8
+posts (`content.test.ts:4` já dizia "`posts.json` versionado tem 8 posts"), e tratou
+como fonte de produção. `content.ts:1-3` marca a etapa: lê o JSON no build local,
+"Etapa futura: vira Content Layer loader lendo o store Postgres (D005/D048)". O
+`wp-content` do snapshot é real e está morto — só não é o que produção serve.
+
+**Regra que fica:** estado de conteúdo do blog se mede no `site-prod-db`, nunca no
+`posts.json`. Contar `"slug"` no JSON também engana — devolve 46 porque taxonomia
+usa a mesma chave; `len(json)` devolve 8.
+
+**Não medido:** se os 8 registros do fixture devem ser regerados a partir do banco.
+Não afeta produção; afeta só o que o teste e o build local exercitam.
 
 ---
 
@@ -1275,7 +1320,12 @@ exige autorização nominal (AGENTS.md §Autorização). O guard foi escrito e r
 estrutura e HTML servido, não layout computado — é o mesmo vão que T6.2 registra (jsdom
 não faz layout).
 
-### [~] T5.1 — BLOQUEADA por D2 (`spec.md` §4) **e agora pela spec 104**
+### [!] T5.1 — HERDADA PELA SPEC 104 (decisão do mantenedor, 2026-09-22)
+
+Decisão: **"ainda vamos fazer a 104, fechar deixando para a 104 resolver"**. A 103
+não escolhe cor de header. O bloqueio abaixo é o material que a 104 recebe pronto.
+
+#### Registro do bloqueio (D2, `spec.md` §4)
 
 Qual cor de header vira padrão. `mesas` é branco sobre azul `rgb(27,42,74)`; `site` é
 `rgb(2,7,64)` sobre branco. Convergir para o `mesas` muda o header do portal de
@@ -1295,13 +1345,15 @@ A resposta passou a pertencer à 104: decidir aqui é adiantar decisão de cor d
 spec. **Não medido:** nenhuma task da 104 cita `--artificio-navy`, então não se sabe
 se ela pretende redefinir o token ou só o texto do tema claro (T1).
 
-### [~] T5.2 — BLOQUEADA por D1 (`spec.md` §4)
+### [!] T5.2 — HERDADA PELA SPEC 104 (decisão do mantenedor, 2026-09-22)
 
 Política da subnav. O `mesas` gasta a faixa inteira com 1 item ("Catálogo"); o `site`
 usa 4 itens de conteúdo. Sendo o `mesas` o alvo, a faixa de um link vira o padrão, ou
 o `mesas` passa a listar as seções do módulo?
 
-Mesma pergunta, mesma data, **sem resposta**.
+Perguntado em 2026-09-16. Em 2026-09-22 o mantenedor decidiu **não responder na 103**:
+vai junto com T5.1 para a 104, porque subnav e header são a mesma faixa visual e
+decidir um sem o outro fixa metade do desenho.
 
 ### [ ] T5.3 — Peso do link do nav — **o enunciado estava errado**
 
@@ -1387,8 +1439,8 @@ contrato de `packages/ui` e alcança os 6 apps: exige aprovação nominal.
 Duas rodadas. Achados 1-7 são de Codex e CodeRabbit sobre o commit `fca55ef`,
 corrigidos no commit `4031ddc`. Achados 11-12 são das duas ferramentas sobre o
 `4031ddc`, corrigidos no commit `b9d7e82`. PR #327 mergeada em `dev` no merge
-commit `1f6f639`; o resto da spec segue na branch
-`feat/103-imagens-contraste-login`, criada de `origin/dev` nesse commit.
+commit `1f6f639`. O resto da spec entrou depois pela PR #330, mergeada em
+`9d8208c` (2026-09-22).
 
 **Procedem, corrigidos:**
 
@@ -1719,17 +1771,79 @@ no documento; `tabIndex` é 0.
 Como efeito colateral útil, a contagem de cada chip confere com a API: "Sexta(5)",
 "Domingo(3)", "Noite(24)", "Manhã(2)" batem com `/api/v1/tables/schedule-facets`.
 
-### [~] T7.8 — BLOQUEADA por D4 (`spec.md` §6.6)
+### [x] T7.8 — D4 RESPONDIDA (2026-09-22): opção "A definir" no filtro
 
-Medido em produção: **11 mesas ativas** com dia **e** horário `to_define` e nenhum
-hint — agenda desconhecida de fato. Não há valor para casar com filtro algum.
+Decisão do mantenedor: **"filtro a definir"** — a agenda desconhecida vira opção
+explícita, não some em silêncio.
 
-Somem em silêncio, ou o filtro ganha opção "A definir" que as traz? Escolha de
-produto sobre expor mesa incompleta na busca. Pergunta feita em 2026-09-18,
-**sem resposta** até a escrita desta task.
+**Implementado em três pontos, porque o valor atravessa URL, query e contador:**
 
-Não confundir com as 9 mesas `defined` + hint: essas têm dia conhecido e entram pelo
-ramo do hint em T7.3. Não dependem de D4.
+`catalogFilterOptions.ts` ganha `WEEKDAY_TO_DEFINE = 'to_define'`, último item de
+`WEEKDAY_OPTIONS` com label "A definir". O literal repete
+`SCHEDULE_DEFINITION_STATUSES` (`tableValidators.ts:38`), que é o que
+`schedule_day_status` guarda — sentinela paralelo criaria tradução entre URL e
+coluna, e tradução diverge.
+
+`routes/tables.ts` separa `to_define` dos dias **antes** de montar SQL
+(`namedWeekdays`): o CHECK de `day_of_week` e o de `schedule_day_hint` não conhecem
+esse literal, então deixá-lo num `IN (...)` devolveria zero linhas em silêncio. O
+filtro ganha um **terceiro ramo**, `schedule_day_status = 'to_define' AND
+schedule_day_hint IS NULL`. Mesa com hint fica fora dele de propósito: já é
+alcançável pelo dia do hint, e entraria nas duas opções.
+
+`/schedule-facets` ganha um `SELECT` próprio, **fora do CTE `agenda`** — a mesa de
+agenda desconhecida não tem linha lá, porque os dois ramos do `UNION` exigem dia ou
+hint. Sem ele a opção voltaria com contagem 0 e a UI a ofereceria como filtro que
+não traz nada.
+
+**Pesquisado antes de projetar (AGENTS.md §Pesquisar):** a faceta "sem valor" é
+padrão estabelecido — Solr expõe como parâmetro `missing`, que conta os documentos
+que casam a query mas não têm valor no campo; o Azure AI Search resolve por valor
+default no índice. Os dois confirmam o formato adotado: valor próprio na mesma
+faceta, não faceta separada. A diferença aqui é ser opt-in — marcar "A definir"
+traz as mesas; filtrar por `sábado` continua sem trazê-las, porque ausência de dado
+não é correspondência (mesma regra do ramo do hint).
+
+**Medição que corrigiu o número desta task (2026-09-22, `mesas-db` read-only):**
+a task dizia "11 mesas ativas". Hoje são **12** com `schedule_day_status='to_define'`
+e sem hint — mas **só 1 é visível no catálogo**. As outras 11 são
+`origin='imported'` fora da janela de `importedTableIsCurrentSql`, e o catálogo já
+não as mostra em filtro nenhum. Quebra medida: `manual 1` (visível 1),
+`imported 11` (visíveis 0). O predicado de visibilidade entrou no terceiro ramo e no
+contador justamente por isso — sem ele, o filtro prometeria 12 e a lista mostraria 1.
+
+**Correção dos dois achados P1 do Codex (PR #331)** — o mesmo defeito visto dos dois
+lados do `OR` em `weekday=to_define&daypart=noite`:
+
+- O ramo do `to_define` entrava **sem a condição de faixa** e trazia qualquer mesa
+  de dia indefinido, inclusive de outro horário. A faixa passou a entrar nele com
+  `AND`.
+- Os ramos de agenda conhecida (sessão e hint) entravam **só com a faixa**, porque
+  `to_define` sai da lista de dias antes do SQL, e traziam qualquer mesa noturna de
+  dia **definido**. Agora só entram com dia nomeado na URL ou sem filtro de dia
+  (`knownAgendaApplies`). Teste conferido invertido: forçando o comportamento
+  antigo, o caso falha.
+
+Medido em produção ao corrigir, e o caso é real, não teórico: existe **1 mesa** com
+`schedule_day_status='to_define'` e `schedule_time_status='defined'`. Ela tem
+`schedule_time_hint='19:00'` e **zero linhas em `table_schedules`** — conferir só
+`ts.start_time` a perderia em silêncio. A condição cobre as duas colunas
+(`schedule_time_hint` OU `EXISTS` sobre `table_schedules`).
+
+**Testes diretos do predicado** (achado do CodeRabbit, mesma PR), em
+`tables.schedule-filter.test.ts`: `weekday=to_define` sozinho; combinado com dia
+nomeado; combinado com `daypart` (o caso do P1); e o contador de
+`/schedule-facets`. O teste do contador compila o SQL real pelo dialeto — medido
+que o executor recebe o nó cru (`kind`/`sqlFragments`/`parameters`), não um objeto
+compilado, então ler `.sql` direto devolvia string vazia e a asserção passava sem
+medir nada. Verificado invertendo a asserção: falha com o SQL real na mensagem.
+
+**Não confundir** com as mesas `defined` + hint: têm dia conhecido, entram pelo ramo
+do hint em T7.3, não dependem de D4.
+
+Aceite pendente de deploy: conferir que a opção "A definir" aparece com a contagem
+que o `/schedule-facets` devolver em produção, e que marcá-la traz exatamente as
+mesas do terceiro ramo.
 
 ### [x] T7.8b — D5 RESPONDIDA (2026-09-18) — limites das faixas
 
@@ -1937,7 +2051,11 @@ idênticas ao original. `lint` verde; o `links` não tem suíte de teste.
 **Gate +18 não estava exposto:** a API devolve **0** grupos com `is_adult` hoje, e o
 blur é CSS, então a falha fechava segura — o que não funcionava era o desbloqueio.
 
-**Falta a confirmação em produção**, que depende de deploy.
+**Falta a confirmação em produção.** O código está em `dev` desde o merge de
+`9d8208c` (2026-09-22) e não foi deployado. Aceite: deployar `links`, abrir
+`links.artificiorpg.com` com cache-buster e conferir que o console não traz violação
+de CSP, que o toggle da sidebar mobile move a barra de `x: -280` para `0`, e que
+`#scroll-top` aparece depois de 300 px de rolagem.
 
 ---
 

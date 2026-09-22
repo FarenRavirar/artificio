@@ -39,6 +39,24 @@ export type AudienceOption = 'livre' | 'adultos';
  * tradução entre URL e banco, e tradução diverge (AGENTS.md §Compartilhado por
  * padrão). O encode da URL cuida do acento.
  */
+/**
+ * Sentinela da agenda desconhecida (D4, respondida em 2026-09-22: "filtro a
+ * definir"). Medido em produção: 11 mesas ativas com `schedule_day_status` e
+ * `schedule_time_status` em `to_define` e nenhum hint — sem valor para casar com
+ * dia algum, elas sumiam de todo filtro de dia.
+ *
+ * O valor de URL repete o literal do banco (`to_define`, de
+ * `SCHEDULE_DEFINITION_STATUSES`) pelo mesmo motivo que o dia vai com acento:
+ * um sentinela paralelo criaria tradução entre URL, query e coluna.
+ *
+ * Não é um oitavo dia: é a faceta "sem valor", que Solr expõe como `missing` e
+ * o Azure AI Search resolve por valor default. A diferença é que aqui ela é
+ * explícita e o usuário escolhe vê-la — marcar "A definir" traz as 11; filtrar
+ * por `sábado` continua sem trazê-las, porque ausência de dado não é
+ * correspondência (mesma regra do ramo do hint, linha ~340 de `tables.ts`).
+ */
+export const WEEKDAY_TO_DEFINE = 'to_define' as const;
+
 export type WeekdayOption =
   | 'segunda'
   | 'terça'
@@ -46,7 +64,8 @@ export type WeekdayOption =
   | 'quinta'
   | 'sexta'
   | 'sábado'
-  | 'domingo';
+  | 'domingo'
+  | typeof WEEKDAY_TO_DEFINE;
 
 /**
  * Faixa de horário (spec 103, §6.5). Ao contrário do dia, a faixa **não** existe
@@ -112,6 +131,8 @@ export const WEEKDAY_OPTIONS: readonly { value: WeekdayOption; label: string }[]
   { value: 'sexta', label: 'Sexta' },
   { value: 'sábado', label: 'Sábado' },
   { value: 'domingo', label: 'Domingo' },
+  // Última porque não é dia de calendário, é a ausência dele (D4).
+  { value: WEEKDAY_TO_DEFINE, label: 'A definir' },
 ];
 
 /**

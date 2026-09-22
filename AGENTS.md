@@ -29,6 +29,7 @@ Detalhe nas seções próprias. Isto é o piso:
 - **Autorização é por ação, nomeada, a cada vez** — `commit`/`push`/merge/deploy/write na VM. Não acumula, não se infere de frase genérica. Destrutivo: bloco `## APROVAÇÃO NECESSÁRIA`. §Autorização
 - A VM Oracle nunca é desligada, reiniciada ou suspensa — nem pelo painel da Oracle. "Desligar a máquina" é sempre o Windows local.
 - Escopo (o que entra em qual PR) é dele. Bug achado se corrige no mesmo trabalho; débito só se registra quando ele mandar.
+- **Estado do código não se escreve em doc** (commitado, local, mergeado, `dev`, produção, SHA, branch, PR) — `git`/`gh` medem. Fica o que comando não mede: decisão, bloqueio, aceite que falta.
 - Validação repo-wide só no fim, e um comando por vez — `test`/`lint`/`build` em paralelo trava a máquina dele.
 - Pesquisar em `spec.md`/`plan.md`/`tasks.md` antes de perguntar, abrindo a seção inteira.
 - `rtk` no lugar do comando cru, sempre.
@@ -285,9 +286,9 @@ Rotina de fechamento não autoriza ampliar escopo documental. Registrar só onde
 
 - Localizar o bloco antes de escrever: `rtk rg "T<N> —" <arquivo>`, abrir a região inteira.
 - Uma task tem UM bloco de estado. Retomada em sessão nova reescreve, não duplica.
-- Trabalho merged encolhe: o porquê vive no comentário do código; a doc guarda o que foi entregue, o bloqueio que resta e o que precisa de conferência.
 - Medir o delta ao terminar (`rtk git diff --stat`). Diff só de inserções em doc de estado é sinal de empilhamento.
 - Nunca se apaga: decisão dele, bloqueio aberto, achado pendente de resposta, erro do próprio agente já registrado.
+- Trabalho merged encolhe (T0). SHA como CAUSA fica: "corrigido em `4031ddc`".
 
 ### Formato da resposta
 
