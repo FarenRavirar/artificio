@@ -17,8 +17,6 @@ Projetos públicos em subdomínios de `*.artificiorpg.com`, login Google único 
 Apps: `site` (portal+blog), `glossario`, `mesas`, `downloads`, `esferas`, `srd`, `links`.
 Pacotes: `auth`, `ui`, `analytics`, `config`, `content`, `crosslink`.
 
-`G1` é codinome interno do modelo de hub interconectado, não nome de produto.
-
 ---
 
 ## T0 — Resumo inegociável
@@ -27,9 +25,7 @@ Detalhe nas seções próprias. Isto é o piso:
 
 - **Ler a skill `caveman` e responder em `ultra`, toda sessão, toda resposta.** No Claude Code o hook de `SessionStart` já injeta o ruleset; nos outros harnesses, abrir `~/.claude/skills/caveman/SKILL.md`. Exceções da própria skill valem: aviso de segurança, confirmação de ação irreversível, e texto que sai do chat (código, commit, doc, PR) em prosa normal.
 - **Pesquisar antes de inventar.** Problema de framework/lib/CSS/infra já tem solução documentada. Buscar (`WebSearch`/`WebFetch`, sem autorização) antes de projetar a própria. §Pesquisar
-- **Só pergunta de PRODUTO vai a ele.** Dúvida técnica se resolve medindo ou pesquisando. §Produto vs. técnico
-- **A resposta leva o que ele precisa para decidir; a medição vai para o arquivo.** §Formato da resposta
-- **Afirmação vem com o comando que mediu**, e opção oferecida é opção medida. Sem medição: "não medi". §Evidência
+- **Só pergunta de PRODUTO vai a ele.** Dúvida técnica se resolve medindo no código ou pesquisando na internet. §Produto vs. técnico
 - **Autorização é por ação, nomeada, a cada vez** — `commit`/`push`/merge/deploy/write na VM. Não acumula, não se infere de frase genérica. Destrutivo: bloco `## APROVAÇÃO NECESSÁRIA`. §Autorização
 - A VM Oracle nunca é desligada, reiniciada ou suspensa — nem pelo painel da Oracle. "Desligar a máquina" é sempre o Windows local.
 - Escopo (o que entra em qual PR) é dele. Bug achado se corrige no mesmo trabalho; débito só se registra quando ele mandar.

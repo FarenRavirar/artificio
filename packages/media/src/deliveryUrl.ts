@@ -106,10 +106,21 @@ export function cloudinaryDeliveryUrl(
   // `ar_` + `c_fill` num componente SÓ, separado por vírgula: são parâmetros da
   // mesma ação (recortar nesta proporção), e a doc reserva a barra para ações
   // encadeadas. Proporção inválida é ignorada em vez de virar `ar_undefined`.
+  // `c_limit` no ramo sem recorte: sem modo de corte o Cloudinary usa `c_scale`,
+  // que AMPLIA quando a largura pedida passa do original. Medido em 2026-09-22
+  // num avatar de 241×250: `w_746` devolveu 746×774 e **127 KiB**, contra 24 KiB
+  // do arquivo gravado — 5× o peso sem um pixel de detalhe a mais, e um `srcset`
+  // declarando largura que o bitmap não tem. `c_limit` reduz quando cabe e
+  // devolve o original quando não cabe, então o teto passa a ser o arquivo e não
+  // a URL (doc: cloudinary.com/documentation/resizing_and_cropping).
+  //
+  // O ramo com `c_fill` fica intacto: ali recortar é a intenção declarada por
+  // `recortarNaProporcao`, e `c_fill` já preenche a caixa sem ampliar além do
+  // necessário.
   const recorte = normalizarProporcao(opts.recortarNaProporcao);
   const passos = recorte
     ? `${PREFIXO_ENTREGA}/ar_${recorte},c_fill/w_${largura}`
-    : `${PREFIXO_ENTREGA}/w_${largura}`;
+    : `${PREFIXO_ENTREGA}/w_${largura},c_limit`;
 
   segmentos.splice(posSeguinte, 0, passos);
   parsed.pathname = `/${segmentos.join("/")}`;

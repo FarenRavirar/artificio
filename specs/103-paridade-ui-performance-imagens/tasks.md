@@ -381,24 +381,84 @@ errado, ambos procedentes:**
   é o caso maior que manda: com 240 o `w_480` gerado ficava abaixo dos 560 px que uma
   tela 2x pede, e a foto do perfil público perderia nitidez.
 
-**Guarda contra a repetição:** tabela de larguras por consumidor em
-`tableImage.test.ts`, com o valor de CSS de cada um — o teste falha se alguém mudar
-uma largura sem mexer no CSS correspondente.
+- e, na terceira rodada, a própria coluna desktop era o eixo errado. `.mestre-bio-photo img`
+  tem `aspect-ratio: 3 / 4` e `object-fit: cover` (`MestrePage.css:363-366`), então a
+  caixa mede **280×373** e é a ALTURA que manda: um bitmap quadrado mais estreito que
+  373 px é ampliado pelo `cover`.
 
-**Largura fixa, não `srcset`, e isso foi medido:** `imageKindWidths('profile_avatar')`
-começa em `minWidth` 140 (`imageKinds.ts:113`), o piso do perfil público — para um
-avatar de 24 px o `srcset` só ofereceria candidatas grandes demais. A função dobra a
-largura de layout para cobrir tela 2x, que é onde o avatar borrado apareceria.
+**Três erros no mesmo lugar em três rodadas não são três descuidos — são o desenho
+errado.** `avatarSrc(url, largura)` pedia que cada call site copiasse um número do CSS
+para o TypeScript, e número copiado é segunda fonte de verdade: diverge na primeira vez
+que alguém mexe no CSS, sem nada acusar. A "guarda" que a segunda rodada criou era uma
+tabela ligando consumidor a valor de CSS, mantida à mão — ela documentava a divergência
+em vez de impedi-la.
+
+**A forma certa já estava no mesmo arquivo:** `tableImageAttrs` resolve a capa com
+`srcset` + `sizes` e não tem número mágico nenhum. `avatarSrc` virou **`avatarAttrs`**,
+com a mesma forma — `srcset` com as larguras do registro, `sizes` descrevendo a caixa, e
+a escolha feita pelo NAVEGADOR, com a geometria real que só ele conhece.
+
+`sizes` é a mesma linguagem do CSS, avaliada contra o viewport real: a media query que
+muda o layout muda o `sizes` junto (`PlayerPage`: `(max-width: 768px) 100px, 120px`;
+`MestreBio`: `(max-width: 768px) 320px, 373px`). O que era número mágico virou
+descrição.
+
+**A justificativa que eu dera para não usar `srcset` era falsa, e foi medida:**
+`imageKindWidths('profile_avatar')` devolve `[140, 280, 560, 1024]` — cobre de 24 px em
+tela 1x até os 373 px da bio em DPR 2. Não eram "candidatas grandes demais".
+
+`MestreBio` declara `373px` onde a coluna mede 280 px, e isso é proposital: a seleção de
+candidata é só por **largura × DPR** (spec do HTML), sem olhar `object-fit`. Declarar 280
+faria o navegador pegar um bitmap que o `cover` depois ampliaria para preencher os 373 px
+de altura. 373 é a largura equivalente que cobre o eixo limitante.
+
+**Um consumidor ficou fora, por limite estrutural:** `MestreReviewsSection` alimenta
+`GmReviewList` (`packages/ui`), que aceita uma URL e não `srcSet`/`sizes`. Sem controlar
+a tag não há `srcset`, então ali se escolhe uma largura só — mas derivada de
+`imageKindWidths('profile_avatar')[0]`, não escrita à mão.
+
+**Duas medições derrubaram premissas que estavam no código (CONTRATO ALTERADO):**
+
+**Avatar NÃO é 1:1 no arquivo.** `imageKinds.ts:104` declara "avatar é SEMPRE 1:1", e
+isso é verdade para o EDITOR de recorte, não para o que fica gravado:
+`storageTransformation` usa `crop: "limit"` (`imageKinds.ts:376`), que preserva a
+proporção do que o dono subiu. Medido em produção com `fl_getinfo`, 6 avatares:
+**715×893, 768×1024, 683×1024, 800×800, 1024×1024, 241×250** — só dois quadrados.
+
+**`cloudinaryDeliveryUrl` fazia upscale, em silêncio.** Sem modo de corte o Cloudinary
+aplica `c_scale`, que AMPLIA quando a largura pedida passa do arquivo
+(`cloudinary.com/documentation/resizing_and_cropping`). Medido contra o Cloudinary real
+no avatar de 241×250: `w_746` devolveu **746×774 com 127 KiB**, contra **24 KiB** do
+original — 5× o peso, zero pixel de detalhe a mais, e um `srcset` declarando largura que
+o bitmap não tem. Falha que não quebra nada: a imagem aparece, só pesada.
+
+Corrigido na raiz, em `packages/media/src/deliveryUrl.ts`: o ramo sem recorte passou a
+emitir `w_<n>,c_limit`. `c_limit` reduz quando cabe e devolve o original quando não
+cabe, então o teto passa a ser o arquivo e não a URL. **Alcança os 7 consumidores de
+avatar e o `srcset` das capas**, não só o call site que o revisor apontou. O ramo com
+`c_fill` ficou intacto — ali recortar é a intenção declarada por `recortarNaProporcao`.
 
 `onError` de `MestreHero` segue recebendo `profile.avatar_url` cru de propósito: ali
 a URL é chave de falha, não fonte de exibição.
 
-**Guarda:** 5 testes novos em `tableImage.test.ts` — dobra a largura, entrega com
-`q_auto`/`f_auto`, devolve `undefined` sem src (para o React omitir o atributo), não
-reescreve URL de terceiro e não empilha transformação sobre URL que já tem uma.
+**Guarda:** em `tableImage.test.ts`, o `srcset` é comparado contra
+`imageKindWidths('profile_avatar')` em vez de contra números fixos — fixá-los recriaria
+a segunda fonte de verdade que a refatoração removeu. Mais `c_limit` presente e
+`c_scale` ausente em cada candidata, `sizes` acompanhando o `srcset`, URL de terceiro
+saindo intacta e sem `srcSet`, e só o avatar prioritário em `eager`. Em
+`deliveryUrl.test.ts`, o pedido de 4000 px provando que largura acima do original não
+vira upscale. As asserções que fixavam `w_<n>/` sem modo de corte foram reescritas —
+eram o contrato antigo.
 
-**Validação:** `mesas-frontend` **1239/1239** (eram 1234), `lint` 0 erro, `build`
-exit 0, `pnpm verify:api` breaking=0 nos 6 apps. **Falta a medição em produção**, que
+**Não mexido, medido:** `recommendedWidth: 280` de `profile_avatar`
+(`imageKinds.ts:111`) tem o comentário "exibido a 140px no perfil público", que o layout
+atual contradiz — a bio renderiza a 373 px de altura. Mudar isso altera o `og:image` e o
+`srcset` de todos os apps, e `profile_avatar` é decisão pétrea do mantenedor
+(2026-08-18). Fica como divergência documental para ele decidir.
+
+**Validação:** `media` **144/144**, `mesas-frontend` **1241/1241**, `mesas-backend`
+1190/1191 (1 skip pré-existente), `site` 203/203, `catalog-table` 36/36,
+`image-editor` 15/15, `tsc -b` exit 0, `lint` 0 erro. **Falta a medição em produção**, que
 depende de deploy.
 
 ### [x] T2.4 — Cruzar com os outros apps

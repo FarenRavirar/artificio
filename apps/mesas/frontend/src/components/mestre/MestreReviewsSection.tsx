@@ -3,8 +3,11 @@ import { GmReviewForm, GmReviewList, type GmReviewItem } from '@artificio/ui';
 import { useAuth } from '../../contexts/useAuth';
 import { authPost } from '../../services/apiClient';
 import { startSsoLogin } from '../../utils/auth';
-import { avatarSrc } from '../../utils/tableImage';
+import { cloudinaryDeliveryUrl, imageKindWidths } from '@artificio/media/delivery-url';
 import toast from 'react-hot-toast';
+
+/** Piso das larguras de avatar no registro; cobre 32px de slot até DPR 4. */
+const AVATAR_MENOR_LARGURA = imageKindWidths('profile_avatar')[0];
 
 interface MestreReviewsSectionProps {
   readonly slug: string;
@@ -33,18 +36,25 @@ function normalizeReviews(data: unknown): GmReviewItem[] {
         (r.author_avatar === null || typeof r.author_avatar === 'string')
       );
     })
-    // O avatar do autor é pedido no tamanho em que `GmReviewList` o exibe —
-    // `h-8 w-8`, 32px (`packages/ui/src/GmReviewPanel.tsx:103`). Sem isto a lista
-    // baixa o arquivo original do Cloudinary por avaliação, que foi o defeito
-    // medido nos outros consumidores de avatar (spec 103, T2.3).
+    // Único avatar que NÃO usa `avatarAttrs`, e o motivo é estrutural: o `<img>`
+    // é de `GmReviewList` (`packages/ui/src/GmReviewPanel.tsx:103`), que aceita
+    // uma URL e não `srcSet`/`sizes`. Sem controlar a tag não há `srcset`, então
+    // aqui se escolhe UMA largura — o que os outros consumidores deixaram de
+    // fazer justamente porque largura fixa errou três vezes na PR #330.
     //
-    // A normalização acontece AQUI, e não no pacote, porque `GmReviewList` é
-    // compartilhado e não conhece o tamanho em que cada consumidor o monta —
-    // quem sabe o tamanho é quem renderiza. Mexer no pacote alcançaria 6 apps e
-    // exigiria aprovação (AGENTS.md §Autorização), sem resolver melhor.
+    // `AVATAR_MENOR_LARGURA` vem de `imageKindWidths('profile_avatar')`, não de um
+    // número escrito à mão: é o piso do registro (140px), que cobre o slot de
+    // `h-8 w-8` (32px) até DPR 4. Se o registro mudar, isto acompanha.
+    //
+    // A normalização acontece aqui, e não no pacote, porque `GmReviewList` é
+    // compartilhado e não conhece o tamanho em que cada consumidor o monta.
+    // Mexer no pacote alcançaria 6 apps e exigiria aprovação
+    // (AGENTS.md §Autorização), sem resolver melhor.
     .map((review) => ({
       ...review,
-      author_avatar: avatarSrc(review.author_avatar, 32) ?? null,
+      author_avatar: review.author_avatar
+        ? cloudinaryDeliveryUrl(review.author_avatar, AVATAR_MENOR_LARGURA)
+        : null,
     }));
 }
 

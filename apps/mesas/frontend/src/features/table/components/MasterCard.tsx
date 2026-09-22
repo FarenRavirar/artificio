@@ -1,7 +1,7 @@
 import { User, Gamepad2 } from 'lucide-react';
 import { GmReviewSummary } from '@artificio/ui';
 import { MarkdownContent } from '@artificio/content-editor';
-import { avatarSrc } from '../../../utils/tableImage';
+import { avatarAttrs } from '../../../utils/tableImage';
 
 interface MasterCardProps {
   readonly masterName?: string;
@@ -42,10 +42,8 @@ export function MasterCard({ masterName, masterSlug, masterAvatar, masterBio, ma
       <div className="flex-shrink-0">
         {masterAvatar ? (
           <img
-            src={avatarSrc(masterAvatar, 64)}
+            {...avatarAttrs(masterAvatar, '64px')}
             alt={masterName}
-            loading="lazy"
-            decoding="async"
             className="w-16 h-16 rounded-full object-cover border-2 border-[rgba(168,85,247,0.30)] group-hover:border-[rgba(168,85,247,0.60)] transition"
           />
         ) : (

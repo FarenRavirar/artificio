@@ -1,6 +1,5 @@
 import type { SyntheticEvent } from 'react';
 import {
-  cloudinaryDeliveryUrl,
   cloudinarySrcset,
   imageKindWidths,
 } from '@artificio/media/delivery-url';
@@ -86,29 +85,67 @@ export function tableImageAttrs(
   };
 }
 
+/** Atributos responsivos de um `<img>` de avatar. */
+export interface AvatarAttrs {
+  readonly src: string | undefined;
+  readonly srcSet?: string;
+  readonly sizes?: string;
+  readonly loading: 'lazy' | 'eager';
+  readonly decoding: 'async' | 'sync' | 'auto';
+}
+
 /**
- * URL de avatar pedindo a largura que o layout realmente usa.
+ * Atributos responsivos de um avatar, na mesma forma que `tableImageAttrs` usa
+ * para a capa: `srcset` com as larguras do registro, e `sizes` descrevendo a
+ * caixa. **Quem escolhe o arquivo é o navegador**, com a geometria real que só
+ * ele conhece.
  *
  * Existe porque o avatar era o único consumo de imagem do `mesas` que não passava
  * por `@artificio/media`: medido em produção em 2026-09-21, 6 URLs saíam como
  * `/upload/v17…/artificio_avatars/…`, sem transformação nenhuma, somando **507 KiB**
  * — a maior com 217 KiB para renderizar em 24 px (`TableCard`).
  *
- * Largura fixa em vez de `srcset` porque `imageKindWidths('profile_avatar')` começa
- * em 140 px (o piso do perfil público), e o menor consumo aqui é de 24 px: o
- * `srcset` só ofereceria candidatas grandes demais. Quem chama diz o tamanho do
- * layout e esta função dobra para cobrir tela 2x, que é onde o avatar borrado
- * apareceria.
+ * **A primeira versão pedia UMA largura fixa por consumidor, e isso foi o defeito.**
+ * A revisão da PR #330 achou três valores errados em três rodadas — 240 (era o
+ * `max-width` do mobile), 280 (era a largura, não o eixo limitante) e por fim o
+ * próprio eixo: `.mestre-bio-photo img` tem `aspect-ratio: 3 / 4` e
+ * `object-fit: cover` (`MestrePage.css:363-366`), então a caixa mede 280×373 e é a
+ * ALTURA que manda. Cada correção acertava um número e deixava o seguinte errado,
+ * porque um número copiado do CSS para o TypeScript é duas fontes para o mesmo
+ * fato — e elas divergem na primeira vez que alguém mexe no CSS.
  *
- * URL que a função não entende (link de terceiro, já transformada) volta intacta —
- * `cloudinaryDeliveryUrl` garante isso, e pedir tamanho nunca é requisito.
+ * `sizes` não tem esse problema: ele é a MESMA linguagem do CSS, avaliada contra o
+ * viewport real, e a própria media query que muda o layout muda o `sizes` junto.
+ * O que era número mágico vira descrição, e `object-fit: cover` deixa de importar —
+ * o navegador já resolve a proporção ao escolher a candidata.
+ *
+ * `imageKindWidths('profile_avatar')` devolve `[140, 280, 560, 1024]`, medido: cobre
+ * de 24 px em tela 1x até os 373 px da bio em DPR 2. A justificativa que a versão
+ * anterior dava para não usar `srcset` — "só ofereceria candidatas grandes demais" —
+ * era falsa, e o `srcset` da capa já provava o contrário no mesmo arquivo.
+ *
+ * URL que não é nossa (link de terceiro, já transformada) sai sem `srcSet`:
+ * `cloudinarySrcset` devolve string vazia, e uma entrada só, igual ao `src`, não dá
+ * escolha nenhuma ao navegador e só pesa o HTML.
  */
-export function avatarSrc(
+export function avatarAttrs(
   rawSrc: string | null | undefined,
-  larguraDeLayout: number,
-): string | undefined {
-  if (!rawSrc) return undefined;
-  return cloudinaryDeliveryUrl(rawSrc, larguraDeLayout * 2);
+  sizes: string,
+  { priority = false }: { readonly priority?: boolean } = {},
+): AvatarAttrs {
+  if (!rawSrc) {
+    return { src: undefined, loading: 'lazy', decoding: 'async' };
+  }
+
+  const srcSet = cloudinarySrcset(rawSrc, imageKindWidths('profile_avatar'));
+
+  return {
+    src: rawSrc,
+    srcSet: srcSet || undefined,
+    sizes: srcSet ? sizes : undefined,
+    loading: priority ? 'eager' : 'lazy',
+    decoding: priority ? 'sync' : 'async',
+  };
 }
 
 export { bannerPlaceholder };

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { imageKindWidths } from '@artificio/media/delivery-url';
 import {
   applyTableImageFallback,
-  avatarSrc,
+  avatarAttrs,
   bannerPlaceholder,
   resolveTableImageSource,
   tableImageAttrs,
@@ -23,7 +24,7 @@ describe('tableImageAttrs', () => {
     const entradas = (attrs.srcSet ?? '').split(', ').filter(Boolean);
     expect(entradas.length).toBeGreaterThanOrEqual(3);
     for (const entrada of entradas) {
-      expect(entrada).toMatch(/\/upload\/q_auto\/f_auto\/w_\d+\/.+ \d+w$/);
+      expect(entrada).toMatch(/\/upload\/q_auto\/f_auto\/w_\d+,c_limit\/.+ \d+w$/);
     }
   });
 
@@ -138,52 +139,63 @@ describe('resolveTableImageSource', () => {
 const AVATAR_NOSSO =
   'https://res.cloudinary.com/dnln0btbo/image/upload/v1788501588/artificio_avatars/abc123.png';
 
-describe('avatarSrc', () => {
-  it('pede o dobro da largura de layout, para cobrir tela 2x', () => {
-    expect(avatarSrc(AVATAR_NOSSO, 24)).toContain('/w_48/');
-    expect(avatarSrc(AVATAR_NOSSO, 120)).toContain('/w_240/');
+describe('avatarAttrs', () => {
+  it('monta `srcset` com as larguras do registro, sem número escrito à mão', () => {
+    const attrs = avatarAttrs(AVATAR_NOSSO, '64px');
+    const entradas = (attrs.srcSet ?? '').split(', ').filter(Boolean);
+
+    // A lista É `imageKindWidths('profile_avatar')`. Fixar os números aqui
+    // recriaria a segunda fonte de verdade que esta refatoração removeu.
+    const larguras = entradas.map((e) => Number(/w_(\d+),/.exec(e)?.[1]));
+    expect(larguras).toEqual([...imageKindWidths('profile_avatar')]);
   });
 
-  it('entrega com `q_auto`/`f_auto`, não o arquivo original', () => {
-    const url = avatarSrc(AVATAR_NOSSO, 24) ?? '';
-    expect(url).toContain('q_auto');
-    expect(url).toContain('f_auto');
-    expect(url).not.toBe(AVATAR_NOSSO);
+  it('acompanha `sizes` sempre que há `srcset`', () => {
+    const attrs = avatarAttrs(AVATAR_NOSSO, '(max-width: 768px) 320px, 373px');
+    expect(attrs.srcSet).toBeTruthy();
+    expect(attrs.sizes).toBe('(max-width: 768px) 320px, 373px');
   });
 
-  it('devolve `undefined` sem src, para o React omitir o atributo', () => {
-    expect(avatarSrc(null, 24)).toBeUndefined();
-    expect(avatarSrc(undefined, 24)).toBeUndefined();
-    expect(avatarSrc('', 24)).toBeUndefined();
+  it('entrega com `q_auto`/`f_auto` e `c_limit` em cada candidata', () => {
+    const entradas = (avatarAttrs(AVATAR_NOSSO, '64px').srcSet ?? '').split(', ');
+    for (const entrada of entradas) {
+      expect(entrada).toMatch(/\/upload\/q_auto\/f_auto\/w_\d+,c_limit\/.+ \d+w$/);
+      expect(entrada).not.toContain('c_scale');
+    }
   });
 
-  it('não reescreve URL de terceiro: reescrever daria 404', () => {
-    const alheia = 'https://exemplo.com/image/upload/v1/artificio_avatars/foto.jpg';
-    expect(avatarSrc(alheia, 24)).toBe(alheia);
-  });
-
-  it('não empilha transformação sobre URL que já tem uma', () => {
-    const jaTransformada =
-      'https://res.cloudinary.com/dnln0btbo/image/upload/w_300/v1788501588/artificio_avatars/abc123.png';
-    expect(avatarSrc(jaTransformada, 24)).toBe(jaTransformada);
+  it('sem src devolve `src: undefined`, para o React omitir o atributo', () => {
+    for (const vazio of [null, undefined, '']) {
+      const attrs = avatarAttrs(vazio, '64px');
+      expect(attrs.src).toBeUndefined();
+      expect(attrs.srcSet).toBeUndefined();
+    }
   });
 
   /**
-   * As larguras de cada consumidor, medidas no CSS que o renderiza. Existe porque a
-   * revisão da PR #330 achou dois consumidores que a varredura tinha perdido
-   * (`MasterCard` e `TableMaster`, ambos `w-16` = 64px, alimentados por
-   * `vm.masterAvatar`), e um valor errado: a bio usava 240px, que é o `max-width`
-   * do MOBILE (`MestrePage.css:427`) — no desktop a coluna é de 280px
-   * (`MestrePage.css:358`), e é o caso maior que manda.
+   * URL que não é nossa sai SEM `srcSet` e sem `sizes`: uma entrada só, igual ao
+   * `src`, não dá escolha nenhuma ao navegador e só pesa o HTML. O `src` tem que
+   * sobreviver intacto — reescrever caminho de terceiro daria 404.
    */
   it.each([
-    ['TableCard', 24, 'w_48'],
-    ['MasterCard e TableMaster', 64, 'w_128'],
-    ['ProfileEditPage', 80, 'w_160'],
-    ['MestreHero', 96, 'w_192'],
-    ['PlayerPage', 120, 'w_240'],
-    ['MestreBio (coluna desktop)', 280, 'w_560'],
-  ])('largura de %s: %ipx de layout vira %s', (_nome, layout, esperado) => {
-    expect(avatarSrc(AVATAR_NOSSO, layout)).toContain(`/${esperado}/`);
+    ['de terceiro', 'https://exemplo.com/image/upload/v1/artificio_avatars/foto.jpg'],
+    [
+      'já transformada',
+      'https://res.cloudinary.com/dnln0btbo/image/upload/w_300/v1788501588/artificio_avatars/a.png',
+    ],
+  ])('URL %s: mantém o `src` e omite `srcSet`', (_caso, url) => {
+    const attrs = avatarAttrs(url, '64px');
+    expect(attrs.src).toBe(url);
+    expect(attrs.srcSet).toBeUndefined();
+    expect(attrs.sizes).toBeUndefined();
+  });
+
+  /**
+   * O avatar do herói do perfil é candidato a LCP; os demais são decoração abaixo
+   * da dobra. Marcar tudo como prioritário é o mesmo que não marcar nada.
+   */
+  it('só o avatar prioritário é `eager`', () => {
+    expect(avatarAttrs(AVATAR_NOSSO, '96px', { priority: true }).loading).toBe('eager');
+    expect(avatarAttrs(AVATAR_NOSSO, '64px').loading).toBe('lazy');
   });
 });
