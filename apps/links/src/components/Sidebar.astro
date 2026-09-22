@@ -48,7 +48,10 @@ const { categories } = Astro.props;
   </details>
 </aside>
 
-<script is:inline>
+{/* Bundlado, não `is:inline`: a CSP do Astro 6 não hasheia inline, e em produção o
+    toggle da sidebar mobile ficava inerte (medido em 2026-09-21: clique não mudava
+    `aria-expanded` nem a posição `x: -280`). */}
+<script>
   (function () {
     if (typeof window === "undefined") return;
     var toggle = document.querySelector(".sidebar-toggle");

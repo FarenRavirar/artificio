@@ -31,6 +31,12 @@ const ogImg = ogImage ?? new URL("/og-default.png", site).href;
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     {/* Tema canônico (cookie artificio_theme cross-subdomínio); aplica antes do paint (sem flash). */}
+    {/*
+      ÚNICO script que PRECISA ser `is:inline` aqui: roda antes da primeira pintura.
+      Como a CSP do Astro 6 não hasheia inline, o hash entra à mão em
+      `astro.config.mjs` (`scriptDirective.hashes`). Mudou o corpo deste script →
+      recalcular o hash, ou a CSP volta a bloquear e o tema pisca.
+    */}
     <script is:inline>
       (function () {
         try {
@@ -70,7 +76,14 @@ const ogImg = ogImage ?? new URL("/og-default.png", site).href;
   </head>
   <body>
     <slot />
-    <script is:inline>
+    {/*
+      Script BUNDLADO de propósito (sem `is:inline`): a CSP do Astro 6 só gera hash
+      para o que ele bundla — `<script is:inline>` nunca entra no `script-src`, e em
+      produção o navegador bloqueava este bloco, deixando o gate +18 sem desbloqueio
+      (medido em 2026-09-21 em links.artificiorpg.com: 5 scripts inline recusados).
+      Roda no fim do `<body>`, depois do DOM, então não precisa ser inline.
+    */}
+    <script>
       (function () {
         try {
           if (localStorage.getItem("artificio_adult_gate") === "1") {
@@ -95,7 +108,8 @@ const ogImg = ogImage ?? new URL("/og-default.png", site).href;
         <polyline points="18 15 12 9 6 15" />
       </svg>
     </button>
-    <script is:inline>
+    {/* Bundlado pelo mesmo motivo do gate +18 acima: inline não recebe hash na CSP. */}
+    <script>
       (function () {
         var btn = document.getElementById("scroll-top");
         var ticking = false;

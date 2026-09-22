@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { imageKindWidths } from '@artificio/media/delivery-url';
 import {
   applyTableImageFallback,
+  uploadImageAttrs,
   bannerPlaceholder,
   resolveTableImageSource,
   tableImageAttrs,
@@ -22,7 +24,7 @@ describe('tableImageAttrs', () => {
     const entradas = (attrs.srcSet ?? '').split(', ').filter(Boolean);
     expect(entradas.length).toBeGreaterThanOrEqual(3);
     for (const entrada of entradas) {
-      expect(entrada).toMatch(/\/upload\/q_auto\/f_auto\/w_\d+\/.+ \d+w$/);
+      expect(entrada).toMatch(/\/upload\/q_auto\/f_auto\/w_\d+,c_limit\/.+ \d+w$/);
     }
   });
 
@@ -125,6 +127,94 @@ describe('resolveTableImageSource', () => {
     'cai no placeholder para src inutilizável: %s',
     (src) => {
       expect(resolveTableImageSource(src)).toBe(bannerPlaceholder);
+    },
+  );
+});
+
+/**
+ * Avatar hospedado na nossa conta, na forma que produção servia: SEM
+ * transformação nenhuma. Foi essa forma que somou 507 KiB em 6 URLs na medição de
+ * 2026-09-21, uma delas com 217 KiB para 24 px de exibição.
+ */
+const AVATAR_NOSSO =
+  'https://res.cloudinary.com/dnln0btbo/image/upload/v1788501588/artificio_avatars/abc123.png';
+
+describe('uploadImageAttrs', () => {
+  it('monta `srcset` com as larguras do registro, sem número escrito à mão', () => {
+    const attrs = uploadImageAttrs(AVATAR_NOSSO, '64px');
+    const entradas = (attrs.srcSet ?? '').split(', ').filter(Boolean);
+
+    // A lista É `imageKindWidths('profile_avatar')`. Fixar os números aqui
+    // recriaria a segunda fonte de verdade que esta refatoração removeu.
+    const larguras = entradas.map((e) => Number(/w_(\d+),/.exec(e)?.[1]));
+    expect(larguras).toEqual([...imageKindWidths('profile_avatar')]);
+  });
+
+  it('acompanha `sizes` sempre que há `srcset`', () => {
+    const attrs = uploadImageAttrs(AVATAR_NOSSO, '(max-width: 768px) 320px, 373px');
+    expect(attrs.srcSet).toBeTruthy();
+    expect(attrs.sizes).toBe('(max-width: 768px) 320px, 373px');
+  });
+
+  it('entrega com `q_auto`/`f_auto` e `c_limit` em cada candidata', () => {
+    const entradas = (uploadImageAttrs(AVATAR_NOSSO, '64px').srcSet ?? '').split(', ');
+    for (const entrada of entradas) {
+      expect(entrada).toMatch(/\/upload\/q_auto\/f_auto\/w_\d+,c_limit\/.+ \d+w$/);
+      expect(entrada).not.toContain('c_scale');
+    }
+  });
+
+  it('sem src devolve `src: undefined`, para o React omitir o atributo', () => {
+    for (const vazio of [null, undefined, '']) {
+      const attrs = uploadImageAttrs(vazio, '64px');
+      expect(attrs.src).toBeUndefined();
+      expect(attrs.srcSet).toBeUndefined();
+    }
+  });
+
+  /**
+   * URL que não é nossa sai SEM `srcSet` e sem `sizes`: uma entrada só, igual ao
+   * `src`, não dá escolha nenhuma ao navegador e só pesa o HTML. O `src` tem que
+   * sobreviver intacto — reescrever caminho de terceiro daria 404.
+   */
+  it.each([
+    ['de terceiro', 'https://exemplo.com/image/upload/v1/artificio_avatars/foto.jpg'],
+    [
+      'já transformada',
+      'https://res.cloudinary.com/dnln0btbo/image/upload/w_300/v1788501588/artificio_avatars/a.png',
+    ],
+  ])('URL %s: mantém o `src` e omite `srcSet`', (_caso, url) => {
+    const attrs = uploadImageAttrs(url, '64px');
+    expect(attrs.src).toBe(url);
+    expect(attrs.srcSet).toBeUndefined();
+    expect(attrs.sizes).toBeUndefined();
+  });
+
+  /**
+   * O avatar do herói do perfil é candidato a LCP; os demais são decoração abaixo
+   * da dobra. Marcar tudo como prioritário é o mesmo que não marcar nada.
+   */
+  it('só o avatar prioritário é `eager`', () => {
+    expect(uploadImageAttrs(AVATAR_NOSSO, '96px', { priority: true }).loading).toBe('eager');
+    expect(uploadImageAttrs(AVATAR_NOSSO, '64px').loading).toBe('lazy');
+  });
+
+  /**
+   * O `kind` é parâmetro, e não constante, porque a primeira versão desta função
+   * era `avatarAttrs` com `'profile_avatar'` fixo — e na rodada seguinte o banner
+   * de `MasterHero` precisou de `'profile_banner'`, que a forma fixa não servia.
+   * As larguras têm que seguir o registro de CADA tipo, não um só.
+   */
+  it.each(['profile_avatar', 'profile_banner', 'table_banner'] as const)(
+    'larguras de `%s` vêm do registro daquele tipo',
+    (kind) => {
+      const attrs = uploadImageAttrs(AVATAR_NOSSO, '100vw', { kind });
+      const larguras = (attrs.srcSet ?? '')
+        .split(', ')
+        .filter(Boolean)
+        .map((entrada) => Number(/w_(\d+),/.exec(entrada)?.[1]));
+
+      expect(larguras).toEqual([...imageKindWidths(kind)]);
     },
   );
 });

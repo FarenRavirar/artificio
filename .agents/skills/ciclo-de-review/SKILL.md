@@ -222,7 +222,7 @@ Passados os 7 minutos, o resultado desencadeia o que já se sabe:
 |---|---|
 | algum check `FAILURE` | Passo 5 — corrigir, e a volta recomeça no Passo 1 |
 | CodeRabbit `PENDING — Review in progress` | **não comentar**; ele aceitou, esperar e colher |
-| CodeRabbit `SUCCESS — Review rate limited` | Passo 2 — ler o prazo, agendar, e comentar só quando a janela abrir |
+| CodeRabbit `SUCCESS — Review rate limited` | Passo 2 — ler o prazo no COMENTÁRIO (`updated_at` + N min), agendar, e redisparar quando esse instante passar. O check segue dizendo `rate limited` mesmo com a janela aberta |
 | CodeRabbit `SUCCESS — Review skipped: N files exceed the limit` | **não revisou, e não reabre sozinho** — esperar não resolve; ver abaixo |
 | CodeRabbit `SUCCESS` com revisão publicada | Passo 6 — colher |
 | nenhuma linha do CodeRabbit | ainda não registrou; esperar mais um pouco, não concluir nada |
@@ -323,6 +323,23 @@ gh api repos/<owner>/<repo>/issues/<N>/comments --paginate   | jq -s -r 'add | m
 Medido na PR #304: disparo às 06:21:45Z recusado com "available in 16 minutes" →
 janela em 06:37:45Z. Um agendamento de 40 min cairia às 07:01, 23 minutos depois
 de a janela abrir — tempo perdido sem ninguém para redisparar.
+
+**O check NÃO diz quando a janela reabre — ele fica preso na recusa.** Medido na
+PR #330 (2026-09-21): a recusa foi anunciada às 22:10:44Z com "available in 17
+minutes", ou seja janela em 22:27:44Z; às **22:33Z** — seis minutos DEPOIS de
+aberta — `gh pr checks` ainda devolvia `SUCCESS — Review rate limited`. O check
+descreve a última tentativa, não a disponibilidade atual, e só muda quando alguém
+dispara de novo.
+
+Consequência para o laço: ao acordar na janela, **a fonte é o comentário, não o
+check**. A conta que decide é `updated_at` do comentário mais recente do bot mais
+o prazo que ele anunciou; se esse instante já passou, redisparar mesmo com o
+check dizendo `rate limited`. Esperar o check virar é esperar um sinal que
+depende do disparo que não se está fazendo.
+
+Ler `updated_at` também separa recusa nova de recusa velha: comentário que não
+foi atualizado desde a rodada anterior é a MESMA recusa reaparecendo, e o prazo
+dele já correu — não um limite novo de 17 minutos a esperar outra vez.
 
 #### Exceção 2: a PRIMEIRA ativação da skill nesta PR
 

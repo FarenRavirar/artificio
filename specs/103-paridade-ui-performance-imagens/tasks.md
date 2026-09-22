@@ -8,8 +8,8 @@ Task só fecha com o comando que a mediu na mesma linha. "Local", "parcial" e
 
 ## T1 — `` `}{` `` na busca do portal
 
-Entregue no commit `fca55ef`, PR #327 (base `dev`), junto da T7. Falta só a T1.2,
-que depende de deploy.
+Entregue no commit `fca55ef`, PR #327 (base `dev`), junto da T7. **Fechada** — a
+T1.2 foi confirmada em produção em 2026-09-21.
 
 ### [x] T1.1 — Template do Pagefind volta a ser HTML cru
 
@@ -27,13 +27,12 @@ presente. Contar backtick no arquivo inteiro NÃO mede isto: a linha do
 `astro-island` bundlado tem backtick próprio e devolve falso positivo — restringir
 a contagem às linhas do corpo do template.
 
-### [ ] T1.2 — Confirmar em produção depois do deploy
+### [x] T1.2 — Confirmado em produção (2026-09-21)
 
-Bloqueado: depende de deploy, que exige autorização nominal.
-
-**Aceite:** `curl -s "https://artificiorpg.com/busca/?cb=$(date +%s%N)"` e conferir o
-bloco `text/pagefind-template` sem `` ` ``. Sem o cache-buster mede-se a borda da
-Cloudflare (`max-age=7200`), não a origem.
+`curl -s "https://artificiorpg.com/busca/?cb=$(date +%s%N)"` devolveu `200`, e o
+bloco `text/pagefind-template` (559 caracteres) tem **0 backtick**, com
+`{{#if meta.categoria}}` presente. O cache-buster é o que faz a medição valer: sem
+ele mede-se a borda da Cloudflare (`max-age=7200`), não a origem.
 
 ### [x] T1.3 — Buscar um termo e ver o resultado renderizado
 
@@ -239,11 +238,257 @@ Medido: `mesas-frontend` 1231 testes em 93 arquivos (era 1193 em 89),
 `useBannerScrim.ts:251` (arquivo intocado, `git diff` vazio — mesma família de
 dep list incompleta desta spec, não introduzido aqui).
 
-### [ ] T2.3 — Medir o ganho em produção
+### [ ] T2.3 — Medido em produção: metade do aceite passa, LCP NÃO
 
 **Aceite:** Lighthouse móvel em `mesas.artificiorpg.com`, mediana de **3** rodadas.
 Economia de imagem < 1.000 KiB (era 10.644) e LCP < 2,5 s (era 5,9 s). Uma rodada só
 não fecha — o Lighthouse varia.
+
+**O número do aceite depende do método de throttling, e isso precisa estar escrito
+antes de qualquer tabela.** Medido em 2026-09-21, a mesma página, no mesmo build:
+
+| `--throttling-method` | LCP (mediana de 3) | o que a medida é |
+|---|---|---|
+| `simulate` (padrão) | **8,27 s** | projeção do Lantern sobre um trace sem throttling |
+| `devtools` | **3,69 s** | Slow 4G aplicado de verdade (request-level) |
+| `provided` | 1,5 s | banda da máquina, sem throttling — não serve de alvo |
+
+Os três medem a mesma página. A rede real terminou em **911 ms** nas rodadas
+`simulate`; os 8,27 s são o que o Lantern calcula que aconteceria a 1.638 kbps, não
+tempo observado. A doc do projeto diz que `simulate` "suffers from edge cases" e que
+investigação de performance deve usar throttling real
+(`GoogleChrome/lighthouse/docs/throttling.md`).
+
+**Número adotado para o aceite: `devtools`**, porque aplica os mesmos 1.638 kbps de
+Slow 4G que o alvo pressupõe, sem inventar o resto. Reprova igual — 3,69 s contra
+2,5 s — mas a distância é 1,2 s, não 5,8 s, e é sobre ela que o trabalho se dimensiona.
+
+**O que o Google usa para ranquear NÃO é nenhum destes três.** O sinal de
+ranqueamento é CrUX, dado de campo do usuário real, no percentil 75; Lighthouse é
+diagnóstico (`web.dev/articles/lab-and-field-data-differences`). **Não medi o CrUX
+deste domínio** — a API pede chave que não temos, e o PageSpeed Insights anônimo
+devolveu `429 Quota exceeded`. Sem isso não se sabe se `mesas.artificiorpg.com` já
+passa ou não passa a avaliação de Core Web Vitals.
+
+**O LCP não é imagem.** Medido no browser com `PerformanceObserver` em viewport de
+412×823: o elemento LCP é o **`<h1>`** ("Encontre uma mesa de RPG em 30 segundos",
+`size: 24320`), e ele pinta no MESMO instante do FCP — 456 ms na rede local, e nas
+rodadas `devtools` FCP e LCP saem idênticos nas três (3,71 / 3,61 / 3,69 s). Cortar
+KiB de imagem não move este LCP; o que o move é o que atrasa o primeiro paint.
+
+**Causa raiz medida, e ela não estava no enunciado da task.** O HTML servido traz
+**52 `<link rel="preload">`**, dos quais **13 de imagem**, e o primeiro deles está na
+**posição 134** do documento — contra a **posição 5684** do primeiro `stylesheet`. O
+preload scanner dispara logos de VTT (20 px) e avatares (24 px) antes de enxergar o
+CSS que libera o paint, e `root-CXpPGPMT.css` só termina em 229 ms disputando banda
+com eles. É a contenção que `web.dev/articles/preload-critical-assets` descreve:
+"if too many resources are prioritized, effectively none of them are".
+
+**Quem emite os preloads é o React 19, não o nosso código.** `rtk rg` por `preload`
+em `apps/mesas/frontend/src` e em `packages` devolve **zero**; não há `links()` de
+rota. O React 19 injeta um `<link rel="preload" as="image">` no `<head>` para cada
+`<img>` EAGER que o SSR renderiza (`facebook/react#34217`). **Verificado no React
+instalado neste repo**, não aceito da issue: `renderToStaticMarkup` de um `<img>`
+sem `loading` produz 1 preload; o mesmo `<img>` com `loading="lazy"` produz **0**.
+
+O HTML de produção tinha **38 `<img>` sem `loading="lazy"`**, quase todos decoração
+abaixo da dobra: 20 logos de VTT e 11 avatares.
+
+**Corrigido:** o logo de VTT do `TableCard` passou a `loading="lazy"` +
+`decoding="async"` (o avatar do mesmo card já tinha recebido isso junto de
+`avatarSrc`). O logo da marca segue eager de propósito — está acima da dobra, e mora
+em `packages/ui`, cujo alcance é de 6 apps.
+
+`mesas-frontend` 1239/1239 depois da mudança.
+
+**O `srcset` da T2.2 está no ar e correto**, medido no HTML servido: 21 `<img>` com
+`srcSet` de `600w, 1200w, 1600w` e `sizes="(min-width: 1280px) 420px, (min-width: 768px) 50vw, 100vw"`.
+Em 412 CSS px com DPR 1,75 o navegador precisa de ~721 px e escolhe **1200w**, a
+candidata imediatamente acima — comportamento correto do navegador, não defeito do
+atributo. A lacuna é de largura disponível: `imageKindWidths`
+(`packages/media/src/deliveryUrl.ts:183`) parte de `minWidth` dobrando, o que dá
+600 → 1200 e nenhuma candidata entre as duas. **Isso não afeta o LCP** (que é texto),
+mas afeta payload: 1.242 KiB em 18 imagens, de 1.997 KiB totais.
+
+**Não use a auditoria `uses-responsive-images` como prova aqui.** Ela não existe no
+JSON do Lighthouse 13.4.0, e ler a chave ausente devolve economia `0 KiB` — zero por
+ausência de medição, não por ausência de desperdício (AGENTS.md §Evidência item 8).
+
+**Segue aberta**, e o que falta agora é medição, não decisão: a correção do `lazy` só
+existe na árvore local, então **não há medida do efeito dela em produção**. O caminho
+para fechar, em ordem de custo:
+
+1. deployar e remedir com `--throttling-method=devtools`, 3 rodadas, para saber
+   quanto os preloads de imagem valiam de fato dos 3,69 s;
+2. se ainda reprovar, atacar o segundo item medido do caminho crítico — `entry.client`
+   custa 587 ms de bootup e o `gtag` chega em 463 ms e só termina em 882 ms;
+3. o peso de imagem (1.242 KiB) é payload, não LCP — entra por custo de dado do
+   visitante, não por este aceite.
+
+### [!] T2.3b — DÉBITO: sem acesso ao CrUX, o SEO é medido às cegas
+
+Registrado por decisão do mantenedor em 2026-09-21 ("o que precisar da API do Chrome
+UX Report, deixe como débito dentro da fase da spec").
+
+**O problema:** o sinal de ranqueamento do Google é CrUX — dado de campo, percentil
+75 de usuário real. Lighthouse, em qualquer `--throttling-method`, é laboratório e
+serve para diagnosticar, não para saber se o site passa
+(`web.dev/articles/lab-and-field-data-differences`). Enquanto o aceite da T2.3 for um
+número de laboratório, ele não responde à pergunta de SEO que motivou a task.
+
+**Por que não medi:** a API do CrUX exige chave
+(`chromeuxreport.googleapis.com/v1/records:queryRecord` devolveu
+`API_KEY_INVALID`), e o PageSpeed Insights sem chave devolveu
+`429 Quota exceeded for quota metric 'Queries'`. Sem uma das duas, não se sabe se
+`mesas.artificiorpg.com` passa ou reprova a avaliação de Core Web Vitals, nem se tem
+tráfego suficiente para aparecer no relatório.
+
+**Para destravar, o mantenedor escolhe uma:** chave da API do Chrome UX Report
+(gratuita, console do Google Cloud) ou acesso ao Search Console do domínio. A
+primeira é a que automatiza; a segunda dá o mesmo dado pela interface.
+
+**Enquanto isso:** T2.3 segue medindo com `--throttling-method=devtools`, que é o
+laboratório mais honesto disponível, e o número dela **não** é o número do Google.
+
+**Achado lateral, CORRIGIDO no mesmo trabalho (AGENTS.md §Bug achado):** 6 URLs do
+Cloudinary (**507 KiB**) saíam sem transformação nenhuma
+(`/upload/v17…/artificio_avatars/…`), a maior com 217 KiB para renderizar em
+`w-6 h-6` (24 px). `cloudinaryDeliveryUrl` já tratava `artificio_avatars`
+(`deliveryUrl.test.ts:66-67`), mas o único consumidor de
+`@artificio/media/delivery-url` no `mesas` era `utils/tableImage.ts`, que só cobre
+capa — quem renderizava avatar importava `image-kinds` (`cropToObjectPosition`) e
+montava o `src` cru. É a exceção por app que §Compartilhado por padrão nomeia.
+
+`avatarSrc(src, larguraDeLayout)` entrou em `utils/tableImage.ts`, ao lado de
+`tableImageAttrs`, e os **7** pontos que renderizavam avatar passaram a usá-lo, com
+a largura que o CSS de cada um declara: `TableCard.tsx:188` (24 px),
+`MasterCard.tsx:44` e `TableMaster.tsx:26` (64 px, `w-16`),
+`ProfileEditPage.tsx:162` (80 px, `ProfileEditPage.css:38`), `MestreHero.tsx:267`
+(96 px, `MestreHero.css:139`), `PlayerPage.tsx:146` (120 px, `PlayerPage.css:73`) e
+`MestreBio.tsx:36` (280 px, `MestrePage.css:358`).
+
+**Foram 5 na primeira volta; a revisão da PR #330 achou os outros 2 e um valor
+errado, ambos procedentes:**
+
+- `MasterCard` e `TableMaster` recebem o avatar por `vm.masterAvatar`, do view model
+  em `packages/catalog-table`, e a varredura inicial buscou por `avatar_url}` — que
+  não casa com quem recebe via prop. Corrigido nos dois consumidores, e não no
+  mapper: o mapper fixaria UMA largura para caixas de tamanhos diferentes, e quem
+  sabe o tamanho é o layout. `packages/catalog-table` tem consumidor único
+  (`mesas-frontend`), então normalizar lá seria possível — só não é o lugar certo.
+- a bio usava **240 px**, que é o `max-width` do MOBILE (`MestrePage.css:427`,
+  dentro de `@media`). No desktop a coluna é de **280 px** (`MestrePage.css:358`), e
+  é o caso maior que manda: com 240 o `w_480` gerado ficava abaixo dos 560 px que uma
+  tela 2x pede, e a foto do perfil público perderia nitidez.
+
+- e, na terceira rodada, a própria coluna desktop era o eixo errado. `.mestre-bio-photo img`
+  tem `aspect-ratio: 3 / 4` e `object-fit: cover` (`MestrePage.css:363-366`), então a
+  caixa mede **280×373** e é a ALTURA que manda: um bitmap quadrado mais estreito que
+  373 px é ampliado pelo `cover`.
+
+**Três erros no mesmo lugar em três rodadas não são três descuidos — são o desenho
+errado.** `avatarSrc(url, largura)` pedia que cada call site copiasse um número do CSS
+para o TypeScript, e número copiado é segunda fonte de verdade: diverge na primeira vez
+que alguém mexe no CSS, sem nada acusar. A "guarda" que a segunda rodada criou era uma
+tabela ligando consumidor a valor de CSS, mantida à mão — ela documentava a divergência
+em vez de impedi-la.
+
+**A forma certa já estava no mesmo arquivo:** `tableImageAttrs` resolve a capa com
+`srcset` + `sizes` e não tem número mágico nenhum. `avatarSrc` virou **`avatarAttrs`**,
+com a mesma forma — `srcset` com as larguras do registro, `sizes` descrevendo a caixa, e
+a escolha feita pelo NAVEGADOR, com a geometria real que só ele conhece.
+
+`sizes` é a mesma linguagem do CSS, avaliada contra o viewport real: a media query que
+muda o layout muda o `sizes` junto (`PlayerPage`: `(max-width: 768px) 100px, 120px`;
+`MestreBio`: `(max-width: 768px) 320px, 373px`). O que era número mágico virou
+descrição.
+
+**A justificativa que eu dera para não usar `srcset` era falsa, e foi medida:**
+`imageKindWidths('profile_avatar')` devolve `[140, 280, 560, 1024]` — cobre de 24 px em
+tela 1x até os 373 px da bio em DPR 2. Não eram "candidatas grandes demais".
+
+`MestreBio` declara `373px` onde a coluna mede 280 px, e isso é proposital: a seleção de
+candidata é só por **largura × DPR** (spec do HTML), sem olhar `object-fit`. Declarar 280
+faria o navegador pegar um bitmap que o `cover` depois ampliaria para preencher os 373 px
+de altura. 373 é a largura equivalente que cobre o eixo limitante.
+
+**A quarta rodada achou um terceiro consumidor perdido, e o `kind` fixo virou
+parâmetro.** `MasterHero.tsx` (rota `/mestres/:masterId`, `routes.ts:23`) renderizava
+`vm.avatar` e `vm.banner` crus. O avatar cabia em `avatarAttrs`; o banner é
+`profile_banner`, kind que a função com `'profile_avatar'` fixo não servia — caso
+particular virando duplicação na primeira vez que o segundo caso aparece
+(§Compartilhado por padrão). A função virou **`uploadImageAttrs`**, com `kind`
+parametrizado.
+
+**Três consumidores perdidos em três varreduras é sintoma do método, não azar.** As
+buscas anteriores filtravam por nome (`avatar_url}`, depois `avatar`), e perdiam quem
+recebe por prop (`masterAvatar`) ou com outro nome (`vm.avatar`). A varredura que
+fechou o assunto enumerou **todos os 48 `<img>` do app** e classificou cada um pela
+ORIGEM da URL, não pelo nome da variável. Resultado: 36 sem helper, dos quais 5 eram
+upload nosso.
+
+Ficaram fora, com motivo medido:
+
+- **`MestreReviewsSection`** alimenta `GmReviewList` (`packages/ui`), que aceita uma
+  URL e não `srcSet`/`sizes`. Sem controlar a tag não há `srcset`, então ali se escolhe
+  uma largura só — derivada de `imageKindWidths('profile_avatar')[0]`, não escrita à mão;
+- **`MestreHero.tsx:228`** (banner do perfil): `useBannerScrim` mede o pixel com um
+  `new Image()` próprio alimentado por `profile.banner_url` CRU (`:204-205`). Pôr
+  `srcSet` faria o navegador baixar uma variante enquanto a medição baixa a original —
+  **duas requisições da mesma imagem**, e a economia viraria custo. Otimizar pede o
+  scrim medir `currentSrc`, que é mudança no hook;
+- os demais 31 não são upload nosso: asset estático (`/vtt-logos`, `/sys-logos`),
+  imagem de terceiro (`covildolich.com`), metadado OpenGraph de link externo
+  (`thumbnail_url`) e screenshot de feedback. `cloudinarySrcset` devolveria string
+  vazia para todos.
+
+Entraram na mesma passada dois consumos de capa que ninguém tinha visto:
+`DiscordDraftReviewTable` (thumb de 40 px baixando a capa inteira) e `DraftEditorTab`
+(160 px), ambos `table_banner`.
+
+**Duas medições derrubaram premissas que estavam no código (CONTRATO ALTERADO):**
+
+**Avatar NÃO é 1:1 no arquivo.** `imageKinds.ts:104` declara "avatar é SEMPRE 1:1", e
+isso é verdade para o EDITOR de recorte, não para o que fica gravado:
+`storageTransformation` usa `crop: "limit"` (`imageKinds.ts:376`), que preserva a
+proporção do que o dono subiu. Medido em produção com `fl_getinfo`, 6 avatares:
+**715×893, 768×1024, 683×1024, 800×800, 1024×1024, 241×250** — só dois quadrados.
+
+**`cloudinaryDeliveryUrl` fazia upscale, em silêncio.** Sem modo de corte o Cloudinary
+aplica `c_scale`, que AMPLIA quando a largura pedida passa do arquivo
+(`cloudinary.com/documentation/resizing_and_cropping`). Medido contra o Cloudinary real
+no avatar de 241×250: `w_746` devolveu **746×774 com 127 KiB**, contra **24 KiB** do
+original — 5× o peso, zero pixel de detalhe a mais, e um `srcset` declarando largura que
+o bitmap não tem. Falha que não quebra nada: a imagem aparece, só pesada.
+
+Corrigido na raiz, em `packages/media/src/deliveryUrl.ts`: o ramo sem recorte passou a
+emitir `w_<n>,c_limit`. `c_limit` reduz quando cabe e devolve o original quando não
+cabe, então o teto passa a ser o arquivo e não a URL. **Alcança os 7 consumidores de
+avatar e o `srcset` das capas**, não só o call site que o revisor apontou. O ramo com
+`c_fill` ficou intacto — ali recortar é a intenção declarada por `recortarNaProporcao`.
+
+`onError` de `MestreHero` segue recebendo `profile.avatar_url` cru de propósito: ali
+a URL é chave de falha, não fonte de exibição.
+
+**Guarda:** em `tableImage.test.ts`, o `srcset` é comparado contra
+`imageKindWidths('profile_avatar')` em vez de contra números fixos — fixá-los recriaria
+a segunda fonte de verdade que a refatoração removeu. Mais `c_limit` presente e
+`c_scale` ausente em cada candidata, `sizes` acompanhando o `srcset`, URL de terceiro
+saindo intacta e sem `srcSet`, e só o avatar prioritário em `eager`. Em
+`deliveryUrl.test.ts`, o pedido de 4000 px provando que largura acima do original não
+vira upscale. As asserções que fixavam `w_<n>/` sem modo de corte foram reescritas —
+eram o contrato antigo.
+
+**Não mexido, medido:** `recommendedWidth: 280` de `profile_avatar`
+(`imageKinds.ts:111`) tem o comentário "exibido a 140px no perfil público", que o layout
+atual contradiz — a bio renderiza a 373 px de altura. Mudar isso altera o `og:image` e o
+`srcset` de todos os apps, e `profile_avatar` é decisão pétrea do mantenedor
+(2026-08-18). Fica como divergência documental para ele decidir.
+
+**Validação:** `media` **144/144**, `mesas-frontend` **1244/1244**, `mesas-backend`
+1190/1191 (1 skip pré-existente), `site` 203/203, `catalog-table` 36/36,
+`image-editor` 15/15, `tsc -b` exit 0, `lint` 0 erro. **Falta a medição em produção**, que
+depende de deploy.
 
 ### [x] T2.4 — Cruzar com os outros apps
 
@@ -529,7 +774,15 @@ dois é `text-sm font-semibold`, ou seja 14px/600. "Texto grande" no WCAG 2.2
 começa em 18,66px bold ou 24px, e o `@theme` do app (`index.css:7-16`) só
 redefine cores — não sobrescreve `--text-sm`. Os dois estados reprovam.
 
-### [ ] T3.2 — Corrigir na origem certa — código pronto, aceite espera deploy
+### [x] T3.2 — Corrigido na origem certa, confirmado em produção (2026-09-21)
+
+**Aceite fechado:** Lighthouse Acessibilidade em `mesas.artificiorpg.com` com
+cache-buster devolveu categoria **1,0** e `color-contrast` com **score 1 e lista de
+achados vazia**. Os dois botões que a spec nomeava estão na página medida, com o par
+de token no HTML servido: `#btn-anunciar-mesa-home` sai
+`bg-[var(--brand-solid)] … text-[var(--brand-solid-fg)] hover:bg-[var(--brand-solid-hover)]`,
+e `#catalog-search-submit` está presente. Zero ocorrência de `ff5722` cru no HTML
+contra 75 de `brand-solid`.
 
 Os dois usam token `--color-*` de `packages/ui`. Se o token reprova, o defeito é dos
 6 apps e a correção é no token — com verificação nos consumidores. Se só o uso local
@@ -744,11 +997,16 @@ Comentários fora antes de casar — a mesma pegadinha já registrada em
 
 Falta o Lighthouse do aceite, que exige deploy.
 
-### [ ] T3.3 — Ordem de heading no catálogo — código pronto, aceite espera deploy
+### [x] T3.3 — Ordem de heading no catálogo, confirmada em produção (2026-09-21)
 
 `<h3>` sem `<h2>` antes, nos cards.
 
-**Aceite:** Lighthouse sem o achado de ordem de heading.
+**Aceite fechado:** Lighthouse Acessibilidade em `mesas.artificiorpg.com` não reprova
+`heading-order` (categoria 1,0, nenhuma auditoria binária em falha). Medido no HTML
+servido: **1 `<h1>`, 1 `<h2>`, 24 `<h3>`**, com o `<h2>` sendo a contagem de
+resultados (`37+ mesas encontradas`, `class="text-sm font-normal"`) entre o `<h1>` e
+os cards — a hierarquia que a correção criou, e com o `font-normal` que mantém o
+texto visível inalterado.
 
 **Investigado e confirmado.** A rota do catálogo tem exatamente dois níveis:
 `<h1>` em `CatalogoPage.tsx:481` e `<h3>` no título da mesa em
@@ -920,9 +1178,14 @@ vez de contar.
 `mesas-frontend` 1234/1234 · build do pacote exit 0.
 
 **Aceite:** `.artificio-session` com `y < 60` nas três larguras, nos 5 apps, e nenhum
-consumidor regredido. **Falta a metade de aceite que exige deploy** — a medição
-em produção acima é do CSS ANTES da correção, e `beta.downloads` respondeu `000`
-(sem deploy). O guard cobre o contrato; a confirmação na tela pede o deploy.
+consumidor regredido.
+
+**Fechado em produção (2026-09-21), via Playwright contra os domínios reais:**
+`downloads` mede `y = 12` em **1280, 1440 e 1920 px**, com
+`grid-template-columns` de **5 faixas** nas três (`90px 523px 360px 84px 96px` em
+1280). Os outros quatro consumidores também medem `y = 12`, e nenhum deles emite
+`data-has-search` — confirmação de que a 5ª faixa só alcança quem usa a busca
+embutida, como o seletor promete.
 
 ---
 
@@ -1364,10 +1627,14 @@ reconferido verde.
 `weekday=sábado` → 23 com o ramo do hint e 15 sem ele; `daypart=noite` → 55;
 `sábado` + `noite` no mesmo `EXISTS` → 12; `daypart=madrugada` → 0.
 
-### [ ] T7.4 — Desktop: controle no painel de filtros avançados
+### [x] T7.4 — Desktop: controle no painel de filtros avançados
 
-Código escrito e verde em teste de componente; **não fecha** porque o aceite pede
-verificação em browser e não há Playwright no repo (T6.2, bloqueada).
+**Fechado em 2026-09-21**, Playwright a 1440×900 contra `mesas.artificiorpg.com`: com
+o painel aberto, clicar "Sexta" leva a URL a `?weekday=sexta` **sem clique extra**, e
+"Noite" a `?weekday=sexta&daypart=noite`. O resultado passa de `37+ mesas
+encontradas` para `4 mesas encontradas` com 4 cards, o badge do botão vira
+`Mais filtros2` e os dois chips ficam com `aria-pressed="true"`. As 4 mesas batem com
+o `total: 4` que a API devolve para a mesma combinação (T7.10).
 
 `ScheduleFacetPicker.tsx` novo, montado por `CatalogAdvancedFilters.tsx` nas duas
 superfícies. `advancedCount` já conta dia e faixa: `activeCatalogFiltersCount` passou
@@ -1377,10 +1644,7 @@ Posição no painel: agenda **antes** de experiência/tipo. Decisão técnica de
 (AGENTS.md §Produto vs. técnico) — "quando posso jogar" filtra mais gente, e foi o
 pedido original do usuário anônimo. Reverter é mover um bloco JSX.
 
-**Falta para fechar:** Playwright 1440×900 — marcar "sexta" e "noite" mudam URL e
-resultado sem clique extra; badge incrementa em cada um.
-
-### [ ] T7.5 — Mobile: mesmo controle no `FilterDrawer`
+### [x] T7.5 — Mobile: mesmo controle no `FilterDrawer`
 
 O drawer é `md:hidden` (`FilterDrawer.tsx:84,95`) e usa draft + botões Aplicar/Limpar
 (`CatalogoPage.tsx:476-497`). Dia e faixa entram no `mobileAdvancedDraft` junto de
@@ -1389,7 +1653,13 @@ O drawer é `md:hidden` (`FilterDrawer.tsx:84,95`) e usa draft + botões Aplicar
 
 Duas superfícies, uma definição (R15). Componente duplicado aqui é o defeito.
 
-Código escrito; **não fecha** sem browser (mesmo motivo de T7.4).
+**Fechado em 2026-09-21**, Playwright a 390×844 contra produção: o drawer traz os
+mesmos dois `fieldset` ("Dia da semana" com 7 chips, "Horário" com 4) mais os botões
+`Limpar`/`Aplicar`. Marcar "Sexta" e depois "Noite" **não** mexe na URL (segue
+vazia); o clique em `Aplicar` a leva a `?weekday=sexta&daypart=noite`, com
+`4 mesas encontradas` e badge `2`. Reabrindo o drawer, `Limpar` zera os dois grupos
+junto do resto (nenhum `aria-pressed="true"` sobra) e o `Aplicar` seguinte devolve a
+URL limpa — a constante `EMPTY_ADVANCED_DRAFT` fazendo efeito.
 
 Dois pontos que a execução mudou, ambos para eliminar lista repetida — cada
 repetição era um lugar onde dia e faixa seriam esquecidos em silêncio:
@@ -1401,10 +1671,6 @@ repetição era um lugar onde dia e faixa seriam esquecidos em silêncio:
   seal: '', styles: [] }`). Mantido assim, dia e faixa **sobreviveriam ao "Limpar"** e
   nenhum tipo reclamaria — o literal era atribuído a um `Pick` mais largo via
   `setState`. Virou a constante `EMPTY_ADVANCED_DRAFT`, um lugar só.
-
-**Falta para fechar:** Playwright 390×844 — abrir drawer, marcar "sexta" e "noite",
-conferir que a URL **não** muda antes do clique em Aplicar e muda depois; "Limpar"
-zera dia e faixa junto do resto.
 
 ### [x] T7.6 — Chip de filtro ativo
 
@@ -1421,7 +1687,7 @@ resto do código não espera.
 os chips derivam de `WEEKDAY_OPTIONS`/`DAYPART_OPTIONS` (label da fonte única, valor
 do banco), e o clique chama `onRemove` com a chave e só aquele valor.
 
-### [ ] T7.7 — Acessibilidade e alvo de toque do controle novo
+### [x] T7.7 — Acessibilidade e alvo de toque do controle novo
 
 Dois grupos (dia e faixa), cada um com `fieldset`/`legend` ou `role="group"` +
 `aria-label`, alvo ≥ 44×44 no mobile, foco visível com o mesmo token
@@ -1438,11 +1704,20 @@ token `--artificio-focus`, sem valor próprio.
 aprovação, e os testes existentes usam `fireEvent` — os novos seguiram `fireEvent`,
 sem pedir dependência.
 
-**Aceite parcial (medido 2026-09-18):** `ScheduleFacetPicker.test.tsx` verde — grupos
-com nome acessível, opção vazia fora da ordem de tabulação, controle acionável por
-teclado. **Falta** o alvo de 44px medido em browser: jsdom não faz layout
-(`getBoundingClientRect()` devolve zero — `plan.md` §6.2), então a classe está
-escrita mas não verificada em pixel. Mesmo bloqueio de T6.2.
+**Aceite (medido 2026-09-18):** `ScheduleFacetPicker.test.tsx` verde — grupos com nome
+acessível, opção vazia fora da ordem de tabulação, controle acionável por teclado.
+
+**O pixel que faltava foi medido em 2026-09-21**, Playwright contra produção, que é o
+que jsdom não alcança (`getBoundingClientRect()` devolve zero — `plan.md` §6.2). Os
+**11** chips dos dois grupos medem **44 px de altura** nas duas superfícies (desktop
+1440×900 e drawer mobile 390×844); a largura varia com o rótulo (71–105 px). Os dois
+`fieldset` trazem `legend` "Dia da semana" e "Horário", nome acessível nativo, sem
+`aria-label` manual. O foco vem do token compartilhado: `focus-visible:outline-[3px]`
+com `outline-[var(--artificio-focus)]`, e `--artificio-focus` resolve para `#e64a19`
+no documento; `tabIndex` é 0.
+
+Como efeito colateral útil, a contagem de cada chip confere com a API: "Sexta(5)",
+"Domingo(3)", "Noite(24)", "Manhã(2)" batem com `/api/v1/tables/schedule-facets`.
 
 ### [~] T7.8 — BLOQUEADA por D4 (`spec.md` §6.6)
 
@@ -1565,13 +1840,40 @@ de rede, para nenhuma opção ser desabilitada por dado ausente.
 `mesas breaking=0 non-breaking=1`, rota registrada como `add` em
 `api-diff.generated.md` e presente em `api-index.generated.md` como `public`.
 
-### [ ] T7.10 — Conferir em produção depois do deploy
+### [x] T7.10 — Conferido em produção (2026-09-21)
 
-**Aceite:** `curl -s "https://mesas.artificiorpg.com/api/tables?weekday=sexta&daypart=noite&cb=$(date +%s%N)"`
-com resultado coerente, e a página de catálogo nos dois viewports com os dois filtros
-funcionando. Sem cache-buster mede-se a borda da Cloudflare, não a origem.
+**A rota do enunciado estava errada:** é `/api/v1/tables`, não `/api/tables`
+(`apps/mesas/backend/src/routes/tables.ts:346`).
 
-### [ ] T7.11 — Reporte do `401 /api/auth/refresh` — nada a corrigir
+Medido com cache-buster em cada chamada — sem ele mede-se a borda da Cloudflare, não
+a origem. O campo que conta é `pagination.total`; o tamanho de `data` é o limite de
+página (12) e daria falso positivo:
+
+| query | total |
+|---|---|
+| sem filtro | 37 |
+| `weekday=sexta` | 5 |
+| `weekday=domingo` | 3 |
+| `weekday=sexta,domingo` | 8 |
+| `daypart=noite` | 24 |
+| `daypart=manha` | 2 |
+| `daypart=noite,manha` | 26 |
+| `weekday=sexta&daypart=noite` | 4 |
+
+Os totais fecham com `/api/v1/tables/schedule-facets`, que devolve os mesmos números
+por valor, e a soma de união confere (5 + 3 = 8; 24 + 2 = 26). Valor inválido é
+descartado em silêncio como o contrato promete: `weekday=funday` devolve 37 e
+`weekday=sexta,funday` devolve 5.
+
+`weekday=sexta&weekday=domingo` (chave repetida) devolve 37, ou seja filtro vazio.
+**É o comportamento documentado**, não defeito: `parseEnumCsvQuery` exige `string` e
+Express entrega array na chave repetida (`tables.ts:110-116`). O formato multivalor é
+o CSV, e ele funciona.
+
+A metade de interface fechou junto de T7.4 (desktop 1440×900) e T7.5 (mobile
+390×844), com os mesmos 4 resultados que a API devolve.
+
+### [x] T7.11 — Reporte do `401 /api/auth/refresh` — nada a corrigir
 
 Medido: `packages/auth/src/client.ts:31` chama `/api/auth/refresh` com
 `credentials: "include"` no boot; visitante anônimo sem cookie recebe `401`, que é a
@@ -1579,6 +1881,63 @@ resposta correta do contrato (`apps/accounts/src/app.ts:479`).
 
 Fecha como "não é defeito", sem alteração de código. Registrado para o próximo
 reporte igual não virar investigação nova.
+
+Reconfirmado em 2026-09-21: o `401` aparece no console de `mesas`, `links` e dos
+demais consumidores, e some quando há cookie de sessão. Em preview local ele vem
+acompanhado de erro de CORS, porque `localhost` não está na allowlist do SSO — também
+artefato, não defeito.
+
+### [x] T7.13 — ACHADO NOVO no `links`: CSP matava 5 comportamentos em produção
+
+Encontrado ao conferir o header do `links` para a T4.3, e corrigido no mesmo trabalho
+(AGENTS.md §Bug achado). **Não tem relação com o resto da spec 103** — é defeito de
+produção que estava no caminho.
+
+**Medido em 2026-09-21** em `links.artificiorpg.com` com cache-buster: **9 erros de
+console**, dos quais 7 de CSP. Batendo o SHA-256 de cada `<script>` inline do HTML
+servido contra os 7 hashes da `<meta http-equiv="content-security-policy">`, **5 não
+constavam** e eram recusados com `The action has been blocked`:
+
+- tema anti-FOUC (`Base.astro`);
+- toggle da sidebar mobile (`Sidebar.astro`);
+- banner de onboarding (`index.astro`);
+- gate de conteúdo +18 (`Base.astro` e `grupo/[slug].astro`);
+- botão de voltar ao topo (`Base.astro`).
+
+**Falhavam em silêncio:** build verde, HTML válido, página renderizando. Medido no
+browser: o clique em `.sidebar-toggle` não mudava `aria-expanded` nem tirava a barra
+de `x: -280`, e `#scroll-top` ficava com `opacity: 0` mesmo a 900 px de rolagem. Mais
+2 atributos `style=""` recusados — hash **não** cobre atributo de estilo, só
+`unsafe-hashes` cobriria.
+
+**Causa, já registrada no repo e não aplicada aqui:** a CSP do Astro 6 só hasheia o
+que ele **bundla**; `<script is:inline>` nunca entra no `script-src`. É o
+`BL-SITE-CSP-INLINE` de `specs/backlog.md:202`, resolvido no `site` e nunca no
+`links`, cujo `astro.config.mjs` não tinha `scriptDirective`.
+
+**Correção, na forma que o `site` já usa:** os 5 scripts pós-carga perderam o
+`is:inline` e passaram a ser bundlados — o Astro os hasheia sozinho, e hash manual
+que quebra a cada edição deixa de existir para eles. Só o anti-FOUC continua inline,
+porque precisa rodar antes da primeira pintura, e entra por hash em
+`scriptDirective.hashes`. Os 4 `style=""` (2 na home, 1 na 404, 1 na página de grupo)
+viraram classes em `global.css`.
+
+`.section-title--espacada` precisou de **dois nomes no seletor**: o `<h2>` alvo é o
+primeiro do tipo na página, e `.section-title:first-of-type` (0,2,0) vencia uma
+classe sozinha. Medido no preview: 8 px em vez dos 56 px pretendidos, antes da
+correção.
+
+**Validação:** build do `links` verde (17 páginas); varredura do `dist` inteiro
+devolve **0** script inline fora da CSP e **0** atributo `style=`. No preview, o
+console cai de 9 erros para 1 (favicon 404) mais o CORS do SSO contra `localhost`, e
+as funcionalidades voltam: sidebar abre (`x: -280` → `0`) e fecha, banner visível,
+`#scroll-top` com `opacity: 1`, espaçamentos em 56 px e 24 px, 404 e página de grupo
+idênticas ao original. `lint` verde; o `links` não tem suíte de teste.
+
+**Gate +18 não estava exposto:** a API devolve **0** grupos com `is_adult` hoje, e o
+blur é CSS, então a falha fechava segura — o que não funcionava era o desbloqueio.
+
+**Falta a confirmação em produção**, que depende de deploy.
 
 ---
 

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { MestrePublicData } from '../../hooks/useMestre';
 import { MarkdownContent } from '@artificio/content-editor';
+import { uploadImageAttrs } from '../../utils/tableImage';
 
 interface Props {
   profile: MestrePublicData;
@@ -33,7 +34,23 @@ export function MestreBio({ profile }: Props) {
           {profile.avatar_url && !avatarLoadFailed && (
             <div className="mestre-bio-photo">
               <img
-                src={profile.avatar_url}
+                /*
+                 * `sizes` declara 373px onde a COLUNA mede 280px, e a diferença é
+                 * proposital. A caixa é `aspect-ratio: 3 / 4` com `object-fit: cover`
+                 * (`MestrePage.css:363-366`), ou seja 280×373; o navegador escolhe a
+                 * candidata SÓ pela largura × DPR (`html.spec.whatwg.org`, seleção de
+                 * `srcset`), sem olhar `object-fit`. Declarar 280 faria ele pegar um
+                 * bitmap quadrado de 280px que o `cover` depois ampliaria para
+                 * preencher os 373px de altura — borrado. 373 é a largura equivalente
+                 * que cobre o eixo limitante.
+                 *
+                 * No mobile a coluna vira `max-width: 240px` (`:427`), e a mesma
+                 * proporção 3:4 pede 320px de altura.
+                 */
+                {...uploadImageAttrs(
+                  profile.avatar_url,
+                  '(max-width: 768px) 320px, 373px',
+                )}
                 alt={profile.display_name}
                 onError={() => setAvatarLoadFailed(true)}
               />

@@ -1,5 +1,6 @@
 import type { TableViewModel } from '../types/tableView.types';
 import { MarkdownContent } from '@artificio/content-editor';
+import { uploadImageAttrs } from '../../../utils/tableImage';
 
 interface TableMasterProps {
   vm: TableViewModel;
@@ -23,7 +24,7 @@ export function TableMaster({ vm }: TableMasterProps) {
         {/* Avatar */}
         {vm.masterAvatar && (
           <img
-            src={vm.masterAvatar}
+            {...uploadImageAttrs(vm.masterAvatar, '64px')}
             alt={vm.masterName}
             className="w-16 h-16 rounded-full border-2 border-[var(--line-strong)]"
           />

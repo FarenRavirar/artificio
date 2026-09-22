@@ -8,7 +8,7 @@ import { getSlotsVisualState } from '../utils/slots';
 import { SlotsIndicator } from './SlotsIndicator';
 import { SystemBadge } from './SystemBadge';
 import { CertificationBadges } from './CertificationBadges';
-import { applyTableImageFallback, tableImageAttrs } from '../utils/tableImage';
+import { applyTableImageFallback, uploadImageAttrs, tableImageAttrs } from '../utils/tableImage';
 import { isUsableImageSrc } from '../utils/imageSource';
 import { ageRatingLabel, isRestrictedAgeRating } from '../utils/ageRating';
 import { useAuth } from '../contexts/useAuth';
@@ -141,11 +141,20 @@ function VttPlatformBadge({ table }: { table: TableCard }) {
   const showBadge = (table.modality === 'online' || table.modality === 'hibrida') && table.vtt_platform?.logo_filename;
   if (!showBadge || !table.vtt_platform) return null;
 
+  // `lazy` não é só economia de banda: o React 19 injeta um
+  // `<link rel="preload" as="image">` no `<head>` para cada `<img>` EAGER que o SSR
+  // renderiza (facebook/react#34217). Medido em produção em 2026-09-21, isso punha
+  // 13 preloads de imagem na posição 134 do HTML, contra a posição 5684 do primeiro
+  // `stylesheet` — os logos disputavam banda com o CSS que libera o primeiro paint,
+  // e o LCP da página é o `<h1>`, não imagem nenhuma. Selo de 20px abaixo da dobra
+  // não merece essa prioridade.
   const logo = (
     <img
       src={`/vtt-logos/${table.vtt_platform.logo_filename}`}
       alt={table.vtt_platform.name}
       className="h-5 w-auto object-contain"
+      loading="lazy"
+      decoding="async"
       onError={handleVttLogoError}
     />
   );
@@ -185,7 +194,7 @@ function TableCardMasterRow({ table }: { table: TableCard }) {
     <div className="flex min-w-0 items-center gap-2">
       {isUsableImageSrc(table.gm_avatar_url) ? (
         <img
-          src={table.gm_avatar_url}
+          {...uploadImageAttrs(table.gm_avatar_url, '24px')}
           alt={table.gm_display_name}
           className="w-6 h-6 rounded-[var(--radius-pill)] border border-white/20"
         />

@@ -17,14 +17,14 @@ const URL_REAL =
 describe("cloudinaryDeliveryUrl", () => {
   it("insere `q_auto/f_auto/w_<n>` entre `upload` e o segmento de versão", () => {
     expect(cloudinaryDeliveryUrl(URL_REAL, 800)).toBe(
-      "https://res.cloudinary.com/dnln0btbo/image/upload/q_auto/f_auto/w_800/v1788537783/artificio_profile_banners/khmxivtocytsah6o0pap.jpg",
+      "https://res.cloudinary.com/dnln0btbo/image/upload/q_auto/f_auto/w_800,c_limit/v1788537783/artificio_profile_banners/khmxivtocytsah6o0pap.jpg",
     );
   });
 
   it("insere também quando a URL não traz segmento de versão", () => {
     const semVersao = "https://res.cloudinary.com/dnln0btbo/image/upload/mesas_rpg/abc123.jpg";
     expect(cloudinaryDeliveryUrl(semVersao, 400)).toBe(
-      "https://res.cloudinary.com/dnln0btbo/image/upload/q_auto/f_auto/w_400/mesas_rpg/abc123.jpg",
+      "https://res.cloudinary.com/dnln0btbo/image/upload/q_auto/f_auto/w_400,c_limit/mesas_rpg/abc123.jpg",
     );
   });
 
@@ -64,7 +64,24 @@ describe("cloudinaryDeliveryUrl", () => {
     // `artificio_avatars` casa com `<algo>_<algo>`; a sigla de transformação
     // tem no máximo 3 caracteres, e é isso que separa os dois casos.
     const avatar = "https://res.cloudinary.com/dnln0btbo/image/upload/artificio_avatars/abc.jpg";
-    expect(cloudinaryDeliveryUrl(avatar, 280)).toContain("/upload/q_auto/f_auto/w_280/artificio_avatars/");
+    expect(cloudinaryDeliveryUrl(avatar, 280)).toContain("/upload/q_auto/f_auto/w_280,c_limit/artificio_avatars/");
+  });
+
+  /**
+   * Sem modo de corte o Cloudinary aplica `c_scale`, que AMPLIA quando o pedido
+   * passa do arquivo gravado. Medido em 2026-09-22 contra o Cloudinary real, num
+   * avatar de 241×250: `w_746` sem `c_` devolveu 746×774 com **127 KiB**, contra
+   * **24 KiB** do original — 5× o peso sem um pixel de detalhe, e um `srcset`
+   * declarando largura que o bitmap não tem. Com `c_limit`, devolveu o original.
+   *
+   * Vale para todo consumidor, porque nenhum deles sabe a dimensão do que o dono
+   * subiu: `storageTransformation` grava com `crop: "limit"` e preserva a
+   * proporção original (medidos em produção: 715×893, 768×1024, 241×250).
+   */
+  it("pede com `c_limit`, para largura acima do original não virar upscale", () => {
+    const resultado = cloudinaryDeliveryUrl(URL_REAL, 4000);
+    expect(resultado).toContain("w_4000,c_limit");
+    expect(resultado).not.toContain("c_scale");
   });
 });
 
@@ -72,8 +89,8 @@ describe("cloudinarySrcset", () => {
   it("monta uma entrada por largura, em ordem crescente", () => {
     expect(cloudinarySrcset(URL_REAL, [800, 400])).toBe(
       [
-        "https://res.cloudinary.com/dnln0btbo/image/upload/q_auto/f_auto/w_400/v1788537783/artificio_profile_banners/khmxivtocytsah6o0pap.jpg 400w",
-        "https://res.cloudinary.com/dnln0btbo/image/upload/q_auto/f_auto/w_800/v1788537783/artificio_profile_banners/khmxivtocytsah6o0pap.jpg 800w",
+        "https://res.cloudinary.com/dnln0btbo/image/upload/q_auto/f_auto/w_400,c_limit/v1788537783/artificio_profile_banners/khmxivtocytsah6o0pap.jpg 400w",
+        "https://res.cloudinary.com/dnln0btbo/image/upload/q_auto/f_auto/w_800,c_limit/v1788537783/artificio_profile_banners/khmxivtocytsah6o0pap.jpg 800w",
       ].join(", "),
     );
   });
@@ -144,7 +161,7 @@ describe("cloudinaryDeliveryUrl — recorte no servidor", () => {
     (proporcao) => {
       const resultado = cloudinaryDeliveryUrl(URL_REAL, 400, { recortarNaProporcao: proporcao });
       expect(resultado).not.toContain("ar_");
-      expect(resultado).toContain("/q_auto/f_auto/w_400/");
+      expect(resultado).toContain("/q_auto/f_auto/w_400,c_limit/");
     },
   );
 

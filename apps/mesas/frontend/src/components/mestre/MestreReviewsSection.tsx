@@ -3,7 +3,11 @@ import { GmReviewForm, GmReviewList, type GmReviewItem } from '@artificio/ui';
 import { useAuth } from '../../contexts/useAuth';
 import { authPost } from '../../services/apiClient';
 import { startSsoLogin } from '../../utils/auth';
+import { cloudinaryDeliveryUrl, imageKindWidths } from '@artificio/media/delivery-url';
 import toast from 'react-hot-toast';
+
+/** Piso das larguras de avatar no registro; cobre 32px de slot até DPR 4. */
+const AVATAR_MENOR_LARGURA = imageKindWidths('profile_avatar')[0];
 
 interface MestreReviewsSectionProps {
   readonly slug: string;
@@ -16,21 +20,42 @@ function normalizeReviews(data: unknown): GmReviewItem[] {
   const rawList = (data as { data: unknown }).data;
   if (!Array.isArray(rawList)) return [];
 
-  return rawList.filter((item): item is GmReviewItem => {
-    if (!item || typeof item !== 'object') return false;
-    const r = item as Record<string, unknown>;
-    return (
-      typeof r.id === 'string' &&
-      typeof r.rating === 'number' &&
-      r.rating >= 1 &&
-      r.rating <= 5 &&
-      Array.isArray(r.tags) &&
-      (r.comment === null || typeof r.comment === 'string') &&
-      typeof r.created_at === 'string' &&
-      typeof r.author_name === 'string' &&
-      (r.author_avatar === null || typeof r.author_avatar === 'string')
-    );
-  });
+  return rawList
+    .filter((item): item is GmReviewItem => {
+      if (!item || typeof item !== 'object') return false;
+      const r = item as Record<string, unknown>;
+      return (
+        typeof r.id === 'string' &&
+        typeof r.rating === 'number' &&
+        r.rating >= 1 &&
+        r.rating <= 5 &&
+        Array.isArray(r.tags) &&
+        (r.comment === null || typeof r.comment === 'string') &&
+        typeof r.created_at === 'string' &&
+        typeof r.author_name === 'string' &&
+        (r.author_avatar === null || typeof r.author_avatar === 'string')
+      );
+    })
+    // Único avatar que NÃO usa `uploadImageAttrs`, e o motivo é estrutural: o `<img>`
+    // é de `GmReviewList` (`packages/ui/src/GmReviewPanel.tsx:103`), que aceita
+    // uma URL e não `srcSet`/`sizes`. Sem controlar a tag não há `srcset`, então
+    // aqui se escolhe UMA largura — o que os outros consumidores deixaram de
+    // fazer justamente porque largura fixa errou três vezes na PR #330.
+    //
+    // `AVATAR_MENOR_LARGURA` vem de `imageKindWidths('profile_avatar')`, não de um
+    // número escrito à mão: é o piso do registro (140px), que cobre o slot de
+    // `h-8 w-8` (32px) até DPR 4. Se o registro mudar, isto acompanha.
+    //
+    // A normalização acontece aqui, e não no pacote, porque `GmReviewList` é
+    // compartilhado e não conhece o tamanho em que cada consumidor o monta.
+    // Mexer no pacote alcançaria 6 apps e exigiria aprovação
+    // (AGENTS.md §Autorização), sem resolver melhor.
+    .map((review) => ({
+      ...review,
+      author_avatar: review.author_avatar
+        ? cloudinaryDeliveryUrl(review.author_avatar, AVATAR_MENOR_LARGURA)
+        : null,
+    }));
 }
 
 async function fetchReviews(slug: string, signal?: AbortSignal): Promise<GmReviewItem[]> {

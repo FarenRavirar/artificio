@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router';
 import { User, Clock, DollarSign, Gamepad2, Star } from 'lucide-react';
 import { LoadingState } from '@artificio/ui';
 import { applySeo } from '../utils/seo';
+import { uploadImageAttrs } from '../utils/tableImage';
 import './PlayerPage.css';
 
 interface PlayerProfilePayload {
@@ -143,7 +144,10 @@ export const PlayerPage = () => {
           <div className="player-header-content">
             <div className="player-avatar">
               {profile.profile?.avatar_url ? (
-                <img src={profile.profile.avatar_url} alt={profile.user.display_name} />
+                <img
+                  {...uploadImageAttrs(profile.profile.avatar_url, '(max-width: 768px) 100px, 120px')}
+                  alt={profile.user.display_name}
+                />
               ) : (
                 <div className="player-avatar-placeholder">
                   {profile.user.display_name.charAt(0).toUpperCase()}
