@@ -1812,11 +1812,17 @@ não as mostra em filtro nenhum. Quebra medida: `manual 1` (visível 1),
 `imported 11` (visíveis 0). O predicado de visibilidade entrou no terceiro ramo e no
 contador justamente por isso — sem ele, o filtro prometeria 12 e a lista mostraria 1.
 
-**Correção do achado P1 do Codex (PR #331):** o ramo do `to_define` entrava no `OR`
-**sem a condição de faixa**. Combinar `weekday=to_define` com `daypart=noite` traria
-qualquer mesa de dia indefinido, inclusive as de outro horário — quebrando a
-conjunção dia+faixa que os outros ramos respeitam. A faixa passou a entrar no ramo
-com `AND`.
+**Correção dos dois achados P1 do Codex (PR #331)** — o mesmo defeito visto dos dois
+lados do `OR` em `weekday=to_define&daypart=noite`:
+
+- O ramo do `to_define` entrava **sem a condição de faixa** e trazia qualquer mesa
+  de dia indefinido, inclusive de outro horário. A faixa passou a entrar nele com
+  `AND`.
+- Os ramos de agenda conhecida (sessão e hint) entravam **só com a faixa**, porque
+  `to_define` sai da lista de dias antes do SQL, e traziam qualquer mesa noturna de
+  dia **definido**. Agora só entram com dia nomeado na URL ou sem filtro de dia
+  (`knownAgendaApplies`). Teste conferido invertido: forçando o comportamento
+  antigo, o caso falha.
 
 Medido em produção ao corrigir, e o caso é real, não teórico: existe **1 mesa** com
 `schedule_day_status='to_define'` e `schedule_time_status='defined'`. Ela tem

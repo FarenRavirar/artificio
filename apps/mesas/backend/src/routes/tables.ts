@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { sql } from 'kysely';
+import { sql, type RawBuilder } from 'kysely';
 import { db } from '../db/index.js';
 import { authMiddleware, optionalAuth } from '../middleware/auth.js';
 import { logDatabaseError } from '../middleware/requestLogger.js';
@@ -414,56 +414,70 @@ router.get('/', async (req: Request, res: Response) => {
           ...(dayparts.length > 0 ? [sql<boolean>`(${daypartRangesFor(sql.raw('t.schedule_time_hint'))})`] : []),
         ];
 
-        // Os dois ramos acima só existem se sobrou eixo com valor: pedir só
-        // "A definir" não tem dia nem faixa para conferir, e um `AND` de lista
-        // vazia viraria SQL inválido.
-        const matchBranches = [
-          ...(scheduleConditions.length > 0
-            ? [sql<boolean>`EXISTS (
-            SELECT 1 FROM table_schedules ts
-            WHERE ts.table_id = t.id
-              AND ${sql.join(scheduleConditions, sql` AND `)}
-          )`]
-            : []),
-          ...(hintConditions.length > 0 ? [sql<boolean>`(${sql.join(hintConditions, sql` AND `)})`] : []),
-          // Terceiro ramo (D4): agenda desconhecida de fato. Exige status
-          // `to_define` E ausência de hint — mesa com hint já é alcançável pelo
-          // dia do hint, e apareceria nas duas opções se entrasse aqui também.
-          //
-          // A faixa selecionada entra AQUI TAMBÉM, com `AND`. Dia e faixa são
-          // conjuntivos em todos os outros ramos; sem isto, `weekday=to_define`
-          // combinado com `daypart=noite` traria qualquer mesa de dia indefinido,
-          // inclusive as que jogam de manhã. Achado P1 do Codex na PR #331.
-          //
-          // O horário dessa mesa pode estar em `table_schedules` OU no
-          // `schedule_time_hint` da própria `tables`: medido em produção, a única
-          // mesa com dia `to_define` e horário `defined` tem `time_hint='19:00'` e
-          // ZERO linhas em `table_schedules`. Conferir só `ts.start_time` a
-          // perderia em silêncio, que é a mesma classe de bug que este ramo veio
-          // corrigir.
-          ...(wantsToDefine
-            ? [
-                sql<boolean>`(
-            t.schedule_day_status = 'to_define'
-            AND t.schedule_day_hint IS NULL
-            ${
-              dayparts.length > 0
-                ? sql`AND t.schedule_time_status = 'defined' AND (
-              (${daypartRangesFor(sql.raw('t.schedule_time_hint'))})
-              OR EXISTS (
-                SELECT 1 FROM table_schedules ts_tbd
-                WHERE ts_tbd.table_id = t.id
-                  AND (${daypartRangesFor(sql.raw('ts_tbd.start_time'))})
-              )
-            )`
-                : sql``
-            }
-          )`,
-              ]
-            : []),
+        // Separadores fora dos templates: cada ramo abaixo é um fragmento plano, sem
+        // template dentro de template (Sonar, PR #331).
+        const andSeparator = sql` AND `;
+        const orSeparator = sql` OR `;
+
+        // Terceiro ramo (D4): agenda desconhecida de fato. Exige status
+        // `to_define` E ausência de hint — mesa com hint já é alcançável pelo
+        // dia do hint, e apareceria nas duas opções se entrasse aqui também.
+        const toDefineConditions: RawBuilder<boolean>[] = [
+          sql<boolean>`t.schedule_day_status = 'to_define'`,
+          sql<boolean>`t.schedule_day_hint IS NULL`,
         ];
 
-        query = query.where(sql<boolean>`(${sql.join(matchBranches, sql` OR `)})`);
+        // A faixa selecionada entra AQUI TAMBÉM, com `AND`. Dia e faixa são
+        // conjuntivos em todos os outros ramos; sem isto, `weekday=to_define`
+        // combinado com `daypart=noite` traria qualquer mesa de dia indefinido,
+        // inclusive as que jogam de manhã. Achado P1 do Codex na PR #331.
+        //
+        // O horário dessa mesa pode estar em `table_schedules` OU no
+        // `schedule_time_hint` da própria `tables`: medido em produção, a única
+        // mesa com dia `to_define` e horário `defined` tem `time_hint='19:00'` e
+        // ZERO linhas em `table_schedules`. Conferir só `ts.start_time` a
+        // perderia em silêncio, que é a mesma classe de bug que este ramo veio
+        // corrigir.
+        if (dayparts.length > 0) {
+          const hintInRange = daypartRangesFor(sql.raw('t.schedule_time_hint'));
+          const sessionInRange = daypartRangesFor(sql.raw('ts_tbd.start_time'));
+          toDefineConditions.push(
+            sql<boolean>`t.schedule_time_status = 'defined'`,
+            sql<boolean>`((${hintInRange}) OR EXISTS (
+              SELECT 1 FROM table_schedules ts_tbd
+              WHERE ts_tbd.table_id = t.id AND (${sessionInRange})
+            ))`,
+          );
+        }
+
+        // Os ramos de agenda conhecida (sessão e hint) só entram quando o filtro de
+        // dia os admite: há dia nomeado, ou nenhum dia foi pedido (filtro só de
+        // faixa). Com "A definir" como ÚNICO dia, eles carregariam só a faixa e,
+        // unidos por OR, trariam qualquer mesa de dia definido naquela faixa —
+        // resultado fora de "A definir". Achado P1 do Codex na PR #331.
+        //
+        // Pedir só "A definir" sem faixa também os deixa vazios, e um `AND` de
+        // lista vazia viraria SQL inválido — daí o `length > 0` em cada um.
+        const knownAgendaApplies = namedWeekdays.length > 0 || !wantsToDefine;
+        const matchBranches: RawBuilder<boolean>[] = [];
+        if (knownAgendaApplies && scheduleConditions.length > 0) {
+          const sessionMatches = sql.join(scheduleConditions, andSeparator);
+          matchBranches.push(sql<boolean>`EXISTS (
+            SELECT 1 FROM table_schedules ts
+            WHERE ts.table_id = t.id AND ${sessionMatches}
+          )`);
+        }
+        if (knownAgendaApplies && hintConditions.length > 0) {
+          const hintMatches = sql.join(hintConditions, andSeparator);
+          matchBranches.push(sql<boolean>`(${hintMatches})`);
+        }
+        if (wantsToDefine) {
+          const toDefineMatches = sql.join(toDefineConditions, andSeparator);
+          matchBranches.push(sql<boolean>`(${toDefineMatches})`);
+        }
+
+        const anyBranchMatches = sql.join(matchBranches, orSeparator);
+        query = query.where(sql<boolean>`(${anyBranchMatches})`);
       }
     }
 

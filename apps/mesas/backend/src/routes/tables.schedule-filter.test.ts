@@ -374,6 +374,45 @@ describe('GET /api/v1/tables — filtro de agenda (spec 103 §6)', () => {
     expect(tbdBranch).toContain('ts_tbd.start_time');
   });
 
+  it('P1: to_define como único dia omite os ramos de agenda conhecida (Codex PR #331)', async () => {
+    await request(makeApp()).get('/api/v1/tables?weekday=to_define&daypart=noite').expect(200);
+
+    const filterSql = scheduleFilterSqlLower();
+    // Sem dia nomeado, os ramos de sessão e de hint carregariam só a faixa e,
+    // unidos por OR, trariam qualquer mesa noturna de dia DEFINIDO. O único
+    // EXISTS permitido é o do próprio ramo "A definir" (`ts_tbd`).
+    expect(filterSql).not.toContain('ts.table_id = t.id');
+    expect(filterSql.match(/exists/g) ?? []).toHaveLength(1);
+    expect(filterSql).toContain('ts_tbd.table_id = t.id');
+    // A faixa sobre o hint aparece uma vez só: a do ramo "A definir".
+    // `noite` é `>= 18:00` sem limite superior, então a coluna aparece 1 vez.
+    expect(filterSql.match(/t\.schedule_time_hint/g) ?? []).toHaveLength(1);
+
+    // Nada de faixa ANTES do ramo "A definir": é onde os ramos genéricos estariam.
+    const beforeToDefine = filterSql.slice(0, filterSql.indexOf("t.schedule_day_status = 'to_define'"));
+    expect(beforeToDefine).not.toContain('ts.start_time');
+    expect(beforeToDefine).not.toContain('t.schedule_time_hint');
+  });
+
+  it('P1: dia nomeado + to_define + faixa mantém os três ramos', async () => {
+    await request(makeApp()).get('/api/v1/tables?weekday=sexta,to_define&daypart=noite').expect(200);
+
+    const filterSql = scheduleFilterSqlLower();
+    // Com `sexta` pedido, a mesa de sexta à noite é resultado legítimo: os ramos
+    // de agenda conhecida seguem, e o de "A definir" entra ao lado.
+    expect(filterSql).toContain('ts.table_id = t.id');
+    expect(filterSql).toContain("ts.day_of_week in ('sexta')");
+    expect(filterSql).toContain("t.schedule_day_status = 'to_define'");
+  });
+
+  it('P1: filtro só de faixa segue sem ramo "A definir"', async () => {
+    await request(makeApp()).get('/api/v1/tables?daypart=noite').expect(200);
+
+    const filterSql = scheduleFilterSqlLower();
+    expect(filterSql).toContain('ts.table_id = t.id');
+    expect(filterSql).not.toContain("t.schedule_day_status = 'to_define'");
+  });
+
   it('D4: to_define sozinho não exige horário nenhum', async () => {
     await request(makeApp()).get('/api/v1/tables?weekday=to_define').expect(200);
 
