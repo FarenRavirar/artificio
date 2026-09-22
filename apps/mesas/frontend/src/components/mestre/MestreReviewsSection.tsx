@@ -36,7 +36,7 @@ function normalizeReviews(data: unknown): GmReviewItem[] {
         (r.author_avatar === null || typeof r.author_avatar === 'string')
       );
     })
-    // Único avatar que NÃO usa `avatarAttrs`, e o motivo é estrutural: o `<img>`
+    // Único avatar que NÃO usa `uploadImageAttrs`, e o motivo é estrutural: o `<img>`
     // é de `GmReviewList` (`packages/ui/src/GmReviewPanel.tsx:103`), que aceita
     // uma URL e não `srcSet`/`sizes`. Sem controlar a tag não há `srcset`, então
     // aqui se escolhe UMA largura — o que os outros consumidores deixaram de

@@ -1,5 +1,6 @@
 import { cropToObjectPosition } from '@artificio/media/image-kinds';
 import type { MasterViewModel } from '../types/masterView.types';
+import { uploadImageAttrs } from '../../../utils/tableImage';
 
 interface MasterHeroProps {
   vm: MasterViewModel;
@@ -19,10 +20,10 @@ export function MasterHero({ vm }: MasterHeroProps) {
       {/* Banner (opcional) */}
       {vm.banner && (
         <div className="w-full h-48 overflow-hidden">
-          <img 
-            src={vm.banner} 
+          <img
+            {...uploadImageAttrs(vm.banner, '100vw', { kind: 'profile_banner', priority: true })}
             alt={`Banner de ${vm.name}`}
-            className="w-full h-full object-cover" 
+            className="w-full h-full object-cover"
           />
         </div>
       )}
@@ -33,7 +34,7 @@ export function MasterHero({ vm }: MasterHeroProps) {
             Sem ele, `object-cover` num círculo recorta sempre pelo centro
             geométrico e descarta as bordas sem que ninguém possa escolher. */}
         <img
-          src={vm.avatar}
+          {...uploadImageAttrs(vm.avatar, '96px')}
           alt={vm.name}
           className="w-24 h-24 rounded-full border-2 border-white/20 object-cover"
           style={{ objectPosition: cropToObjectPosition(vm.avatarCrop, vm.avatarWidth, vm.avatarHeight) }}

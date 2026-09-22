@@ -85,8 +85,15 @@ export function tableImageAttrs(
   };
 }
 
-/** Atributos responsivos de um `<img>` de avatar. */
-export interface AvatarAttrs {
+export interface UploadImageAttrsOpts {
+  /** `true` só para a imagem que é o LCP da página. */
+  readonly priority?: boolean;
+  /** Tipo de imagem, que define as larguras disponíveis. */
+  readonly kind?: ImageKind;
+}
+
+/** Atributos responsivos de um `<img>` que NÃO tem placeholder de capa. */
+export interface UploadImageAttrs {
   readonly src: string | undefined;
   readonly srcSet?: string;
   readonly sizes?: string;
@@ -95,10 +102,22 @@ export interface AvatarAttrs {
 }
 
 /**
- * Atributos responsivos de um avatar, na mesma forma que `tableImageAttrs` usa
- * para a capa: `srcset` com as larguras do registro, e `sizes` descrevendo a
- * caixa. **Quem escolhe o arquivo é o navegador**, com a geometria real que só
- * ele conhece.
+ * Atributos responsivos de qualquer imagem nossa que não seja capa de mesa —
+ * avatar, banner de perfil — na mesma forma que `tableImageAttrs` usa para a
+ * capa: `srcset` com as larguras do registro, `sizes` descrevendo a caixa, e a
+ * escolha do arquivo feita pelo NAVEGADOR, com a geometria real que só ele
+ * conhece.
+ *
+ * **O `kind` é parâmetro, não constante.** A primeira versão desta função era
+ * `uploadImageAttrs`, com `'profile_avatar'` fixo — e na rodada seguinte o banner de
+ * `MasterHero` precisou do mesmo tratamento com `'profile_banner'`, que a forma
+ * fixa não servia. Caso particular vira duplicação na primeira vez que o segundo
+ * caso aparece (AGENTS.md §Compartilhado por padrão).
+ *
+ * Separada de `tableImageAttrs` por UMA diferença real: a capa cai no
+ * `bannerPlaceholder` do bundle quando não há URL, e avatar/banner somem — quem
+ * decide o que aparece no lugar é o consumidor, que tem inicial do nome ou
+ * bloco vazio para mostrar.
  *
  * Existe porque o avatar era o único consumo de imagem do `mesas` que não passava
  * por `@artificio/media`: medido em produção em 2026-09-21, 6 URLs saíam como
@@ -128,16 +147,16 @@ export interface AvatarAttrs {
  * `cloudinarySrcset` devolve string vazia, e uma entrada só, igual ao `src`, não dá
  * escolha nenhuma ao navegador e só pesa o HTML.
  */
-export function avatarAttrs(
+export function uploadImageAttrs(
   rawSrc: string | null | undefined,
   sizes: string,
-  { priority = false }: { readonly priority?: boolean } = {},
-): AvatarAttrs {
+  { priority = false, kind = 'profile_avatar' }: UploadImageAttrsOpts = {},
+): UploadImageAttrs {
   if (!rawSrc) {
     return { src: undefined, loading: 'lazy', decoding: 'async' };
   }
 
-  const srcSet = cloudinarySrcset(rawSrc, imageKindWidths('profile_avatar'));
+  const srcSet = cloudinarySrcset(rawSrc, imageKindWidths(kind));
 
   return {
     src: rawSrc,

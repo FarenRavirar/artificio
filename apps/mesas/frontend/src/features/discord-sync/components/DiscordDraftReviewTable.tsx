@@ -6,6 +6,7 @@ import type { DiscordDraft, DiscordImportDraftStatus, DraftApiOperations } from 
 import { discordSyncApi } from '../api/discordSyncApi';
 import { DiscordDraftPreview } from './DiscordDraftPreview';
 import { isRecord } from '../draftFormUtils';
+import { uploadImageAttrs } from '../../../utils/tableImage';
 import { listTableDuplicateCandidates } from '../../admin/api/tableDuplicatesApi';
 
 // REV-038: alias p/ a união repetida do filtro de origem.
@@ -485,7 +486,11 @@ export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsP
                 >
                 <span className="h-10 w-10 shrink-0 overflow-hidden rounded-md border border-white/10 bg-white/5">
                   {coverUrl ? (
-                    <img src={coverUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
+                    <img
+                      {...uploadImageAttrs(coverUrl, '40px', { kind: 'table_banner' })}
+                      alt=""
+                      className="h-full w-full object-cover"
+                    />
                   ) : (
                     <span className="block h-full w-full bg-white/5" />
                   )}

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { MestrePublicData } from '../../hooks/useMestre';
 import { MarkdownContent } from '@artificio/content-editor';
-import { avatarAttrs } from '../../utils/tableImage';
+import { uploadImageAttrs } from '../../utils/tableImage';
 
 interface Props {
   profile: MestrePublicData;
@@ -47,7 +47,7 @@ export function MestreBio({ profile }: Props) {
                  * No mobile a coluna vira `max-width: 240px` (`:427`), e a mesma
                  * proporção 3:4 pede 320px de altura.
                  */
-                {...avatarAttrs(
+                {...uploadImageAttrs(
                   profile.avatar_url,
                   '(max-width: 768px) 320px, 373px',
                 )}

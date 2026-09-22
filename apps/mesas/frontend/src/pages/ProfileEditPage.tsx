@@ -6,7 +6,7 @@ import type { PlayerProfile, GmProfile } from '../types/profileTypes';
 import { UserSystemsSelector } from '../components/UserSystemsSelector';
 import { LinksManager } from '../components/LinksManager';
 import { showSuccess, showError } from '../utils/toast';
-import { avatarAttrs } from '../utils/tableImage';
+import { uploadImageAttrs } from '../utils/tableImage';
 import { track } from '../services/analytics';
 import { AvatarField } from '../components/AvatarField';
 import { ImageUploader } from '../components/ImageUploader';
@@ -160,7 +160,7 @@ export default function ProfileEditPage() {
       <div className="profile-header">
         <div className="profile-avatar">
           {profile.profile?.avatar_url ? (
-            <img {...avatarAttrs(profile.profile.avatar_url, '80px')} alt="Avatar" />
+            <img {...uploadImageAttrs(profile.profile.avatar_url, '80px')} alt="Avatar" />
           ) : (
             <div className="avatar-placeholder">
               {profile.profile?.display_name?.charAt(0).toUpperCase() || '?'}

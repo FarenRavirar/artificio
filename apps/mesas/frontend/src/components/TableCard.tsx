@@ -8,7 +8,7 @@ import { getSlotsVisualState } from '../utils/slots';
 import { SlotsIndicator } from './SlotsIndicator';
 import { SystemBadge } from './SystemBadge';
 import { CertificationBadges } from './CertificationBadges';
-import { applyTableImageFallback, avatarAttrs, tableImageAttrs } from '../utils/tableImage';
+import { applyTableImageFallback, uploadImageAttrs, tableImageAttrs } from '../utils/tableImage';
 import { isUsableImageSrc } from '../utils/imageSource';
 import { ageRatingLabel, isRestrictedAgeRating } from '../utils/ageRating';
 import { useAuth } from '../contexts/useAuth';
@@ -194,7 +194,7 @@ function TableCardMasterRow({ table }: { table: TableCard }) {
     <div className="flex min-w-0 items-center gap-2">
       {isUsableImageSrc(table.gm_avatar_url) ? (
         <img
-          {...avatarAttrs(table.gm_avatar_url, '24px')}
+          {...uploadImageAttrs(table.gm_avatar_url, '24px')}
           alt={table.gm_display_name}
           className="w-6 h-6 rounded-[var(--radius-pill)] border border-white/20"
         />

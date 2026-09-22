@@ -7,6 +7,7 @@ import { CatalogSearchSelect } from './CatalogSearchSelect';
 import { SystemSuggestionModal } from '../../../components/SystemSuggestionModal';
 import { SystemPicker } from '../../../components/SystemPicker';
 import { MarkdownEditor } from '../../../components/MarkdownEditor';
+import { uploadImageAttrs } from '../../../utils/tableImage';
 
 interface DraftEditorTabProps {
   form: DraftForm;
@@ -255,7 +256,11 @@ export function DraftEditorTab({
         <div className="flex items-start gap-3">
           <div className="h-24 w-40 shrink-0 overflow-hidden rounded-lg border border-white/10 bg-black/30">
             {coverPreviewUrl ? (
-              <img src={coverPreviewUrl} alt="Capa do draft" className="h-full w-full object-cover" />
+              <img
+                {...uploadImageAttrs(coverPreviewUrl, '160px', { kind: 'table_banner' })}
+                alt="Capa do draft"
+                className="h-full w-full object-cover"
+              />
             ) : (
               <div className="flex h-full w-full items-center justify-center text-xs text-white/30">Sem capa</div>
             )}

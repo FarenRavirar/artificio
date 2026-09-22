@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { imageKindWidths } from '@artificio/media/delivery-url';
 import {
   applyTableImageFallback,
-  avatarAttrs,
+  uploadImageAttrs,
   bannerPlaceholder,
   resolveTableImageSource,
   tableImageAttrs,
@@ -139,9 +139,9 @@ describe('resolveTableImageSource', () => {
 const AVATAR_NOSSO =
   'https://res.cloudinary.com/dnln0btbo/image/upload/v1788501588/artificio_avatars/abc123.png';
 
-describe('avatarAttrs', () => {
+describe('uploadImageAttrs', () => {
   it('monta `srcset` com as larguras do registro, sem número escrito à mão', () => {
-    const attrs = avatarAttrs(AVATAR_NOSSO, '64px');
+    const attrs = uploadImageAttrs(AVATAR_NOSSO, '64px');
     const entradas = (attrs.srcSet ?? '').split(', ').filter(Boolean);
 
     // A lista É `imageKindWidths('profile_avatar')`. Fixar os números aqui
@@ -151,13 +151,13 @@ describe('avatarAttrs', () => {
   });
 
   it('acompanha `sizes` sempre que há `srcset`', () => {
-    const attrs = avatarAttrs(AVATAR_NOSSO, '(max-width: 768px) 320px, 373px');
+    const attrs = uploadImageAttrs(AVATAR_NOSSO, '(max-width: 768px) 320px, 373px');
     expect(attrs.srcSet).toBeTruthy();
     expect(attrs.sizes).toBe('(max-width: 768px) 320px, 373px');
   });
 
   it('entrega com `q_auto`/`f_auto` e `c_limit` em cada candidata', () => {
-    const entradas = (avatarAttrs(AVATAR_NOSSO, '64px').srcSet ?? '').split(', ');
+    const entradas = (uploadImageAttrs(AVATAR_NOSSO, '64px').srcSet ?? '').split(', ');
     for (const entrada of entradas) {
       expect(entrada).toMatch(/\/upload\/q_auto\/f_auto\/w_\d+,c_limit\/.+ \d+w$/);
       expect(entrada).not.toContain('c_scale');
@@ -166,7 +166,7 @@ describe('avatarAttrs', () => {
 
   it('sem src devolve `src: undefined`, para o React omitir o atributo', () => {
     for (const vazio of [null, undefined, '']) {
-      const attrs = avatarAttrs(vazio, '64px');
+      const attrs = uploadImageAttrs(vazio, '64px');
       expect(attrs.src).toBeUndefined();
       expect(attrs.srcSet).toBeUndefined();
     }
@@ -184,7 +184,7 @@ describe('avatarAttrs', () => {
       'https://res.cloudinary.com/dnln0btbo/image/upload/w_300/v1788501588/artificio_avatars/a.png',
     ],
   ])('URL %s: mantém o `src` e omite `srcSet`', (_caso, url) => {
-    const attrs = avatarAttrs(url, '64px');
+    const attrs = uploadImageAttrs(url, '64px');
     expect(attrs.src).toBe(url);
     expect(attrs.srcSet).toBeUndefined();
     expect(attrs.sizes).toBeUndefined();
@@ -195,7 +195,26 @@ describe('avatarAttrs', () => {
    * da dobra. Marcar tudo como prioritário é o mesmo que não marcar nada.
    */
   it('só o avatar prioritário é `eager`', () => {
-    expect(avatarAttrs(AVATAR_NOSSO, '96px', { priority: true }).loading).toBe('eager');
-    expect(avatarAttrs(AVATAR_NOSSO, '64px').loading).toBe('lazy');
+    expect(uploadImageAttrs(AVATAR_NOSSO, '96px', { priority: true }).loading).toBe('eager');
+    expect(uploadImageAttrs(AVATAR_NOSSO, '64px').loading).toBe('lazy');
   });
+
+  /**
+   * O `kind` é parâmetro, e não constante, porque a primeira versão desta função
+   * era `avatarAttrs` com `'profile_avatar'` fixo — e na rodada seguinte o banner
+   * de `MasterHero` precisou de `'profile_banner'`, que a forma fixa não servia.
+   * As larguras têm que seguir o registro de CADA tipo, não um só.
+   */
+  it.each(['profile_avatar', 'profile_banner', 'table_banner'] as const)(
+    'larguras de `%s` vêm do registro daquele tipo',
+    (kind) => {
+      const attrs = uploadImageAttrs(AVATAR_NOSSO, '100vw', { kind });
+      const larguras = (attrs.srcSet ?? '')
+        .split(', ')
+        .filter(Boolean)
+        .map((entrada) => Number(/w_(\d+),/.exec(entrada)?.[1]));
+
+      expect(larguras).toEqual([...imageKindWidths(kind)]);
+    },
+  );
 });

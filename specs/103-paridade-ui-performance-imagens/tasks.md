@@ -412,10 +412,39 @@ candidata é só por **largura × DPR** (spec do HTML), sem olhar `object-fit`. 
 faria o navegador pegar um bitmap que o `cover` depois ampliaria para preencher os 373 px
 de altura. 373 é a largura equivalente que cobre o eixo limitante.
 
-**Um consumidor ficou fora, por limite estrutural:** `MestreReviewsSection` alimenta
-`GmReviewList` (`packages/ui`), que aceita uma URL e não `srcSet`/`sizes`. Sem controlar
-a tag não há `srcset`, então ali se escolhe uma largura só — mas derivada de
-`imageKindWidths('profile_avatar')[0]`, não escrita à mão.
+**A quarta rodada achou um terceiro consumidor perdido, e o `kind` fixo virou
+parâmetro.** `MasterHero.tsx` (rota `/mestres/:masterId`, `routes.ts:23`) renderizava
+`vm.avatar` e `vm.banner` crus. O avatar cabia em `avatarAttrs`; o banner é
+`profile_banner`, kind que a função com `'profile_avatar'` fixo não servia — caso
+particular virando duplicação na primeira vez que o segundo caso aparece
+(§Compartilhado por padrão). A função virou **`uploadImageAttrs`**, com `kind`
+parametrizado.
+
+**Três consumidores perdidos em três varreduras é sintoma do método, não azar.** As
+buscas anteriores filtravam por nome (`avatar_url}`, depois `avatar`), e perdiam quem
+recebe por prop (`masterAvatar`) ou com outro nome (`vm.avatar`). A varredura que
+fechou o assunto enumerou **todos os 48 `<img>` do app** e classificou cada um pela
+ORIGEM da URL, não pelo nome da variável. Resultado: 36 sem helper, dos quais 5 eram
+upload nosso.
+
+Ficaram fora, com motivo medido:
+
+- **`MestreReviewsSection`** alimenta `GmReviewList` (`packages/ui`), que aceita uma
+  URL e não `srcSet`/`sizes`. Sem controlar a tag não há `srcset`, então ali se escolhe
+  uma largura só — derivada de `imageKindWidths('profile_avatar')[0]`, não escrita à mão;
+- **`MestreHero.tsx:228`** (banner do perfil): `useBannerScrim` mede o pixel com um
+  `new Image()` próprio alimentado por `profile.banner_url` CRU (`:204-205`). Pôr
+  `srcSet` faria o navegador baixar uma variante enquanto a medição baixa a original —
+  **duas requisições da mesma imagem**, e a economia viraria custo. Otimizar pede o
+  scrim medir `currentSrc`, que é mudança no hook;
+- os demais 31 não são upload nosso: asset estático (`/vtt-logos`, `/sys-logos`),
+  imagem de terceiro (`covildolich.com`), metadado OpenGraph de link externo
+  (`thumbnail_url`) e screenshot de feedback. `cloudinarySrcset` devolveria string
+  vazia para todos.
+
+Entraram na mesma passada dois consumos de capa que ninguém tinha visto:
+`DiscordDraftReviewTable` (thumb de 40 px baixando a capa inteira) e `DraftEditorTab`
+(160 px), ambos `table_banner`.
 
 **Duas medições derrubaram premissas que estavam no código (CONTRATO ALTERADO):**
 
@@ -456,7 +485,7 @@ atual contradiz — a bio renderiza a 373 px de altura. Mudar isso altera o `og:
 `srcset` de todos os apps, e `profile_avatar` é decisão pétrea do mantenedor
 (2026-08-18). Fica como divergência documental para ele decidir.
 
-**Validação:** `media` **144/144**, `mesas-frontend` **1241/1241**, `mesas-backend`
+**Validação:** `media` **144/144**, `mesas-frontend` **1244/1244**, `mesas-backend`
 1190/1191 (1 skip pré-existente), `site` 203/203, `catalog-table` 36/36,
 `image-editor` 15/15, `tsc -b` exit 0, `lint` 0 erro. **Falta a medição em produção**, que
 depende de deploy.

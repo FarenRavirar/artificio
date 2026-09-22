@@ -4,7 +4,7 @@ import { CheckCircle2, Medal, Sparkles, Crown, Award, Users, Star, MessageSquare
 import type { TableCard } from '../../types/tables';
 import type { MestrePublicData } from '../../hooks/useMestre';
 import { isUsableImageSrc } from '../../utils/imageSource';
-import { avatarAttrs } from '../../utils/tableImage';
+import { uploadImageAttrs } from '../../utils/tableImage';
 import { cropToObjectPosition } from '@artificio/media/image-kinds';
 import { Badge, toFiniteNumber, type BadgeVariant } from '@artificio/ui';
 // Spec 099 B10: o hero carrega o PRÓPRIO CSS (movido de MestrePage.css) para
@@ -226,6 +226,14 @@ export function MestreHero({ profile, mappedTables }: MestreHeroProps) {
     >
       {isUsableImageSrc(profile.banner_url) && !bannerFailed ? (
         <img
+          // SEM `uploadImageAttrs` aqui, e o motivo é o scrim, não esquecimento.
+          // `useBannerScrim` mede o pixel deste banner com um `new Image()`
+          // próprio, alimentado por `profile.banner_url` CRU (`:204-205`). Pôr
+          // `srcSet` no elemento visível faria o navegador baixar uma variante
+          // enquanto a medição baixa a original — duas requisições da mesma
+          // imagem, e a economia do `srcset` viraria custo. Otimizar isto pede
+          // fazer o scrim medir a mesma URL que o `<img>` escolheu
+          // (`currentSrc`), que é mudança no hook, não neste JSX.
           src={profile.banner_url}
           alt=""
           className="hero-banner"
@@ -265,7 +273,7 @@ export function MestreHero({ profile, mappedTables }: MestreHeroProps) {
           <div className="hero-avatar">
             {isUsableImageSrc(profile.avatar_url) && !avatarFailed ? (
               <img
-                {...avatarAttrs(profile.avatar_url, '96px', { priority: true })}
+                {...uploadImageAttrs(profile.avatar_url, '96px', { priority: true })}
                 alt={profile.display_name}
                 style={{
                   objectPosition: cropToObjectPosition(
