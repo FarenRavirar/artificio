@@ -79,8 +79,11 @@ export const GovernancaArtificio = async ({ directory }) => ({
         // Hook que roda e cala segue liberando — medido em 2026-09-10: os 5
         // hooks sinalizam "não é comigo" com exit 0 e saída vazia, então tratar
         // silêncio como falha bloquearia toda chamada benigna.
-        const motivo = erro?.killed
-          ? `esgotou o timeout de ${(TIMEOUT_MS[arquivo] ?? TIMEOUT_PADRAO_MS) / 1000}s`
+        // `killed` só existe no erro do exec ASSÍNCRONO. O de `execFileSync` traz
+        // `code: "ETIMEDOUT"` e `signal: "SIGKILL"` (medido no Node 25.8.2, achado
+        // do CodeRabbit na PR #332) — com `killed` o timeout caía no ramo genérico.
+        const motivo = erro?.code === "ETIMEDOUT" || erro?.signal === "SIGKILL"
+          ?`esgotou o timeout de ${(TIMEOUT_MS[arquivo] ?? TIMEOUT_PADRAO_MS) / 1000}s`
           : `não pôde ser executado (${erro?.code || erro?.message || "erro desconhecido"})`;
         throw new Error(
           `[governanca/hook-indisponivel] O gate ${arquivo} ${motivo}, então esta chamada de ` +
