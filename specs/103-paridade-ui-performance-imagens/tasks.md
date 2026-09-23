@@ -14,10 +14,12 @@ Task só fecha com o comando que a mediu na mesma linha. "Local", "parcial" e
 - **T7.13** — CSP do `links`: deployar e conferir que o console não traz violação,
   que o toggle da sidebar move a barra de `x: -280` para `0`, e que `#scroll-top`
   aparece após 300 px de rolagem.
-- **T2.3** — remedir o LCP com `--throttling-method=devtools`, 3 rodadas, contra os
-  3,69 s de antes da correção.
-- **T7.8** — conferir que a opção "A definir" aparece com a contagem que o
-  `/schedule-facets` devolver, e que marcá-la traz as mesas do terceiro ramo.
+
+### Aberto por medição que reprova
+
+- **T2.3** — produção reprova (LCP 3,72 s). Correção local (CSS embutido) mede
+  2,87–3,10 s sem compressão; falta deploy e remedição em produção. O `dist-*.css`
+  do `content-editor` segue no caminho crítico e depende de pacote compartilhado.
 
 ### Débito e herança (decidido, não pendente)
 
@@ -346,16 +348,59 @@ mas afeta payload: 1.242 KiB em 18 imagens, de 1.997 KiB totais.
 JSON do Lighthouse 13.4.0, e ler a chave ausente devolve economia `0 KiB` — zero por
 ausência de medição, não por ausência de desperdício (AGENTS.md §Evidência item 8).
 
-**Segue aberta**, e o que falta agora é medição, não decisão: a correção está em `dev`
-desde o merge de `9d8208c` (2026-09-22), mas **não foi deployada**, então não há medida
-do efeito dela em produção. O caminho para fechar, em ordem de custo:
+**Remedido em produção depois do deploy (2026-09-23), e a hipótese dos preloads de
+imagem está REFUTADA.** Lighthouse 13.4.0, `--throttling-method=devtools`, móvel,
+3 rodadas com cache-buster: LCP **3.721 / 3.829 / 3.521 ms**, mediana **3,72 s** — os
+mesmos 3,69 s de antes. FCP idêntico ao LCP nas três. O HTML servido mudou como
+previsto — preload de imagem 13 → **3**, `<img>` eager 38 → **5**, peso total 1.997 →
+**1.316 KiB** — e o LCP não se mexeu. Os preloads de imagem não eram o gargalo.
 
-1. deployar e remedir com `--throttling-method=devtools`, 3 rodadas, para saber
-   quanto os preloads de imagem valiam de fato dos 3,69 s;
-2. se ainda reprovar, atacar o segundo item medido do caminho crítico — `entry.client`
-   custa 587 ms de bootup e o `gtag` chega em 463 ms e só termina em 882 ms;
-3. o peso de imagem (1.242 KiB) é payload, não LCP — entra por custo de dado do
-   visitante, não por este aceite.
+**Causa medida agora:** `lcp-breakdown-insight` dá TTFB 155 ms e **render delay
+3.565 ms**. O que segura o primeiro paint é `root-CXpPGPMT.css` (28 KiB, prioridade
+VeryHigh): começa em 731 ms e só termina em **3.085 ms**. Até ele terminar, **47
+requisições** disputam a banda (633 KiB), das quais **40 são scripts**. A 1.638 kbps,
+633 KiB custam ~3,2 s — é o tempo inteiro. A ordem do `<head>` servido é
+`modulepreload ×39` **antes** de `stylesheet ×2`: o React Router 7 (framework mode)
+emite um `modulepreload` por chunk da rota, e eles saem na frente do CSS que libera o
+paint.
+
+**Por que os 39 `modulepreload` saem antes do CSS**, lido no `react-router` 7.18.3
+instalado: o `<Scripts>` os renderiza no `<body>`, e o React 19 sobe `<link>` que não
+seja stylesheet para o `<head>` como recurso — e recurso sai antes do `<link
+rel="stylesheet">` sem `precedence` que o `<Links>` gera para CSS importado por
+efeito colateral.
+
+**Correção: CSS global embutido no HTML** (`apps/mesas/frontend/src/root.tsx`,
+`<style precedence>` com `?inline`). Três formas medidas localmente — mesmo build SSR
+servido por `server.js`, Lighthouse `devtools`, sem compressão nas três:
+
+| forma | LCP |
+|---|---|
+| original (import de efeito colateral) | 6.478 / 6.425 ms |
+| `links()` com `precedence` (remix-run/remix#6685) | 4.006 / 3.875 / 3.887 / 4.039 ms |
+| CSS embutido | **2.874 / 3.102 ms** |
+
+A forma com `precedence` põe o CSS antes no `<head>`, mas as requisições começam
+juntas (~650 ms) e dividem a banda; embutido, o CSS chega com o documento.
+Cascata conferida: 8 propriedades de `h1`, `body`, `header`, `.artificio-nav-link`,
+seção, botão "Anunciar Mesa" e busca idênticas entre o build local e produção.
+`mesas-frontend` 1245/1245; typecheck limpo. Não há CSP no `mesas` (resposta sem
+`Content-Security-Policy`), então `<style>` embutido não é bloqueado. Custo: o CSS vai
+no HTML de cada carga completa e no JS do `root` (425 KB cru, 72 KB br).
+
+**Número local não é o de produção.** Local serve sem compressão; produção passa
+pela Cloudflare com `br`. O aceite fecha remedindo em produção depois do deploy.
+
+**Resta um bloqueio que a correção não alcança:** `dist-*.css` (1,8 KiB, do
+`@artificio/content-editor`) continua como `<link>` sem `precedence` atrás dos
+`modulepreload`, e na forma embutida é o último recurso a terminar (~2.500 ms
+local). Ele entra no `root` de TODO app que importa `@artificio/ui`: o barrel do
+pacote exporta `GmReviewPanel`, que importa `@artificio/content-editor`, cujo
+`index.ts:1` faz `import './content-editor.css'`. Tirar isso do caminho crítico mexe
+em pacote compartilhado.
+
+O peso de imagem é payload, não LCP: entra por custo de dado do visitante, não por
+este aceite.
 
 ### [!] T2.3b — DÉBITO: sem acesso ao CrUX, o SEO é medido às cegas
 
@@ -1841,9 +1886,20 @@ medir nada. Verificado invertendo a asserção: falha com o SQL real na mensagem
 **Não confundir** com as mesas `defined` + hint: têm dia conhecido, entram pelo ramo
 do hint em T7.3, não dependem de D4.
 
-Aceite pendente de deploy: conferir que a opção "A definir" aparece com a contagem
-que o `/schedule-facets` devolver em produção, e que marcá-la traz exatamente as
-mesas do terceiro ramo.
+**Aceite medido em produção (2026-09-23, cache-buster em cada chamada):**
+`/api/v1/tables/schedule-facets` devolve `to_define: 1`; `/api/v1/tables?weekday=to_define`
+devolve `pagination.total` 1 (`where-is-charlie-mtbqaj4j`, com `schedule_day_status` e
+`schedule_time_status` = `to_define`, sem hint e sem `schedules`). A união fecha:
+`weekday=sábado` 6, `weekday=sábado,to_define` 7. `to_define` combinado com
+`manha`/`tarde`/`noite`/`madrugada` devolve 0 — o comportamento do P1 corrigido, porque
+a única mesa visível não tem horário. Na interface (Playwright, sem sessão,
+`/?weekday=to_define`): botão "A definir (1)" `pressed` no grupo "Dia da semana", chip
+"Remover filtro A definir" e "1 mesa encontrada". Console: só os 2 `401` de
+`/api/auth/refresh` esperados sem sessão (T7.11).
+
+Cuidado ao remedir: `weekday=sabado` sem acento é valor inválido, descartado em
+silêncio pelo contrato, e devolve o catálogo inteiro (31) — parece filtro quebrado e
+não é.
 
 ### [x] T7.8b — D5 RESPONDIDA (2026-09-18) — limites das faixas
 

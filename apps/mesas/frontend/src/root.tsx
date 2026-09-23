@@ -8,9 +8,40 @@ import { obterQueryClient } from './lib/queryClient';
 import { AuthProvider } from './contexts/AuthContext';
 import { AppShell } from './components/AppShell';
 import { BackendStatusScreen } from './components/BackendStatusScreen';
-import '@artificio/ui/styles.css';
-import '@artificio/comments/styles.css';
-import './index.css';
+import uiStylesCss from '@artificio/ui/styles.css?inline';
+import commentsStylesCss from '@artificio/comments/styles.css?inline';
+import appStylesCss from './index.css?inline';
+
+/**
+ * CSS global EMBUTIDO no HTML (spec 103 T2.3).
+ *
+ * Com `import './x.css'` o React Router renderiza `<link rel="stylesheet">` sem
+ * `precedence`, e os 39 `<link rel="modulepreload">` do `<Scripts>` (que o React 19
+ * sobe para o `<head>`) saíam antes dele. Medido em produção (2026-09-23): o CSS de
+ * 28 KiB só terminava em 3.085 ms, disputando banda com 40 scripts; o LCP é o
+ * `<h1>`, pinta junto do FCP, e ficava em 3,72 s.
+ *
+ * Três formas medidas localmente, mesmo build e mesmo Lighthouse `devtools`:
+ *   - original (import de efeito colateral): LCP 6.478 / 6.425 ms;
+ *   - `links()` com `precedence` (remix-run/remix#6685): 4.006 / 3.875 ms — o CSS
+ *     sai antes no `<head>`, mas as requisições começam juntas e dividem a banda;
+ *   - CSS embutido: 2.874 / 3.102 ms — chega com o documento, antes de o browser
+ *     descobrir qualquer script. Ficou esta.
+ *
+ * Custo aceito: o CSS vai no HTML de toda carga completa de página e também no JS
+ * do `root` (o `?inline` é string no bundle do cliente). Navegação dentro do app
+ * não repete o HTML. Não há CSP no `mesas` (medido: sem `Content-Security-Policy`
+ * na resposta), então `<style>` embutido não é bloqueado.
+ *
+ * `precedence` faz o React juntar as três num só `<style>`, na ordem do array — que
+ * é a ordem da cascata: `index.css` precisa vir depois do pacote para sobrescrever
+ * tokens.
+ */
+const GLOBAL_STYLES = [
+  { href: 'mesas-ui', css: uiStylesCss },
+  { href: 'mesas-comments', css: commentsStylesCss },
+  { href: 'mesas-app', css: appStylesCss },
+];
 
 function AnalyticsPageviews() {
   useAnalyticsPageviews();
@@ -54,6 +85,11 @@ export function Layout({ children }: Readonly<{ children: React.ReactNode }>) {
         <meta charSet="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <Meta />
+        {GLOBAL_STYLES.map(({ href, css }) => (
+          <style key={href} href={href} precedence="high">
+            {css}
+          </style>
+        ))}
         <Links />
         {/* Tema lua/sol sem flash (Spec 020 D067). COMPARTILHADO: honra o cookie
             único `artificio_theme` (escolha do usuário em qualquer módulo). Sem

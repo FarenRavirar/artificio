@@ -26,8 +26,11 @@ está aqui e em `deploy-flow.md`:
   (SSO compartilhado, D042) — o deploy recusa se divergir.
 - `POSTGRES_PASSWORD` só grava na **primeira init** do volume (E009); em volume
   reaproveitado, tem de ser exatamente o segredo original.
-- Beta antes de prod: o clone de produção só recebe o módulo depois de `main`
-  contê-lo.
+- Beta antes de prod: produção só recebe o módulo depois que o beta **dele** foi
+  deployado com sucesso num commit que contém `main`. `main` conter o código não
+  basta — em 2026-09-23 o `mesas` foi a produção em `79cebf5` com o beta parado em
+  `2ba3ed7`. O hook `.claude/hooks/beta-antes-de-prod.js` barra o dispatch nesse
+  caso nos três harnesses; módulo sem beta (`links`, `accounts`) passa.
 - Dispatch é sempre `deploy.yml` com `module` + `mode`; não existe mais
   `deploy-<modulo>.yml`.
 - **Não** subir container à mão para "validar" antes do deploy — cria leftover de
