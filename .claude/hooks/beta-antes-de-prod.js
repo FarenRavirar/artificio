@@ -47,9 +47,15 @@ function tirarAspas(v) {
  * Le um comando e devolve `{ modulo }` se ele for um dispatch de deploy que
  * resolve para PRODUCAO; `null` para qualquer outra coisa.
  */
+// `gh` so conta em POSICAO DE COMANDO: inicio, depois de `;`/`&`/`|`/`(`/quebra de
+// linha, ou como argumento de `-c` (`bash -lc "gh ..."`). Sem isto o texto dentro
+// de uma string — o payload de teste num `printf '{"command":"gh workflow run..."}'`
+// — era lido como dispatch real e barrado (medido em 2026-09-23).
+const GH_RUN = /(?:^|[;&|(\n]|\s-[a-z]*c\s+['"])\s*gh\s+workflow\s+run\s+(['"]?)([\w./-]+)\1/;
+
 function analisarComando(cmd) {
-  const texto = String(cmd).replace(/\s+/g, ' ');
-  const m = texto.match(/\bgh\s+workflow\s+run\s+(['"]?)([\w./-]+)\1/);
+  const texto = String(cmd).replace(/[ \t]+/g, ' ');
+  const m = texto.match(GH_RUN);
   if (!m) return null;
   const workflow = path.basename(m[2]).replace(/\.ya?ml$/, '');
 
@@ -85,9 +91,17 @@ function ghApi(rota, jq, cwd) {
 function ultimoBetaComSucesso(modulo, cwd) {
   // Run de `pull_request` nunca deploya (`deploy=false` no build-matrix) e e a
   // maioria dos runs: pula-los corta a consulta de ~30 s para poucos segundos.
+  //
+  // SEM `?status=success` na URL, de proposito. Medido em 2026-09-23: com
+  // `status=success&per_page=100` a API devolveu runs de 2026-09-04 no topo, e com
+  // `per_page=5` os do dia — o filtro no servidor nao garante ordem nem janela.
+  // Resultado: o hook leu o beta do `mesas` em `0c8531b` com um deploy de beta em
+  // `0806233` terminado com sucesso minutos antes, e barrou producao sem motivo.
+  // Filtrar `conclusion` e ordenar por `created_at` aqui nao depende disso.
   const runs = ghApi(
-    `repos/{owner}/{repo}/actions/workflows/deploy.yml/runs?status=success&per_page=100`,
-    `[.workflow_runs[] | select(.event != "pull_request")][:${MAX_RUNS}][] | "\\(.id) \\(.head_sha)"`,
+    'repos/{owner}/{repo}/actions/workflows/deploy.yml/runs?per_page=100',
+    `[.workflow_runs[] | select(.event != "pull_request" and .conclusion == "success")]`
+      + ` | sort_by(.created_at) | reverse | .[:${MAX_RUNS}][] | "\\(.id) \\(.head_sha)"`,
     cwd,
   ).split('\n').filter(Boolean);
   const alvo = `Deploy ${modulo} beta`;
@@ -152,7 +166,7 @@ if (require.main === module) {
     } catch {
       process.exit(0); // payload ilegivel: nao ha comando de deploy para barrar
     }
-    if (!command || !/\bgh\s+workflow\s+run\b/.test(command)) process.exit(0);
+    if (!command || !GH_RUN.test(command.replace(/[ \t]+/g, ' '))) process.exit(0);
 
     const raiz = process.env.CLAUDE_PROJECT_DIR || path.resolve(__dirname, '..', '..');
     let modulo;

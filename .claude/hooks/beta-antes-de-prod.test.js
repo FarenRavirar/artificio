@@ -28,6 +28,10 @@ const CASOS = [
   ['accounts nao tem beta', 'gh workflow run deploy.yml --ref main -f module=accounts -f mode=deploy -f env=prod', nuncaConsulta, 'PASSA'],
   ['promote nao e deploy', 'gh workflow run promote-prod-fast-forward.yml --ref main -f confirm=PROMOTE_DEV_TO_MAIN', nuncaConsulta, 'PASSA'],
   ['gh run list', 'gh run list --workflow deploy.yml', nuncaConsulta, 'PASSA'],
+  ['bash -lc aninhado', 'bash -lc "gh workflow run deploy.yml --ref main -f module=mesas -f mode=deploy -f env=prod"', consulta('behind'), 'BLOQUEIA'],
+  ['depois de ; e quebra de linha', 'echo x;\ngh workflow run deploy.yml --ref main -f module=mesas -f mode=deploy -f env=prod', consulta('behind'), 'BLOQUEIA'],
+  // Falso positivo real de 2026-09-23: o payload de teste do proprio hook.
+  ['texto dentro de string do printf', `printf '%s' '{"tool_input":{"command":"gh workflow run deploy.yml --ref main -f module=site -f mode=deploy -f env=prod"}}' | node hook.js`, nuncaConsulta, 'PASSA'],
 ];
 
 let falhas = 0;

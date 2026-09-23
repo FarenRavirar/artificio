@@ -17,9 +17,11 @@ Task só fecha com o comando que a mediu na mesma linha. "Local", "parcial" e
 
 ### Aberto por medição que reprova
 
-- **T2.3** — produção reprova (LCP 3,72 s). Correção local (CSS embutido) mede
-  2,87–3,10 s sem compressão; falta deploy e remedição em produção. O `dist-*.css`
-  do `content-editor` segue no caminho crítico e depende de pacote compartilhado.
+- **T2.3** — produção reprova por 0,11 s (LCP mediana 2,61 s; era 3,72 s). Correção
+  do `dist-*.css` do `content-editor` feita e medida localmente (LCP 1,90 s, nenhum
+  recurso bloqueante); falta PR, deploy e remedição em produção.
+- **T7.13** — comportamento OK em produção; CSP liberando o beacon do Cloudflare Web
+  Analytics feita localmente; falta PR, deploy e console limpo em produção.
 
 ### Débito e herança (decidido, não pendente)
 
@@ -388,8 +390,39 @@ seção, botão "Anunciar Mesa" e busca idênticas entre o build local e produç
 `Content-Security-Policy`), então `<style>` embutido não é bloqueado. Custo: o CSS vai
 no HTML de cada carga completa e no JS do `root` (425 KB cru, 72 KB br).
 
-**Número local não é o de produção.** Local serve sem compressão; produção passa
-pela Cloudflare com `br`. O aceite fecha remedindo em produção depois do deploy.
+**Medido em `mesasbeta` depois do deploy (2026-09-23)**, mesma infra de produção
+(Cloudflare com `br`), Lighthouse `devtools`, 3 rodadas com cache-buster: LCP
+**2.352 / 2.491 / 2.370 ms**, mediana **2,37 s** — passa o alvo de 2,5 s (produção,
+antes da correção: 3,72 s). HTML servido: 1 `<style data-precedence>` antes dos
+`modulepreload`, documento de 53 KiB transferidos. O último recurso de CSS a
+terminar é o `dist-*.css` do `content-editor`, em ~1,95 s.
+
+**Medido em PRODUÇÃO depois do deploy (2026-09-23), mesmo método: LCP 2.633 /
+2.273 / 2.614 ms, mediana 2,61 s — REPROVA por 0,11 s** (antes: 3,72 s; o beta deu
+2,37 s, e a diferença entre os dois ambientes cabe na variação das rodadas). O
+`<style data-precedence>` está no ar, antes dos `modulepreload`. O que sobra no
+caminho, medido na rodada 1: documento termina em 993 ms; `dist-*.css` (1,8 KiB, do
+`content-editor`) começa em 919 ms e só termina em **1.981 ms** —
+`render-blocking-insight` o aponta como único bloqueio, 811 ms; em seguida vem uma
+tarefa longa do próprio documento em **2.001 ms, de 478 ms** (estilo e layout), e o
+paint sai em ~2,6 s. Sem esse CSS no caminho, a tarefa de estilo começaria logo depois
+do documento (~1,0 s). O `dist-*.css` entrava em todo app que importa `@artificio/ui` (o barrel exporta
+`GmReviewPanel`, que importa `@artificio/content-editor`, cujo `index.ts:1` fazia
+`import './content-editor.css'`).
+
+**Correção nos pacotes (autorizada pelo mantenedor condicionada à medição):**
+`content-editor` não importa mais o próprio CSS e o exporta como `./styles.css`;
+`comments/styles.css` o traz por `@import`. Só `mesas`, `downloads` e `site`
+renderizam componentes do editor, e os três já carregam `comments/styles.css`.
+Medido: os 18 seletores distintos do editor (`.artificio-content-editor*`,
+`.artificio-markdown-content*`) estão 18/18 no build de cada um dos três (no `mesas`,
+embutidos no `root`); zero `@import` sobrando nos CSS gerados; build verde nos 7
+apps que importam `@artificio/ui`; testes `content-editor` 132/132, `comments`
+293/293, `ui` 148/148, `downloads` 326/326, `site` 203/203. No `mesas` local o
+`<head>` fica com 0 `<link rel="stylesheet">` e o Lighthouse sem nenhum recurso
+bloqueante: LCP **1.898 / 1.899 ms**, contra 2.874 / 3.102 ms sem a mudança (mesmo
+servidor local, sem compressão). O aceite fecha remedindo em produção depois do
+deploy.
 
 **Resta um bloqueio que a correção não alcança:** `dist-*.css` (1,8 KiB, do
 `@artificio/content-editor`) continua como `<link>` sem `precedence` atrás dos
@@ -2107,11 +2140,21 @@ idênticas ao original. `lint` verde; o `links` não tem suíte de teste.
 **Gate +18 não estava exposto:** a API devolve **0** grupos com `is_adult` hoje, e o
 blur é CSS, então a falha fechava segura — o que não funcionava era o desbloqueio.
 
-**Falta a confirmação em produção.** O código está em `dev` desde o merge de
-`9d8208c` (2026-09-22) e não foi deployado. Aceite: deployar `links`, abrir
-`links.artificiorpg.com` com cache-buster e conferir que o console não traz violação
-de CSP, que o toggle da sidebar mobile move a barra de `x: -280` para `0`, e que
-`#scroll-top` aparece depois de 300 px de rolagem.
+**Conferido em produção (2026-09-23, Playwright sem sessão, 390×844,
+cache-buster):** `aside#sidebar` vai de `x: -280` a `0` no toggle e volta a `-280`
+no `.sidebar-close`; `aria-expanded` vira `true`; `#scroll-top` passa de `opacity:
+0` a `1` com 900 px de rolagem. **Resta 1 violação de CSP no console**, e ela não
+vem do nosso HTML: `static.cloudflareinsights.com/beacon.min.js`, o beacon do
+Cloudflare Web Analytics que a Cloudflare injeta na borda. O `site` o libera
+(`apps/site/astro.config.mjs:86-91`); o `links` não, então hoje o RUM do `links`
+morre bloqueado. **Mantenedor autorizou ligar (2026-09-23).** A injeção já estava
+ativa na Cloudflare (Web Analytics da conta com `auto_install: true`, sem regra por
+host, lido pela API), então a correção é só a CSP: `apps/links/astro.config.mjs`
+ganhou `https://static.cloudflareinsights.com` no `script-src` e
+`https://cloudflareinsights.com` no `connect-src`, a mesma regra do `site`. Build
+conferido: a `<meta>` de CSP gerada traz os dois. Fecha com o console limpo em
+produção, depois do deploy. Os outros erros do console são `favicon.ico`
+404 e o `401` de `/api/auth/refresh` esperado sem sessão.
 
 ---
 
