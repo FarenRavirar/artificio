@@ -19,7 +19,10 @@ modelo gasta raciocínio decidindo qual vence antes de agir.
   `git-commit-msg-gate` bloqueia `-m @'` e `--amend`; `deploy-contract-gate` cobra
   a seção de `deploy-flow.md` ao editar `Dockerfile`, lockfile, `migration_*.sql`
   ou workflow; `autorizacao-gate` cobra a §Autorização nas formas que as regras
-  declarativas não alcançam (caminho absoluto, `git -C`, `bash -lc` aninhado).
+  declarativas não alcançam (caminho absoluto, `git -C`, `bash -lc` aninhado);
+  `beta-antes-de-prod` bloqueia `gh workflow run` de deploy de produção quando o
+  último deploy de beta com sucesso do módulo não contém `main` (consulta a API do
+  GitHub; `links`/`accounts` passam, não têm beta).
 - **Regras de permissão** (`permissions` em `.claude/settings.json`, spec 101 F4):
   `deny` no que não tem exceção (desligar a VM, `--amend`, `push --force`); `ask`
   no que exige autorização por ação (commit, worktree, escrita na VM, SQL write,

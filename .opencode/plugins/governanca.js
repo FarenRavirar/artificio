@@ -15,8 +15,14 @@ import { execFileSync } from "node:child_process";
 import path from "node:path";
 
 // Mapa tool do OpenCode -> hooks que o Claude Code/Codex rodam no evento equivalente.
+// Hook que consulta a API do GitHub precisa de mais que os 5s dos gates locais:
+// o beta-antes-de-prod leva ~13s medido (2026-09-23) quando o comando e deploy de
+// producao, e 0,2s em qualquer outro comando.
+const TIMEOUT_MS = { "beta-antes-de-prod.js": 90000 };
+const TIMEOUT_PADRAO_MS = 5000;
+
 const HOOKS = {
-  bash: ["rtk-enforce.js", "git-commit-msg-gate.js", "autorizacao-gate.js"],
+  bash: ["rtk-enforce.js", "git-commit-msg-gate.js", "autorizacao-gate.js", "beta-antes-de-prod.js"],
   read: ["rtk-read-gate.js"],
   edit: ["deploy-contract-gate.js"],
   write: ["deploy-contract-gate.js"],
@@ -50,9 +56,9 @@ export const GovernancaArtificio = async ({ directory }) => ({
           encoding: "utf8",
           // Sem timeout, um hook que trave (I/O em rede, arquivo enorme, laço)
           // segura a chamada de ferramenta para sempre e o agente fica parado
-          // sem sinal. Os quatro hooks são locais e respondem em milissegundos;
-          // 5s é folga de uma ordem de grandeza.
-          timeout: 5000,
+          // sem sinal. Os gates locais respondem em milissegundos e ficam
+          // nos 5s padrão; o que consulta rede tem o seu em TIMEOUT_MS.
+          timeout: TIMEOUT_MS[arquivo] ?? TIMEOUT_PADRAO_MS,
           // SIGKILL, não o SIGTERM padrão: processo que ignora o sinal
           // continuaria vivo e o timeout não teria efeito nenhum.
           killSignal: "SIGKILL",
@@ -74,7 +80,7 @@ export const GovernancaArtificio = async ({ directory }) => ({
         // hooks sinalizam "não é comigo" com exit 0 e saída vazia, então tratar
         // silêncio como falha bloquearia toda chamada benigna.
         const motivo = erro?.killed
-          ? "esgotou o timeout de 5s"
+          ? `esgotou o timeout de ${(TIMEOUT_MS[arquivo] ?? TIMEOUT_PADRAO_MS) / 1000}s`
           : `não pôde ser executado (${erro?.code || erro?.message || "erro desconhecido"})`;
         throw new Error(
           `[governanca/hook-indisponivel] O gate ${arquivo} ${motivo}, então esta chamada de ` +
