@@ -3,7 +3,11 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-$C
+    <!-- Favicon no HTML, não só no applyFavicon() do main.tsx: medido em produção
+         (2026-09-24), com o ícone só injetado por JS o navegador pedia /favicon.ico e
+         recebia 404. O Vite não resolve nome de pacote no index.html, só caminho
+         relativo; este passa pelo symlink do workspace e sai com o mesmo hash do
+         import de @artificio/ui. -->
     <link rel="icon" type="image/png" href="../node_modules/@artificio/ui/src/faviconV2.png" />
     <title>Entrar · Artifício RPG</title>
   </head>
