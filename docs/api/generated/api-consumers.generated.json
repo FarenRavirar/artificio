@@ -1986,7 +1986,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "fetch",
-      "line": 150
+      "line": 155
     },
     {
       "app": "mesas-frontend",

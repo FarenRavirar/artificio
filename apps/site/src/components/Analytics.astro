@@ -7,13 +7,13 @@ const id = import.meta.env.PUBLIC_GA_ID;
 ---
 {id && (
   <script>
-    import { gtagSrc, ANALYTICS_DEFAULTS } from "@artificio/analytics";
+    import { gtagSrc, ANALYTICS_DEFAULTS, GA_PRIVACY_CONFIG } from "@artificio/analytics";
     const id = import.meta.env.PUBLIC_GA_ID;
     window.dataLayer = window.dataLayer || [];
     function gtag() { window.dataLayer.push(arguments); }
     window.gtag = gtag;
     gtag("js", new Date());
-    gtag("config", id, { cookie_domain: ANALYTICS_DEFAULTS.cookieDomain, anonymize_ip: true });
+    gtag("config", id, { ...GA_PRIVACY_CONFIG, cookie_domain: ANALYTICS_DEFAULTS.cookieDomain, anonymize_ip: true });
     const s = document.createElement("script");
     s.async = true;
     s.src = gtagSrc(id);

@@ -9,19 +9,8 @@ Task só fecha com o comando que a mediu na mesma linha. "Local", "parcial" e
 
 ## O que falta
 
-### Aceite que depende de deploy
-
-- **T7.13** — CSP do `links`: deployar e conferir que o console não traz violação,
-  que o toggle da sidebar move a barra de `x: -280` para `0`, e que `#scroll-top`
-  aparece após 300 px de rolagem.
-
-### Aberto por medição que reprova
-
-- **T2.3** — produção reprova por 0,11 s (LCP mediana 2,61 s; era 3,72 s). Correção
-  do `dist-*.css` do `content-editor` feita e medida localmente (LCP 1,90 s, nenhum
-  recurso bloqueante); falta PR, deploy e remedição em produção.
-- **T7.13** — comportamento OK em produção; CSP liberando o beacon do Cloudflare Web
-  Analytics feita localmente; falta PR, deploy e console limpo em produção.
+T2.3 e T7.13 fecharam em produção em 2026-09-24. Favicon dos 5 apps e sinais de
+anúncio do GA, achados no console da T7.13, fecham com deploy e console conferido.
 
 ### Débito e herança (decidido, não pendente)
 
@@ -274,7 +263,14 @@ Medido: `mesas-frontend` 1231 testes em 93 arquivos (era 1193 em 89),
 `useBannerScrim.ts:251` (arquivo intocado, `git diff` vazio — mesma família de
 dep list incompleta desta spec, não introduzido aqui).
 
-### [ ] T2.3 — Medido em produção: metade do aceite passa, LCP NÃO
+### [x] T2.3 — Fechada em produção: LCP mediana 1,43 s, desperdício de imagem 282 KiB
+
+**Medido em produção (2026-09-24)**, Lighthouse 13.4.0, `--throttling-method=devtools`,
+móvel, 3 rodadas com cache-buster em `mesas.artificiorpg.com`: LCP **1.427 / 1.318 /
+1.545 ms**, mediana **1,43 s** (alvo 2,5 s). `render-blocking-insight` com **0** itens
+e **0** `Stylesheet` na lista de requisições — todo o CSS chega no documento.
+`image-delivery-insight` soma **282 KiB** de desperdício nas três rodadas (alvo
+1.000 KiB; era 10.644). O histórico abaixo explica como se chegou aqui.
 
 **Aceite:** Lighthouse móvel em `mesas.artificiorpg.com`, mediana de **3** rodadas.
 Economia de imagem < 1.000 KiB (era 10.644) e LCP < 2,5 s (era 5,9 s). Uma rodada só
@@ -421,16 +417,7 @@ apps que importam `@artificio/ui`; testes `content-editor` 132/132, `comments`
 293/293, `ui` 148/148, `downloads` 326/326, `site` 203/203. No `mesas` local o
 `<head>` fica com 0 `<link rel="stylesheet">` e o Lighthouse sem nenhum recurso
 bloqueante: LCP **1.898 / 1.899 ms**, contra 2.874 / 3.102 ms sem a mudança (mesmo
-servidor local, sem compressão). O aceite fecha remedindo em produção depois do
-deploy.
-
-**Resta um bloqueio que a correção não alcança:** `dist-*.css` (1,8 KiB, do
-`@artificio/content-editor`) continua como `<link>` sem `precedence` atrás dos
-`modulepreload`, e na forma embutida é o último recurso a terminar (~2.500 ms
-local). Ele entra no `root` de TODO app que importa `@artificio/ui`: o barrel do
-pacote exporta `GmReviewPanel`, que importa `@artificio/content-editor`, cujo
-`index.ts:1` faz `import './content-editor.css'`. Tirar isso do caminho crítico mexe
-em pacote compartilhado.
+servidor local, sem compressão). Em produção deu 1,43 s (medição no topo).
 
 O peso de imagem é payload, não LCP: entra por custo de dado do visitante, não por
 este aceite.
@@ -2155,9 +2142,27 @@ precisa de nada: com instalação automática o beacon envia para `/cdn-cgi/rum`
 próprio domínio, coberto por `'self'` (doc da Cloudflare; medido no `site` em
 produção, `https://artificiorpg.com/cdn-cgi/rum`). O `site` tinha
 `cloudflareinsights.com` no `connect-src` sem uso e perdeu a entrada no mesmo
-trabalho (achado do CodeRabbit na PR #333). Build conferido nos dois. Fecha com o console limpo em
-produção, depois do deploy. Os outros erros do console são `favicon.ico`
-404 e o `401` de `/api/auth/refresh` esperado sem sessão.
+trabalho (achado do CodeRabbit na PR #333).
+
+**Fechada em produção (2026-09-24, Playwright sem sessão, cache-buster):** zero
+violação de CSP no console; `beacon.min.js` carrega (200) e envia para
+`links.artificiorpg.com/cdn-cgi/rum` (204); `#scroll-top` com `opacity: 1` a 400 px;
+em 412×823, `aside#sidebar` de `x: -280` a `0` no `.sidebar-toggle`. Sobram no console
+o `401` de `/api/auth/refresh`, esperado sem sessão e igual no `mesas` e no `site`, e
+o `favicon.ico` 404 — o `links` não tinha `<link rel="icon">` nenhum. Corrigido em
+`apps/links/src/layouts/Base.astro` com o `faviconV2` de `@artificio/ui/static`, como
+o `site`; build conferido (`/_astro/faviconV2.D-Cr6Urt.png`, coberto por `img-src
+'self'`). O mesmo 404 aparece em `mesas`, `downloads` e `accounts` (e no `glossario`
+o `favicon.ico` devolve o `index.html` com 200), porque os quatro só injetavam o ícone
+por JS (`applyFavicon()`). O SSR do `mesas` (`root.tsx`) e o `index.html` dos três
+apps Vite passaram a emiti-lo no HTML; build de cada um sai com
+`/assets/faviconV2-D-Cr6Urt.png`.
+
+No mesmo console, o `site` mostrou o GA tentando `stats.g.doubleclick.net` e
+`ga-audiences`, barrados pela CSP. `@artificio/analytics` passou a mandar
+`allow_google_signals: false` e `allow_ad_personalization_signals: false` em todo
+`config` (`GA_PRIVACY_CONFIG`, `packages/analytics/src/config.ts`), por decisão do
+mantenedor (2026-09-24).
 
 ---
 

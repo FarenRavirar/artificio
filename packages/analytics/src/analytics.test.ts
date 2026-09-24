@@ -27,6 +27,11 @@ describe("gtag", () => {
     expect(js).toContain('"debug_mode":true');
     expect(js).toContain('"cookie_domain":".x.com"');
   });
+  it("desliga sinais de anúncio (sem doubleclick/ga-audiences)", () => {
+    const js = gtagInlineConfig("G-X");
+    expect(js).toContain('"allow_google_signals":false');
+    expect(js).toContain('"allow_ad_personalization_signals":false');
+  });
 });
 
 describe("initGtag", () => {
@@ -69,6 +74,8 @@ describe("initGtag", () => {
     expect(configCall).toBeDefined();
     const cfg = configCall[2] as Record<string, unknown>;
     expect(cfg.send_page_view).toBe(false);
+    expect(cfg.allow_google_signals).toBe(false);
+    expect(cfg.allow_ad_personalization_signals).toBe(false);
   });
 
   it("anonymize_ip:true por padrão", () => {
