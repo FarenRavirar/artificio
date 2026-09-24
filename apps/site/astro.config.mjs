@@ -77,13 +77,17 @@ export default defineConfig({
         // T2.5 da spec 103, bloqueada em decisão de produto (onde as capas passam a morar).
         "img-src 'self' data: https://artificiorpg.com https://res.cloudinary.com https://*.googleusercontent.com",
         "media-src 'self' https://res.cloudinary.com",
-        // cloudflareinsights.com: beacon do Cloudflare Web Analytics (RUM) envia métricas via fetch.
+        // O beacon do Cloudflare Web Analytics NÃO precisa de entrada aqui: com instalação
+        // automática ele envia para `/cdn-cgi/rum` do próprio domínio, coberto por `'self'`
+        // (medido em produção em 2026-09-24: `https://artificiorpg.com/cdn-cgi/rum`;
+        // developers.cloudflare.com/web-analytics/faq). `cloudflareinsights.com` era sobra,
+        // só necessária com o snippet embutido à mão (achado do CodeRabbit na PR #333).
         // analytics.google.com e www.google.com: o GA4 NÃO usa só `www.google-analytics.com`.
         // Ele espelha cada hit em `/g/collect` nesses dois hosts (medido em beta 2026-09-16:
         // 6 requisições recusadas no console, entre elas `en=page_view`, `en=view_search_results`
         // e `en=scroll`). Sem os três, o evento morre em silêncio: a página não quebra, nada
         // avisa, e o dado simplesmente não chega ao GA4 — em TODA rota, não só na busca.
-        "connect-src 'self' https://accounts.artificiorpg.com https://www.google-analytics.com https://analytics.google.com https://www.google.com https://cloudflareinsights.com",
+        "connect-src 'self' https://accounts.artificiorpg.com https://www.google-analytics.com https://analytics.google.com https://www.google.com",
       ],
       scriptDirective: {
         // 'wasm-unsafe-eval': Pagefind (busca do nav) compila WebAssembly; sem isso o CSP bloqueia o WASM e a busca não funciona.

@@ -1,3 +1,10 @@
+/* Estilo do editor de conteúdo, que a conversa usa (`ContentEditor` e
+   `MarkdownContent`). Vinha por `import './content-editor.css'` no `index.ts` do
+   pacote, o que punha um `<link>` bloqueante no `<head>` de todo app que importa
+   `@artificio/ui` (spec 103 T2.3); agora vem por aqui, só para quem carrega a
+   conversa. `@import` precisa ser a primeira regra do arquivo. */
+@import "@artificio/content-editor/styles.css";
+
 /* ============================================================================
    Conversa pública compartilhada (`mesas`, `downloads`, `site`).
 

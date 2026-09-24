@@ -28,6 +28,28 @@ const CASOS = [
   ['accounts nao tem beta', 'gh workflow run deploy.yml --ref main -f module=accounts -f mode=deploy -f env=prod', nuncaConsulta, 'PASSA'],
   ['promote nao e deploy', 'gh workflow run promote-prod-fast-forward.yml --ref main -f confirm=PROMOTE_DEV_TO_MAIN', nuncaConsulta, 'PASSA'],
   ['gh run list', 'gh run list --workflow deploy.yml', nuncaConsulta, 'PASSA'],
+  ['bash -lc aninhado', 'bash -lc "gh workflow run deploy.yml --ref main -f module=mesas -f mode=deploy -f env=prod"', consulta('behind'), 'BLOQUEIA'],
+  // Achado do Codex na PR #333: prefixos de shell escondiam o comando do gate.
+  ['atribuicao de variavel antes', 'GH_PROMPT_DISABLED=1 gh workflow run deploy.yml --ref main -f module=mesas -f mode=deploy -f env=prod', consulta('behind'), 'BLOQUEIA'],
+  ['wrapper env com variavel', 'env GH_PROMPT_DISABLED=1 gh workflow run deploy.yml --ref main -f module=mesas -f mode=deploy -f env=prod', consulta('behind'), 'BLOQUEIA'],
+  ['wrapper command', 'command gh workflow run deploy.yml --ref main -f module=mesas -f mode=deploy -f env=prod', consulta('behind'), 'BLOQUEIA'],
+  // Segunda rodada do Codex na PR #333: opcoes dos wrappers.
+  ['env -i', 'env -i gh workflow run deploy.yml --ref main -f module=mesas -f mode=deploy -f env=prod', consulta('behind'), 'BLOQUEIA'],
+  ['sudo -u usuario', 'sudo -u deploy gh workflow run deploy.yml --ref main -f module=mesas -f mode=deploy -f env=prod', consulta('behind'), 'BLOQUEIA'],
+  ['time -p', 'time -p gh workflow run deploy.yml --ref main -f module=mesas -f mode=deploy -f env=prod', consulta('behind'), 'BLOQUEIA'],
+  // Custo aceito da deteccao sem parser: citar um deploy de producao tambem barra.
+  ['echo citando deploy de prod (custo aceito)', 'echo "rode gh workflow run deploy.yml --ref main -f module=mesas -f mode=deploy -f env=prod depois"', consulta('behind'), 'BLOQUEIA'],
+  // Terceira rodada do Codex na PR #333: executores de string.
+  ['eval com string', `eval 'gh workflow run deploy.yml --ref main -f module=mesas -f mode=deploy -f env=prod'`, consulta('behind'), 'BLOQUEIA'],
+  ['xargs', `echo deploy.yml | xargs -I{} gh workflow run {} --ref main -f module=mesas -f mode=deploy -f env=prod`, consulta('behind'), 'BLOQUEIA'],
+  ['heredoc para sh', 'sh -s <<EOF\ngh workflow run deploy.yml --ref main -f module=mesas -f mode=deploy -f env=prod\nEOF', consulta('behind'), 'BLOQUEIA'],
+  ['campo com aspas duplas', 'gh workflow run deploy.yml --ref main -f module="mesas" -f mode="deploy" -f env="prod"', consulta('behind'), 'BLOQUEIA'],
+  ['citar deploy de BETA nao barra', 'echo "gh workflow run deploy.yml --ref dev -f module=mesas -f mode=deploy -f env=beta"', nuncaConsulta, 'PASSA'],
+  ['caminho absoluto', '/usr/bin/gh workflow run deploy.yml --ref main -f module=mesas -f mode=deploy -f env=prod', consulta('behind'), 'BLOQUEIA'],
+  ['depois de ; e quebra de linha', 'echo x;\ngh workflow run deploy.yml --ref main -f module=mesas -f mode=deploy -f env=prod', consulta('behind'), 'BLOQUEIA'],
+  // Falso positivo real de 2026-09-23: o payload de teste do proprio hook.
+  // Antes PASSA; desde a terceira rodada, custo aceito — teste do hook se faz por arquivo.
+  ['texto dentro de string do printf (custo aceito)', `printf '%s' '{"tool_input":{"command":"gh workflow run deploy.yml --ref main -f module=site -f mode=deploy -f env=prod"}}' | node hook.js`, consulta('behind'), 'BLOQUEIA'],
 ];
 
 let falhas = 0;

@@ -25,11 +25,19 @@ export default defineConfig({
         "default-src 'self'",
         // logos dos grupos = Cloudinary (secure_url) + data: (placeholders inline)
         "img-src 'self' data: https://res.cloudinary.com",
-        // ilhas falam com a própria API (mesma origem) + SSO (accounts.artificiorpg.com)
+        // ilhas falam com a própria API (mesma origem) + SSO (accounts.artificiorpg.com).
+        // O beacon do Cloudflare Web Analytics, na instalação AUTOMÁTICA, envia para
+        // `/cdn-cgi/rum` do próprio domínio, que `'self'` já cobre; `cloudflareinsights.com`
+        // só seria preciso com o snippet embutido à mão, que este app não tem
+        // (developers.cloudflare.com/web-analytics/faq; achado do CodeRabbit na PR #333).
         "connect-src 'self' https://accounts.artificiorpg.com",
       ],
       scriptDirective: {
-        resources: ["'self'"],
+        // static.cloudflareinsights.com: loader do beacon que a Cloudflare injeta na
+        // borda (Web Analytics com `auto_install: true` na zona, medido via API em
+        // 2026-09-23). Sem isto a CSP o barrava e o console de produção trazia a
+        // violação (spec 103 T7.13); liberado por decisão do mantenedor.
+        resources: ["'self'", "https://static.cloudflareinsights.com"],
         // Astro 6 CSP só hasheia o que ele BUNDLA; `<script is:inline>` nunca entra.
         // Medido em produção em 2026-09-21: 5 scripts inline recusados, e com eles o
         // anti-FOUC do tema, o toggle da sidebar mobile, o banner de onboarding, o

@@ -38,6 +38,9 @@ const { lerPayload } = require(path.join(__dirname, 'ler-payload.js'));
 // Quantos runs de deploy.yml com sucesso olhar para achar o ultimo beta do modulo.
 // Cada run custa uma chamada de API; 30 cobre semanas de deploy neste repo.
 const MAX_RUNS = 30;
+// Teto de paginas de 100 runs. Se o beta nao aparecer em 500 runs, o hook bloqueia
+// (falha fechada) em vez de varrer o historico inteiro.
+const MAX_PAGINAS = 5;
 
 function tirarAspas(v) {
   return String(v).replace(/^['"]|['"]$/g, '');
@@ -47,14 +50,45 @@ function tirarAspas(v) {
  * Le um comando e devolve `{ modulo }` se ele for um dispatch de deploy que
  * resolve para PRODUCAO; `null` para qualquer outra coisa.
  */
+// Tres falhas moldaram esta deteccao, todas medidas:
+//
+// 1. Falso positivo (2026-09-23): texto DENTRO de string — o payload de teste num
+//    `printf '{"command":"gh workflow run..."}'` — era lido como dispatch e barrado.
+// 2. Bypass (achados do Codex na PR #333): qualquer lista de prefixos permitidos
+//    antes do `gh` deixa escapar o que ela nao preve. `VAR=1 gh`, `env VAR=1 gh`,
+//    `/usr/bin/gh`, e depois `env -i gh`, `sudo -u x gh`, `time -p gh` — as opcoes
+//    dos wrappers sao abertas, nenhuma lista fecha.
+//
+// 3. Bypass de novo (terceira rodada do Codex na PR #333): `eval '...gh workflow
+//    run...'` — a versao anterior apagava string com espaco para evitar a falha 1, e
+//    `eval`, `xargs`, `sh -s <<EOF`, `$(...)` executam exatamente string.
+//
+// Separar "texto" de "comando" exige um parser de shell, e cada heuristica abriu um
+// desvio novo. Entao a deteccao NAO separa: `gh workflow run` em QUALQUER lugar do
+// comando, entre aspas ou nao, e analisado. `normalizar` so tira as aspas (para os
+// campos `-f env="prod"` serem lidos) e colapsa espacos. O custo e a falha 1 de
+// volta — um `echo` ou `printf` que CITE um deploy de producao e barrado —, e esse
+// e o erro barato: bloqueia um comando inofensivo, nunca libera um deploy.
+const GH_RUN = /(?:^|[^\w-])gh\s+workflow\s+run\s+(\S+)/;
+
+function normalizar(cmd) {
+  // Aspas somem sem virar espaco: `env="prod"` precisa continuar `env=prod`.
+  return String(cmd).replace(/['"]/g, '').replace(/\\\s/g, ' ').replace(/[ \t]+/g, ' ');
+}
+
 function analisarComando(cmd) {
-  const texto = String(cmd).replace(/\s+/g, ' ');
-  const m = texto.match(/\bgh\s+workflow\s+run\s+(['"]?)([\w./-]+)\1/);
+  const texto = normalizar(cmd);
+  const m = texto.match(GH_RUN);
   if (!m) return null;
-  const workflow = path.basename(m[2]).replace(/\.ya?ml$/, '');
+  // Nome que nao e literal (`{}` do xargs, `$WF`, `${x}`) nao da para ler: conta como
+  // `deploy` e deixa os campos decidirem — falha fechada, nunca liberacao por duvida.
+  const bruto = m[1];
+  const workflow = /^[\w./-]+$/.test(bruto) ? path.basename(bruto).replace(/\.ya?ml$/, '') : 'deploy';
 
   const campos = {};
-  const re = /(?:^|\s)(?:-f|-F|--field|--raw-field)(?:\s+|=)(['"]?)([\w-]+)=([^\s'"]*)\1/g;
+  // Valor so com `[\w.-]`: dentro de JSON ou de subshell o valor vem colado em `}`/`)`,
+  // e `prod}}` nao pode deixar de ser lido como `prod`.
+  const re = /(?:^|\s)(?:-f|-F|--field|--raw-field)(?:\s+|=)(['"]?)([\w-]+)=([\w.-]*)\1/g;
   let c;
   while ((c = re.exec(texto))) campos[c[2]] = tirarAspas(c[3]);
 
@@ -85,14 +119,32 @@ function ghApi(rota, jq, cwd) {
 function ultimoBetaComSucesso(modulo, cwd) {
   // Run de `pull_request` nunca deploya (`deploy=false` no build-matrix) e e a
   // maioria dos runs: pula-los corta a consulta de ~30 s para poucos segundos.
-  const runs = ghApi(
-    `repos/{owner}/{repo}/actions/workflows/deploy.yml/runs?status=success&per_page=100`,
-    `[.workflow_runs[] | select(.event != "pull_request")][:${MAX_RUNS}][] | "\\(.id) \\(.head_sha)"`,
-    cwd,
-  ).split('\n').filter(Boolean);
+  //
+  // SEM `?status=success` na URL, de proposito. Medido em 2026-09-23: com
+  // `status=success&per_page=100` a API devolveu runs de 2026-09-04 no topo, e com
+  // `per_page=5` os do dia — o filtro no servidor nao garante ordem nem janela.
+  // Resultado: o hook leu o beta do `mesas` em `0c8531b` com um deploy de beta em
+  // `0806233` terminado com sucesso minutos antes, e barrou producao sem motivo.
+  // Filtrar `conclusion` e ordenar por `created_at` aqui nao depende disso.
+  //
+  // Paginado (achado do CodeRabbit na PR #333): uma pagina e 100 runs, e runs de PR
+  // dominam — com mais de 100 runs recentes que nao deployam, o beta ficava fora da
+  // janela e o hook barrava producao. Para ao juntar MAX_RUNS candidatos, ao chegar
+  // numa pagina incompleta (fim da lista) ou no teto de paginas, que limita o custo.
+  const runs = [];
+  for (let pagina = 1; pagina <= MAX_PAGINAS; pagina += 1) {
+    const lote = JSON.parse(ghApi(
+      `repos/{owner}/{repo}/actions/workflows/deploy.yml/runs?per_page=100&page=${pagina}`,
+      '[.workflow_runs[] | {id, head_sha, event, conclusion, created_at}]',
+      cwd,
+    ));
+    runs.push(...lote.filter((r) => r.event !== 'pull_request' && r.conclusion === 'success'));
+    if (lote.length < 100 || runs.length >= MAX_RUNS) break;
+  }
+  runs.sort((a, b) => b.created_at.localeCompare(a.created_at));
+  runs.splice(MAX_RUNS);
   const alvo = `Deploy ${modulo} beta`;
-  for (const linha of runs) {
-    const [id, sha] = linha.split(' ');
+  for (const { id, head_sha: sha } of runs) {
     const jobs = ghApi(
       `repos/{owner}/{repo}/actions/runs/${id}/jobs?per_page=100`,
       '.jobs[] | select(.conclusion == "success") | .name',
@@ -152,7 +204,7 @@ if (require.main === module) {
     } catch {
       process.exit(0); // payload ilegivel: nao ha comando de deploy para barrar
     }
-    if (!command || !/\bgh\s+workflow\s+run\b/.test(command)) process.exit(0);
+    if (!command || !GH_RUN.test(normalizar(command))) process.exit(0);
 
     const raiz = process.env.CLAUDE_PROJECT_DIR || path.resolve(__dirname, '..', '..');
     let modulo;
