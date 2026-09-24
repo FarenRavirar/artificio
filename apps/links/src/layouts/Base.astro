@@ -3,7 +3,7 @@
 // Reusa o design system @artificio/ui (styles.css) p/ o Header/Footer/primitives.
 import "@artificio/ui/styles.css";
 import "../styles/global.css";
-import { BRAND_NAME } from "@artificio/ui/static";
+import { BRAND_NAME, faviconV2 } from "@artificio/ui/static";
 
 interface Props {
   title: string;
@@ -30,6 +30,9 @@ const ogImg = ogImage ?? new URL("/og-default.png", site).href;
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    {/* Mesma fonte do `site` (Base.astro). Sem isto o navegador pede /favicon.ico e
+        recebe 404 — medido no console de produção em 2026-09-24. */}
+    <link rel="icon" type={faviconV2.type} href={faviconV2.src} />
     {/* Tema canônico (cookie artificio_theme cross-subdomínio); aplica antes do paint (sem flash). */}
     {/*
       ÚNICO script que PRECISA ser `is:inline` aqui: roda antes da primeira pintura.

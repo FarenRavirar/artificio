@@ -1,4 +1,4 @@
-import { ANALYTICS_DEFAULTS, type GaOptions } from "./config.js";
+import { ANALYTICS_DEFAULTS, GA_PRIVACY_CONFIG, type GaOptions } from "./config.js";
 
 /** URL do loader gtag.js para um measurement id (G-XXXXXXX). Público (não é segredo). */
 export const gtagSrc = (id: string): string =>
@@ -7,6 +7,7 @@ export const gtagSrc = (id: string): string =>
 /** JS de configuração do gtag (vai num <script> inline). cookie_domain raiz = cross-subdomínio. */
 export function gtagInlineConfig(id: string, opts: GaOptions = {}): string {
   const cfg: Record<string, unknown> = {
+    ...GA_PRIVACY_CONFIG,
     cookie_domain: opts.cookieDomain ?? ANALYTICS_DEFAULTS.cookieDomain,
   };
   if (opts.anonymizeIp) cfg.anonymize_ip = true;
@@ -50,6 +51,7 @@ export function initGtag(id: string, opts: GaOptions = {}): void {
 
   const anonymize = opts.anonymizeIp ?? true;
   const cfg: Record<string, unknown> = {
+    ...GA_PRIVACY_CONFIG,
     cookie_domain: opts.cookieDomain ?? ANALYTICS_DEFAULTS.cookieDomain,
     send_page_view: false,
   };

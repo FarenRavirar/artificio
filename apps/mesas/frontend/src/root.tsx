@@ -3,6 +3,7 @@ import { Links, Meta, Outlet, Scripts, ScrollRestoration, isRouteErrorResponse, 
 import { QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
 import { ConfirmProvider } from '@artificio/ui';
+import { faviconV2 } from '@artificio/ui/static';
 import { useAnalyticsPageviews } from '@artificio/analytics/react';
 import { obterQueryClient } from './lib/queryClient';
 import { AuthProvider } from './contexts/AuthContext';
@@ -84,6 +85,10 @@ export function Layout({ children }: Readonly<{ children: React.ReactNode }>) {
       <head>
         <meta charSet="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        {/* No HTML do SSR, não só no `applyFavicon()` do `entry.client`: medido em
+            produção (2026-09-24), com o ícone só injetado por JS o navegador ainda
+            pedia `/favicon.ico` e recebia 404. Mesma fonte do `site`. */}
+        <link rel="icon" type={faviconV2.type} href={faviconV2.src} />
         <Meta />
         {GLOBAL_STYLES.map(({ href, css }) => (
           <style key={href} href={href} precedence="high">
