@@ -50,26 +50,37 @@ function tirarAspas(v) {
  * Le um comando e devolve `{ modulo }` se ele for um dispatch de deploy que
  * resolve para PRODUCAO; `null` para qualquer outra coisa.
  */
-// `gh` so conta em POSICAO DE COMANDO: inicio, depois de `;`/`&`/`|`/`(`/quebra de
-// linha, ou como argumento de `-c` (`bash -lc "gh ..."`). Sem isto o texto dentro
-// de uma string — o payload de teste num `printf '{"command":"gh workflow run..."}'`
-// — era lido como dispatch real e barrado (medido em 2026-09-23).
+// Duas falhas opostas moldaram esta deteccao, as duas medidas:
 //
-// Entre a fronteira e o `gh` o shell aceita prefixos que não mudam o comando:
-// atribuição de variável (`GH_PROMPT_DISABLED=1 gh ...`), os wrappers `env`,
-// `command`, `exec`, `nohup`, `time`, `sudo`, e caminho absoluto (`/usr/bin/gh`).
-// Sem reconhecê-los, `VAR=1 gh workflow run ... env=prod` passava pelo gate
-// (achado do Codex na PR #333).
-const PREFIXOS = String.raw`(?:(?:env|command|exec|nohup|time|sudo)\s+|[A-Za-z_]\w*=\S*\s+)*`;
-const GH_RUN = new RegExp(
-  String.raw`(?:^|[;&|(\n]|\s-[a-z]*c\s+['"])\s*` + PREFIXOS + String.raw`(?:\S*/)?gh\s+workflow\s+run\s+(['"]?)([\w./-]+)\1`,
-);
+// 1. Falso positivo (2026-09-23): texto DENTRO de string — o payload de teste num
+//    `printf '{"command":"gh workflow run..."}'` — era lido como dispatch e barrado.
+// 2. Bypass (achados do Codex na PR #333): qualquer lista de prefixos permitidos
+//    antes do `gh` deixa escapar o que ela nao preve. `VAR=1 gh`, `env VAR=1 gh`,
+//    `/usr/bin/gh`, e depois `env -i gh`, `sudo -u x gh`, `time -p gh` — as opcoes
+//    dos wrappers sao abertas, nenhuma lista fecha.
+//
+// Por isso a deteccao nao enumera o que vem antes. `normalizar` apaga o conteudo de
+// strings entre aspas que tenham espaco (texto, JSON, mensagem — nao e comando),
+// exceto o argumento de `-c`, que o shell executa (`bash -lc "gh ..."`); string sem
+// espaco (`"deploy.yml"`, `env="prod"`) so perde as aspas. Depois disso, `gh` conta
+// em qualquer posicao precedida de espaco, separador ou `/`. Um `echo gh workflow run`
+// sem aspas tambem casa: bloqueia um comando inofensivo, que e a falha barata.
+const GH_RUN = /(?:^|[\s;&|(/])gh\s+workflow\s+run\s+([\w./-]+)/;
+
+function normalizar(cmd) {
+  return String(cmd)
+    .replace(/(-[a-z]*c\s+)?(['"])((?:\\.|(?!\2)[^\\])*)\2/g, (_m, c, _q, corpo) => {
+      if (c) return `${c}${corpo}`;
+      return /\s/.test(corpo) ? ' ' : corpo;
+    })
+    .replace(/[ \t]+/g, ' ');
+}
 
 function analisarComando(cmd) {
-  const texto = String(cmd).replace(/[ \t]+/g, ' ');
+  const texto = normalizar(cmd);
   const m = texto.match(GH_RUN);
   if (!m) return null;
-  const workflow = path.basename(m[2]).replace(/\.ya?ml$/, '');
+  const workflow = path.basename(m[1]).replace(/\.ya?ml$/, '');
 
   const campos = {};
   const re = /(?:^|\s)(?:-f|-F|--field|--raw-field)(?:\s+|=)(['"]?)([\w-]+)=([^\s'"]*)\1/g;
@@ -188,7 +199,7 @@ if (require.main === module) {
     } catch {
       process.exit(0); // payload ilegivel: nao ha comando de deploy para barrar
     }
-    if (!command || !GH_RUN.test(command.replace(/[ \t]+/g, ' '))) process.exit(0);
+    if (!command || !GH_RUN.test(normalizar(command))) process.exit(0);
 
     const raiz = process.env.CLAUDE_PROJECT_DIR || path.resolve(__dirname, '..', '..');
     let modulo;

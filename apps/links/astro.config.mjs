@@ -26,9 +26,11 @@ export default defineConfig({
         // logos dos grupos = Cloudinary (secure_url) + data: (placeholders inline)
         "img-src 'self' data: https://res.cloudinary.com",
         // ilhas falam com a própria API (mesma origem) + SSO (accounts.artificiorpg.com).
-        // cloudflareinsights.com: o beacon do Cloudflare Web Analytics envia as métricas
-        // por fetch para lá — mesma regra do `site` (apps/site/astro.config.mjs).
-        "connect-src 'self' https://accounts.artificiorpg.com https://cloudflareinsights.com",
+        // O beacon do Cloudflare Web Analytics, na instalação AUTOMÁTICA, envia para
+        // `/cdn-cgi/rum` do próprio domínio, que `'self'` já cobre; `cloudflareinsights.com`
+        // só seria preciso com o snippet embutido à mão, que este app não tem
+        // (developers.cloudflare.com/web-analytics/faq; achado do CodeRabbit na PR #333).
+        "connect-src 'self' https://accounts.artificiorpg.com",
       ],
       scriptDirective: {
         // static.cloudflareinsights.com: loader do beacon que a Cloudflare injeta na
