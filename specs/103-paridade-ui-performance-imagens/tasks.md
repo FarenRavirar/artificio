@@ -2150,9 +2150,12 @@ Cloudflare Web Analytics que a Cloudflare injeta na borda. O `site` o libera
 morre bloqueado. **Mantenedor autorizou ligar (2026-09-23).** A injeção já estava
 ativa na Cloudflare (Web Analytics da conta com `auto_install: true`, sem regra por
 host, lido pela API), então a correção é só a CSP: `apps/links/astro.config.mjs`
-ganhou `https://static.cloudflareinsights.com` no `script-src` e
-`https://cloudflareinsights.com` no `connect-src`, a mesma regra do `site`. Build
-conferido: a `<meta>` de CSP gerada traz os dois. Fecha com o console limpo em
+ganhou `https://static.cloudflareinsights.com` no `script-src`. O `connect-src` NÃO
+precisa de nada: com instalação automática o beacon envia para `/cdn-cgi/rum` do
+próprio domínio, coberto por `'self'` (doc da Cloudflare; medido no `site` em
+produção, `https://artificiorpg.com/cdn-cgi/rum`). O `site` tinha
+`cloudflareinsights.com` no `connect-src` sem uso e perdeu a entrada no mesmo
+trabalho (achado do CodeRabbit na PR #333). Build conferido nos dois. Fecha com o console limpo em
 produção, depois do deploy. Os outros erros do console são `favicon.ico`
 404 e o `401` de `/api/auth/refresh` esperado sem sessão.
 

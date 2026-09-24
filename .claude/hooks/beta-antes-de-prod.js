@@ -50,7 +50,7 @@ function tirarAspas(v) {
  * Le um comando e devolve `{ modulo }` se ele for um dispatch de deploy que
  * resolve para PRODUCAO; `null` para qualquer outra coisa.
  */
-// Duas falhas opostas moldaram esta deteccao, as duas medidas:
+// Tres falhas moldaram esta deteccao, todas medidas:
 //
 // 1. Falso positivo (2026-09-23): texto DENTRO de string — o payload de teste num
 //    `printf '{"command":"gh workflow run..."}'` — era lido como dispatch e barrado.
@@ -59,31 +59,36 @@ function tirarAspas(v) {
 //    `/usr/bin/gh`, e depois `env -i gh`, `sudo -u x gh`, `time -p gh` — as opcoes
 //    dos wrappers sao abertas, nenhuma lista fecha.
 //
-// Por isso a deteccao nao enumera o que vem antes. `normalizar` apaga o conteudo de
-// strings entre aspas que tenham espaco (texto, JSON, mensagem — nao e comando),
-// exceto o argumento de `-c`, que o shell executa (`bash -lc "gh ..."`); string sem
-// espaco (`"deploy.yml"`, `env="prod"`) so perde as aspas. Depois disso, `gh` conta
-// em qualquer posicao precedida de espaco, separador ou `/`. Um `echo gh workflow run`
-// sem aspas tambem casa: bloqueia um comando inofensivo, que e a falha barata.
-const GH_RUN = /(?:^|[\s;&|(/])gh\s+workflow\s+run\s+([\w./-]+)/;
+// 3. Bypass de novo (terceira rodada do Codex na PR #333): `eval '...gh workflow
+//    run...'` — a versao anterior apagava string com espaco para evitar a falha 1, e
+//    `eval`, `xargs`, `sh -s <<EOF`, `$(...)` executam exatamente string.
+//
+// Separar "texto" de "comando" exige um parser de shell, e cada heuristica abriu um
+// desvio novo. Entao a deteccao NAO separa: `gh workflow run` em QUALQUER lugar do
+// comando, entre aspas ou nao, e analisado. `normalizar` so tira as aspas (para os
+// campos `-f env="prod"` serem lidos) e colapsa espacos. O custo e a falha 1 de
+// volta — um `echo` ou `printf` que CITE um deploy de producao e barrado —, e esse
+// e o erro barato: bloqueia um comando inofensivo, nunca libera um deploy.
+const GH_RUN = /(?:^|[^\w-])gh\s+workflow\s+run\s+(\S+)/;
 
 function normalizar(cmd) {
-  return String(cmd)
-    .replace(/(-[a-z]*c\s+)?(['"])((?:\\.|(?!\2)[^\\])*)\2/g, (_m, c, _q, corpo) => {
-      if (c) return `${c}${corpo}`;
-      return /\s/.test(corpo) ? ' ' : corpo;
-    })
-    .replace(/[ \t]+/g, ' ');
+  // Aspas somem sem virar espaco: `env="prod"` precisa continuar `env=prod`.
+  return String(cmd).replace(/['"]/g, '').replace(/\\\s/g, ' ').replace(/[ \t]+/g, ' ');
 }
 
 function analisarComando(cmd) {
   const texto = normalizar(cmd);
   const m = texto.match(GH_RUN);
   if (!m) return null;
-  const workflow = path.basename(m[1]).replace(/\.ya?ml$/, '');
+  // Nome que nao e literal (`{}` do xargs, `$WF`, `${x}`) nao da para ler: conta como
+  // `deploy` e deixa os campos decidirem — falha fechada, nunca liberacao por duvida.
+  const bruto = m[1];
+  const workflow = /^[\w./-]+$/.test(bruto) ? path.basename(bruto).replace(/\.ya?ml$/, '') : 'deploy';
 
   const campos = {};
-  const re = /(?:^|\s)(?:-f|-F|--field|--raw-field)(?:\s+|=)(['"]?)([\w-]+)=([^\s'"]*)\1/g;
+  // Valor so com `[\w.-]`: dentro de JSON ou de subshell o valor vem colado em `}`/`)`,
+  // e `prod}}` nao pode deixar de ser lido como `prod`.
+  const re = /(?:^|\s)(?:-f|-F|--field|--raw-field)(?:\s+|=)(['"]?)([\w-]+)=([\w.-]*)\1/g;
   let c;
   while ((c = re.exec(texto))) campos[c[2]] = tirarAspas(c[3]);
 
