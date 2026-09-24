@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const styles = readFileSync(new URL("./styles.css", import.meta.url), "utf8");
@@ -634,5 +634,72 @@ describe("régua tipográfica", () => {
     expect(sans).toContain("Inter");
     expect(sans).toContain("Segoe UI");
     expect(sans).toContain("Roboto");
+  });
+});
+
+// Spec 103 T6.1 — paridade do nav principal entre módulos. Os 5 apps com header
+// renderizam o mesmo `.artificio-nav-link` do pacote; o que mantém a paridade é
+// (1) a regra do pacote ter peso, cor, gap e padding fixos, e (2) nenhum app
+// sobrescrever o nav. Medido em 2026-09-21 (T5.3): a "divergência de peso" era o
+// link ATIVO (600) de um app comparado com o inativo (500) de outro.
+//
+// Cor e peso se assertam pelo TOKEN, não pelo valor (T5.4): a spec 104 vai trocar
+// o hexadecimal dos tokens de tinta, e um guard de hex congelaria essa mudança.
+describe("paridade do nav principal entre módulos (T6.1)", () => {
+  /** Regra de nível superior: o seletor abre a linha. Não casa `.artificio-subnav .artificio-nav-link`. */
+  function regraTopo(selector: string) {
+    const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return styles.match(new RegExp(`(?:^|\\n)${escaped}\\s*\\{([^}]*)\\}`))?.[1] ?? "";
+  }
+
+  it("fixa o peso do link inativo em --weight-medium, que vale 500 (alvo `mesas`)", () => {
+    expect(regraTopo(".artificio-nav-link")).toMatch(/font-weight:\s*var\(--weight-medium\);/);
+    expect(styles).toMatch(/--weight-medium:\s*500;/);
+  });
+
+  it("marca a página atual com --weight-strong (600), não só com cor — WCAG 1.4.1", () => {
+    expect(regraTopo('.artificio-nav-link[aria-current="page"]')).toMatch(
+      /font-weight:\s*var\(--weight-strong\);/,
+    );
+    expect(styles).toMatch(/--weight-strong:\s*600;/);
+  });
+
+  it("tira a cor do link de token, nunca de hexadecimal", () => {
+    expect(regraTopo(".artificio-nav-link")).toMatch(/color:\s*var\(--artificio-muted\);/);
+    expect(regraTopo('.artificio-nav-link[aria-current="page"]')).toMatch(
+      /color:\s*var\(--artificio-ink\);/,
+    );
+  });
+
+  it("fixa gap da lista e padding do link", () => {
+    expect(regraTopo(".artificio-nav-list")).toMatch(/gap:\s*4px;/);
+    expect(regraTopo(".artificio-nav-link")).toMatch(/padding:\s*10px 12px;/);
+  });
+
+  it("nenhum app sobrescreve o nav do pacote", () => {
+    // A paridade quebra no app, não no pacote: basta um `.artificio-nav-link { … }`
+    // num CSS de app para um módulo divergir dos outros com o pacote intacto.
+    // Só o código-fonte (`src/` e `frontend/src/`): varrer o app inteiro entra em
+    // `node_modules` e em saída de build (`dist*`), que copia o CSS do pacote.
+    const apps = new URL("../../../apps/", import.meta.url);
+    const seletor = /\.artificio-nav-(link|list)\b[^{};]*\{/;
+    const ofensores: string[] = [];
+    let varridos = 0;
+    for (const app of readdirSync(apps)) {
+      for (const raiz of ["src/", "frontend/src/"]) {
+        const base = new URL(`${app}/${raiz}`, apps);
+        if (!existsSync(base)) continue;
+        for (const rel of readdirSync(base, { recursive: true }) as string[]) {
+          if (!/\.(css|scss|astro)$/.test(rel)) continue;
+          varridos++;
+          if (seletor.test(readFileSync(new URL(rel.replace(/\\/g, "/"), base), "utf8"))) {
+            ofensores.push(`${app}/${raiz}${rel}`);
+          }
+        }
+      }
+    }
+    // Zero arquivo varrido seria o teste passando por não medir nada.
+    expect(varridos).toBeGreaterThan(10);
+    expect(ofensores).toEqual([]);
   });
 });

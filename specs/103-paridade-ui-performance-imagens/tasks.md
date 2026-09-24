@@ -19,14 +19,14 @@ anúncio do GA, achados no console da T7.13, fecham com deploy e console conferi
 - **T5.1 / T5.2** — HERDADAS pela spec 104 por decisão dele (2026-09-22): cor de
   header e política de subnav se decidem lá, junto com a identidade.
 
-### Aberto como trabalho técnico
+### Bloqueado por decisão do mantenedor
 
-- **T5.3 / T5.4** — enunciado incorreto (não há divergência de peso entre apps) e a
-  restrição que o guard de T6.1 precisa respeitar.
-- **T6.1** — contrato de CSS para a paridade; **T6.2** e **T6.3** bloqueadas por D3
-  e pelo alcance de `packages/ui`.
+- **T6.2** — D3 (`plan.md` §6.4): o CI passa a rodar Playwright, restrito a
+  geometria de página pública? Custo medido: ~270 MB de headless shell por execução.
+- **T6.3** — tema vir do pacote altera o contrato de `packages/ui` nos 6 apps e
+  exige aprovação nominal (`plan.md` §6.3).
 
-Nenhuma decisão de produto segue pendente na 103. T2.5 saiu: medido em 2026-09-22
+T2.5 saiu: medido em 2026-09-22
 que produção serve 126/126 capas do Cloudinary — não era decisão, era medição no
 lugar errado.
 
@@ -1420,7 +1420,7 @@ Perguntado em 2026-09-16. Em 2026-09-22 o mantenedor decidiu **não responder na
 vai junto com T5.1 para a 104, porque subnav e header são a mesma faixa visual e
 decidir um sem o outro fixa metade do desenho.
 
-### [ ] T5.3 — Peso do link do nav — **o enunciado estava errado**
+### [x] T5.3 — Peso do link do nav — **o enunciado estava errado**
 
 Escrita como "peso 600 no `site` contra 500 nos outros quatro". Medido em 2026-09-21,
 **não existe divergência de peso entre apps**. Os cinco usam a mesma regra do pacote:
@@ -1442,13 +1442,11 @@ Não há o que corrigir aqui, e **baixar para 500 seria regressão**: apagaria a
 marcação de "você está aqui" no peso. Sobreviveria só a borda inferior colorida
 (`:803-804`), que é distinção por cor sozinha — WCAG 1.4.1.
 
-**Fica pendente** de qual correção sair da causa raiz acima: se o `site` passar a
-consumir o `Header` do pacote, o peso continua vindo da mesma regra e a task some por
-construção.
+**Aceite:** nenhum — enunciado incorreto, não trabalho. A regra que torna a
+divergência impossível virou guard na T6.1 (peso por token, e nenhum app sobrescreve
+o nav).
 
-**Aceite:** nenhum. Task reclassificada como enunciado incorreto, não como trabalho.
-
-### [ ] T5.4 — Guard do peso não pode congelar cor (achado de 2026-09-21)
+### [x] T5.4 — Guard do peso não pode congelar cor (achado de 2026-09-21)
 
 T6.1 pede contrato cobrindo "peso, cor, gap e padding" do link do nav, e a 104 T1 vai
 trocar `--artificio-light-ink: #0b1220` por `#222222`. Guard que assere hexadecimal de
@@ -1460,22 +1458,34 @@ As duas specs estendem o mesmo arquivo (`packages/ui/src/styles.contract.test.ts
 104 T3.2). Suítes disjuntas: 103 mede peso/cor/gap/padding do nav, 104 mede razão de
 contraste de pares `*-solid`. Conflito possível é de merge, não de contrato.
 
-O contrato hoje alcança só a subnav (`styles.contract.test.ts:210`,
-`.artificio-subnav .artificio-nav-link[aria-current="page"]`); o nav principal não tem
-nenhuma assertiva.
+Respeitada na T6.1: cor e peso do nav principal se assertam pelo token
+(`var(--artificio-muted)`, `var(--artificio-ink)`, `var(--weight-medium)`), nunca
+por hexadecimal.
 
 ---
 
 ## T6 — Guard de paridade (parar de medir à mão)
 
-### [ ] T6.1 — Contrato de CSS para a paridade entre módulos
-
-Estender `packages/ui/src/styles.contract.test.ts`, que já roda no `ci.yml` e já
-assere `styles.css` como texto. Cobre peso, cor, gap e padding do link do nav.
+### [x] T6.1 — Contrato de CSS para a paridade entre módulos
 
 **Aceite:** o teste falha quando o peso do link diverge do alvo (`mesas`, 500), e
-passa quando converge. Provar rodando com o valor errado ANTES de corrigir — guard
-que nunca foi visto vermelho não é guard.
+passa quando converge. Provar rodando com o valor errado — guard que nunca foi visto
+vermelho não é guard.
+
+`describe("paridade do nav principal entre módulos (T6.1)")` em
+`packages/ui/src/styles.contract.test.ts`, 5 casos: peso inativo `var(--weight-medium)`
+= 500; página atual `var(--weight-strong)` = 600; cor por token; `gap: 4px` da lista e
+`padding: 10px 12px` do link; e nenhum `.artificio-nav-link`/`.artificio-nav-list` em
+CSS/Astro de `apps/*/src` e `apps/*/frontend/src` (a paridade quebra no app, com o
+pacote intacto). A regra do pacote é casada no nível superior — `.artificio-subnav
+.artificio-nav-link` não conta.
+
+**Visto vermelho (2026-09-24):** `--weight-medium: 600` no pacote mais
+`.artificio-nav-link { font-weight: 600 }` no `global.css` do `links` derrubam 3
+casos (o peso da T6.1, a régua tipográfica e o de override); revertido, 39/39. A
+primeira versão varria o app inteiro, levava 21 s e acusava `site/dist.a/`, cópia de
+build do CSS do pacote; agora só `src/`, 53 ms, e o teste exige mais de 10 arquivos
+varridos para não passar por não medir nada. `@artificio/ui` 153/153, lint limpo.
 
 ### [~] T6.2 — BLOQUEADA por D3 (`plan.md` §6.4) — layout em browser no CI
 
