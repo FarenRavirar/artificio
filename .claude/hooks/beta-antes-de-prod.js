@@ -38,6 +38,9 @@ const { lerPayload } = require(path.join(__dirname, 'ler-payload.js'));
 // Quantos runs de deploy.yml com sucesso olhar para achar o ultimo beta do modulo.
 // Cada run custa uma chamada de API; 30 cobre semanas de deploy neste repo.
 const MAX_RUNS = 30;
+// Teto de paginas de 100 runs. Se o beta nao aparecer em 500 runs, o hook bloqueia
+// (falha fechada) em vez de varrer o historico inteiro.
+const MAX_PAGINAS = 5;
 
 function tirarAspas(v) {
   return String(v).replace(/^['"]|['"]$/g, '');
@@ -51,7 +54,16 @@ function tirarAspas(v) {
 // linha, ou como argumento de `-c` (`bash -lc "gh ..."`). Sem isto o texto dentro
 // de uma string — o payload de teste num `printf '{"command":"gh workflow run..."}'`
 // — era lido como dispatch real e barrado (medido em 2026-09-23).
-const GH_RUN = /(?:^|[;&|(\n]|\s-[a-z]*c\s+['"])\s*gh\s+workflow\s+run\s+(['"]?)([\w./-]+)\1/;
+//
+// Entre a fronteira e o `gh` o shell aceita prefixos que não mudam o comando:
+// atribuição de variável (`GH_PROMPT_DISABLED=1 gh ...`), os wrappers `env`,
+// `command`, `exec`, `nohup`, `time`, `sudo`, e caminho absoluto (`/usr/bin/gh`).
+// Sem reconhecê-los, `VAR=1 gh workflow run ... env=prod` passava pelo gate
+// (achado do Codex na PR #333).
+const PREFIXOS = String.raw`(?:(?:env|command|exec|nohup|time|sudo)\s+|[A-Za-z_]\w*=\S*\s+)*`;
+const GH_RUN = new RegExp(
+  String.raw`(?:^|[;&|(\n]|\s-[a-z]*c\s+['"])\s*` + PREFIXOS + String.raw`(?:\S*/)?gh\s+workflow\s+run\s+(['"]?)([\w./-]+)\1`,
+);
 
 function analisarComando(cmd) {
   const texto = String(cmd).replace(/[ \t]+/g, ' ');
@@ -98,15 +110,25 @@ function ultimoBetaComSucesso(modulo, cwd) {
   // Resultado: o hook leu o beta do `mesas` em `0c8531b` com um deploy de beta em
   // `0806233` terminado com sucesso minutos antes, e barrou producao sem motivo.
   // Filtrar `conclusion` e ordenar por `created_at` aqui nao depende disso.
-  const runs = ghApi(
-    'repos/{owner}/{repo}/actions/workflows/deploy.yml/runs?per_page=100',
-    `[.workflow_runs[] | select(.event != "pull_request" and .conclusion == "success")]`
-      + ` | sort_by(.created_at) | reverse | .[:${MAX_RUNS}][] | "\\(.id) \\(.head_sha)"`,
-    cwd,
-  ).split('\n').filter(Boolean);
+  //
+  // Paginado (achado do CodeRabbit na PR #333): uma pagina e 100 runs, e runs de PR
+  // dominam — com mais de 100 runs recentes que nao deployam, o beta ficava fora da
+  // janela e o hook barrava producao. Para ao juntar MAX_RUNS candidatos, ao chegar
+  // numa pagina incompleta (fim da lista) ou no teto de paginas, que limita o custo.
+  const runs = [];
+  for (let pagina = 1; pagina <= MAX_PAGINAS; pagina += 1) {
+    const lote = JSON.parse(ghApi(
+      `repos/{owner}/{repo}/actions/workflows/deploy.yml/runs?per_page=100&page=${pagina}`,
+      '[.workflow_runs[] | {id, head_sha, event, conclusion, created_at}]',
+      cwd,
+    ));
+    runs.push(...lote.filter((r) => r.event !== 'pull_request' && r.conclusion === 'success'));
+    if (lote.length < 100 || runs.length >= MAX_RUNS) break;
+  }
+  runs.sort((a, b) => b.created_at.localeCompare(a.created_at));
+  runs.splice(MAX_RUNS);
   const alvo = `Deploy ${modulo} beta`;
-  for (const linha of runs) {
-    const [id, sha] = linha.split(' ');
+  for (const { id, head_sha: sha } of runs) {
     const jobs = ghApi(
       `repos/{owner}/{repo}/actions/runs/${id}/jobs?per_page=100`,
       '.jobs[] | select(.conclusion == "success") | .name',
