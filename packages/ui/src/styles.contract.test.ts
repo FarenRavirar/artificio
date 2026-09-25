@@ -646,10 +646,24 @@ describe("régua tipográfica", () => {
 // Cor e peso se assertam pelo TOKEN, não pelo valor (T5.4): a spec 104 vai trocar
 // o hexadecimal dos tokens de tinta, e um guard de hex congelaria essa mudança.
 describe("paridade do nav principal entre módulos (T6.1)", () => {
-  /** Regra de nível superior: o seletor abre a linha. Não casa `.artificio-subnav .artificio-nav-link`. */
+  /**
+   * Declarações EFETIVAS das regras de nível superior do seletor (o seletor abre a
+   * linha, então `.artificio-subnav .artificio-nav-link` não conta). Junta todas as
+   * ocorrências em ordem, a posterior sobrescrevendo a anterior, como a cascata faz
+   * entre regras de mesma especificidade — achado do CodeRabbit na PR #335: ler só a
+   * primeira deixava uma regra duplicada mais abaixo mudar o nav com o teste verde.
+   */
   function regraTopo(selector: string) {
     const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    return styles.match(new RegExp(`(?:^|\\n)${escaped}\\s*\\{([^}]*)\\}`))?.[1] ?? "";
+    const efetivas = new Map<string, string>();
+    for (const [, corpo] of styles.matchAll(new RegExp(`(?:^|\\n)${escaped}\\s*\\{([^}]*)\\}`, "g"))) {
+      const semComentario = corpo.replace(/\/\*[\s\S]*?\*\//g, "");
+      for (const decl of semComentario.split(";")) {
+        const i = decl.indexOf(":");
+        if (i > 0) efetivas.set(decl.slice(0, i).trim(), decl.slice(i + 1).trim());
+      }
+    }
+    return [...efetivas].map(([prop, valor]) => `${prop}: ${valor};`).join("\n");
   }
 
   it("fixa o peso do link inativo em --weight-medium, que vale 500 (alvo `mesas`)", () => {
@@ -665,10 +679,39 @@ describe("paridade do nav principal entre módulos (T6.1)", () => {
   });
 
   it("tira a cor do link de token, nunca de hexadecimal", () => {
-    expect(regraTopo(".artificio-nav-link")).toMatch(/color:\s*var\(--artificio-muted\);/);
+    // Âncora no início da linha: `border-bottom-color` não pode passar por `color`.
+    expect(regraTopo(".artificio-nav-link")).toMatch(/(^|\n)color:\s*var\(--artificio-muted\);/);
     expect(regraTopo('.artificio-nav-link[aria-current="page"]')).toMatch(
-      /color:\s*var\(--artificio-ink\);/,
+      /(^|\n)color:\s*var\(--artificio-ink\);/,
     );
+  });
+
+  // Achado do Codex na PR #335: no tema escuro (padrão de `mesas` e `downloads`)
+  // quem vence a cascata são as regras pareadas `data-theme=dark` + `data-variant=dark`,
+  // não as de base. O valor delas é literal (branco sobre navy) e fica livre para a
+  // spec 104 mudar; o que se trava é a regra EXISTIR com cor declarada, e o link
+  // ativo continuar marcado pela borda da marca — apagar a regra faria o nav escuro
+  // herdar o `--artificio-muted` do tema claro num módulo e não nos outros.
+  it("mantém a cor do nav no tema escuro, inativo e página atual", () => {
+    // Os dois seletores do par separados por `,\s*`: o checkout no Windows é CRLF
+    // (`core.autocrlf`), o do CI é LF.
+    const esc = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const escuro = (sufixo: string) =>
+      styles.match(
+        new RegExp(
+          esc(`:root[data-theme="dark"] .artificio-header:not([data-variant="light"]) .artificio-nav-link${sufixo}`) +
+            ",\\s*" +
+            esc(`.artificio-header[data-variant="dark"] .artificio-nav-link${sufixo}`) +
+            "\\s*\\{([^}]*)\\}",
+        ),
+      )?.[1] ?? "";
+    expect(escuro("")).toMatch(/(^|[\s;])color:\s*[^;]+;/);
+    const ativo = escuro('[aria-current="page"]');
+    expect(ativo).toMatch(/(^|[\s;])color:\s*[^;]+;/);
+    expect(ativo).toMatch(/border-bottom-color:\s*var\(--artificio-brand\);/);
+    // Peso não é por tema: nenhuma das duas regras escuras pode redefini-lo.
+    expect(escuro("")).not.toMatch(/font-weight/);
+    expect(ativo).not.toMatch(/font-weight/);
   });
 
   it("fixa gap da lista e padding do link", () => {

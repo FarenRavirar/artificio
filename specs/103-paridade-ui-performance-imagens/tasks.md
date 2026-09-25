@@ -9,8 +9,11 @@ Task só fecha com o comando que a mediu na mesma linha. "Local", "parcial" e
 
 ## O que falta
 
-T2.3 e T7.13 fecharam em produção em 2026-09-24. Favicon dos 5 apps e sinais de
-anúncio do GA, achados no console da T7.13, fecham com deploy e console conferido.
+T2.3 e T7.13 fecharam em produção em 2026-09-24. Os achados do console da T7.13
+também: `<link rel="icon">` servido no HTML de `mesas`, `downloads`, `glossario`,
+`accounts`, `links` e `site`, sem `favicon.ico` 404 no console; o GA do `site` envia
+`npa=1` e não pede mais `doubleclick.net` nem `ga-audiences` (Playwright sem sessão,
+2026-09-25). No console sobra só o `401` de `/api/auth/refresh`, esperado sem sessão.
 
 ### Débito e herança (decidido, não pendente)
 
@@ -1473,8 +1476,11 @@ passa quando converge. Provar rodando com o valor errado — guard que nunca foi
 vermelho não é guard.
 
 `describe("paridade do nav principal entre módulos (T6.1)")` em
-`packages/ui/src/styles.contract.test.ts`, 5 casos: peso inativo `var(--weight-medium)`
-= 500; página atual `var(--weight-strong)` = 600; cor por token; `gap: 4px` da lista e
+`packages/ui/src/styles.contract.test.ts`, 6 casos: peso inativo `var(--weight-medium)`
+= 500; página atual `var(--weight-strong)` = 600; cor por token; no tema escuro
+(padrão de `mesas` e `downloads`), o par `data-theme`/`data-variant` que vence a
+cascata existe com cor declarada, borda da marca no ativo e sem redefinir peso
+(achado do Codex na PR #335; valor literal livre para a 104); `gap: 4px` da lista e
 `padding: 10px 12px` do link; e nenhum `.artificio-nav-link`/`.artificio-nav-list` em
 CSS/Astro de `apps/*/src` e `apps/*/frontend/src` (a paridade quebra no app, com o
 pacote intacto). A regra do pacote é casada no nível superior — `.artificio-subnav
@@ -1482,7 +1488,12 @@ pacote intacto). A regra do pacote é casada no nível superior — `.artificio-
 
 **Visto vermelho (2026-09-24):** `--weight-medium: 600` no pacote mais
 `.artificio-nav-link { font-weight: 600 }` no `global.css` do `links` derrubam 3
-casos (o peso da T6.1, a régua tipográfica e o de override); revertido, 39/39. A
+casos (o peso da T6.1, a régua tipográfica e o de override); tirar a cor da regra escura derruba o caso do tema escuro; revertido,
+40/40. O par escuro é casado com `,\s*` entre os seletores — o checkout no Windows é
+CRLF, o do CI é LF. A regra do pacote é lida como cascata — todas as ocorrências
+de nível superior, a posterior vencendo (achado do CodeRabbit na PR #335); uma
+`.artificio-nav-link` duplicada no fim do arquivo com `font-weight: 700` ou
+`color: #123456` derruba o caso correspondente. A
 primeira versão varria o app inteiro, levava 21 s e acusava `site/dist.a/`, cópia de
 build do CSS do pacote; agora só `src/`, 53 ms, e o teste exige mais de 10 arquivos
 varridos para não passar por não medir nada. `@artificio/ui` 153/153, lint limpo.
