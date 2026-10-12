@@ -61,13 +61,20 @@ export class TableService {
         }
 
         // Comparar texto livre com a coluna `uuid` faria o Postgres lançar
-        // `invalid input syntax for type uuid`; por isso a coluna é escolhida
-        // pela forma do valor.
+        // `invalid input syntax for type uuid`, então valor sem forma de UUID
+        // só consulta `slug`. Valor COM forma de UUID consulta as duas colunas:
+        // um slug que por acaso tivesse essa forma não pode deixar de resolver
+        // (ressalva do CodeRabbit na PR #336; medido em produção: 0 de 10 slugs
+        // têm essa forma hoje). Havendo os dois, o `id` vence pelo `orderBy`.
+        const value = vttPlatformId;
         const vttPlatform = await db
             .selectFrom('vtt_platforms')
             .select(['id'])
-            .where(isUuid(vttPlatformId) ? 'id' : 'slug', '=', vttPlatformId)
+            .where((eb) => (isUuid(value)
+                ? eb.or([eb('id', '=', value), eb('slug', '=', value)])
+                : eb('slug', '=', value)))
             .where('is_active', '=', true)
+            .orderBy(sql`(id::text = ${value})`, 'desc')
             .executeTakeFirst();
 
         if (!vttPlatform) {
