@@ -21,7 +21,7 @@ export default [
         //
         // O arquivo foi para `src/scripts/`, que é onde os outros scripts
         // operacionais deste app já viviam (`og:worker`, `discord:sync`,
-        // `metrics:cleanup`): entra no type-check real, compila para
+        // `metrics:anonymize`): entra no type-check real, compila para
         // `dist/scripts/` e passa a existir no container — sem tocar em
         // `rootDir` nem no `CMD ["node", "dist/server.js"]`.
         //

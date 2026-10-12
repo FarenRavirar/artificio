@@ -24,8 +24,13 @@ setInterval(() => runCommand('npm run discord:retry-image-uploads'), 60 * 60 * 1
 // WS1: Limpeza de imagens órfãs de drafts Discord (Roda 1 vez por dia)
 setInterval(() => runCommand('npm run discord:cleanup-orphan-images'), 24 * 60 * 60 * 1000);
 
+// Spec 105 M2: anula o fingerprint de evento de métrica com mais de 48 h e
+// mantém a linha da série temporal (Roda 1 vez por dia)
+setInterval(() => runCommand('npm run metrics:anonymize'), 24 * 60 * 60 * 1000);
+
 // Execução imediata no BOOT
 runCommand('npm run og:worker');
 runCommand('npm run og:cleanup');
 runCommand('npm run discord:retry-image-uploads');
 runCommand('npm run discord:cleanup-orphan-images');
+runCommand('npm run metrics:anonymize');

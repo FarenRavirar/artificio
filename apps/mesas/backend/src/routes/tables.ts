@@ -6,6 +6,7 @@ import { logDatabaseError } from '../middleware/requestLogger.js';
 import { sanitizePublicImageUrl } from '../utils/publicImageUrl.js';
 import { serializeContact, serializeContacts } from '../utils/contactSerializer.js';
 import { recordTableMetric } from '../services/tableMetrics.js';
+import { isValidSlugParam } from '../utils/validation.js';
 import {
   classifyTablePublicDisposition,
   importedTableExpiryDate,
@@ -891,7 +892,7 @@ router.get('/:slug', async (req: Request, res: Response) => {
   const { slug } = req.params;
 
   // CORREÇÃO A-HIGH-02: Validar formato do slug antes de usar em query
-  if (!slug || slug.length > 200 || !/^[a-z0-9-]+$/i.test(slug)) {
+  if (!isValidSlugParam(slug)) {
     return res.status(400).json({ error: 'Slug inválido.' });
   }
 
@@ -1120,26 +1121,50 @@ router.get('/:slug', async (req: Request, res: Response) => {
   }
 });
 
+/** Tipos de clique do `click_breakdown` do painel do mestre (`gmPanel.ts`). */
+const CLICK_BREAKDOWN_TYPES = ['refactored_v4', 'cta_entrar', 'link_vtt'] as const;
+
+function isClickBreakdownType(value: unknown): value is (typeof CLICK_BREAKDOWN_TYPES)[number] {
+  return typeof value === 'string' && (CLICK_BREAKDOWN_TYPES as readonly string[]).includes(value);
+}
+
+/**
+ * Mesa pública por slug, para as rotas de métrica (`view`, `click`, `contact`).
+ *
+ * As três repetiam o mesmo `select` + `isPublicTable` (Sonar: 68% de duplicação
+ * nas linhas novas de `tables.ts`, spec 105). O critério de visibilidade tem de
+ * ser o mesmo nas três; cópia é onde ele diverge.
+ */
+async function findPublicTableIdBySlug(slug: string): Promise<string | null> {
+  const table = await db
+    .selectFrom('tables as t')
+    .select(['t.id', 't.status', 't.archived_at', 't.origin', 't.created_at', 't.starts_at'])
+    .where('t.slug', '=', slug)
+    .where('t.status', '=', 'active')
+    .where('t.archived_at', 'is', null)
+    .executeTakeFirst();
+  return table && isPublicTable(table) ? table.id : null;
+}
+
 // POST /api/v1/tables/:slug/view — Registrar visualização
+//
+// Validação de slug igual à `/click` e à `/contact` (spec 105). Antes a `/view`
+// mandava qualquer string para a query; o resultado era 404, agora é 400.
 router.post('/:slug/view', async (req: Request, res: Response) => {
   const { slug } = req.params;
 
-  try {
-    // Buscar mesa pelo slug
-    const table = await db
-      .selectFrom('tables as t')
-      .select(['t.id', 't.status', 't.archived_at', 't.origin', 't.created_at', 't.starts_at'])
-      .where('t.slug', '=', slug)
-      .where('t.status', '=', 'active')
-      .where('t.archived_at', 'is', null)
-      .executeTakeFirst();
+  if (!isValidSlugParam(slug)) {
+    return res.status(400).json({ error: 'Slug inválido.' });
+  }
 
-    if (!table || !isPublicTable(table)) {
+  try {
+    const tableId = await findPublicTableIdBySlug(slug);
+    if (!tableId) {
       return res.status(404).json({ error: 'Mesa não encontrada.' });
     }
 
     // Evento + contador, com dedupe por visitante (spec 105 M2).
-    await recordTableMetric(table.id, 'view', req);
+    await recordTableMetric(tableId, 'view', req);
 
     res.json({ success: true });
   } catch (error) {
@@ -1163,33 +1188,31 @@ router.post('/:slug/click', async (req: Request, res: Response) => {
       : undefined;
 
   // CORREÇÃO UX-SENIOR-02: Validar formato do slug
-  if (!slug || slug.length > 200 || !/^[a-z0-9-]+$/i.test(slug)) {
+  if (!isValidSlugParam(slug)) {
     return res.status(400).json({ error: 'Slug inválido.' });
   }
 
   try {
-    // Buscar mesa pelo slug
-    const table = await db
-      .selectFrom('tables as t')
-      .select(['t.id', 't.status', 't.archived_at', 't.origin', 't.created_at', 't.starts_at'])
-      .where('t.slug', '=', slug)
-      .where('t.status', '=', 'active')
-      .where('t.archived_at', 'is', null)
-      .executeTakeFirst();
-
-    if (!table || !isPublicTable(table)) {
+    const tableId = await findPublicTableIdBySlug(slug);
+    if (!tableId) {
       return res.status(404).json({ error: 'Mesa não encontrada.' });
     }
 
     // Evento + contador, com dedupe por visitante (spec 105 M2).
-    await recordTableMetric(table.id, 'click', req);
+    const outcome = await recordTableMetric(tableId, 'click', req);
 
-    // Registrar evento de clique para A/B test (se variant fornecida)
-    if (variant && (variant === 'with_metrics' || variant === 'without_metrics')) {
+    // Detalhamento por tipo de clique, lido pelo painel do mestre
+    // (`gmPanel.ts`, `click_breakdown`). Até a spec 105 só entravam
+    // `with_metrics`/`without_metrics`, de um A/B test que nenhum frontend
+    // envia; o frontend manda o tipo (`refactored_v4`, `cta_entrar`,
+    // `link_vtt`), que era descartado. Medido em produção (2026-10-12):
+    // `table_click_events` com 0 linhas, painel sempre zerado. Grava só o
+    // clique que contou, para o detalhamento somar o mesmo que `clicks_count`.
+    if (outcome === 'counted' && isClickBreakdownType(variant)) {
       await db
         .insertInto('table_click_events')
         .values({
-          table_id: table.id,
+          table_id: tableId,
           variant,
         })
         .execute();
@@ -1213,24 +1236,17 @@ router.post('/:slug/click', async (req: Request, res: Response) => {
 router.post('/:slug/contact', async (req: Request, res: Response) => {
   const { slug } = req.params;
 
-  if (!slug || slug.length > 200 || !/^[a-z0-9-]+$/i.test(slug)) {
+  if (!isValidSlugParam(slug)) {
     return res.status(400).json({ error: 'Slug inválido.' });
   }
 
   try {
-    const table = await db
-      .selectFrom('tables as t')
-      .select(['t.id', 't.status', 't.archived_at', 't.origin', 't.created_at', 't.starts_at'])
-      .where('t.slug', '=', slug)
-      .where('t.status', '=', 'active')
-      .where('t.archived_at', 'is', null)
-      .executeTakeFirst();
-
-    if (!table || !isPublicTable(table)) {
+    const tableId = await findPublicTableIdBySlug(slug);
+    if (!tableId) {
       return res.status(404).json({ error: 'Mesa não encontrada.' });
     }
 
-    await recordTableMetric(table.id, 'contact', req);
+    await recordTableMetric(tableId, 'contact', req);
     res.json({ success: true });
   } catch (error) {
     console.error('[POST /tables/:slug/contact]', error);

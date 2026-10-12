@@ -50,22 +50,17 @@ export function generateFingerprint(req: Request): string {
   return crypto.createHash('sha256').update(`${ip}:${userAgent}`).digest('hex');
 }
 
-async function shouldCountMetric(tableId: string, action: MetricAction, fingerprint: string): Promise<boolean> {
-  const cutoff = new Date(Date.now() - METRIC_THROTTLE_WINDOWS[action]);
-  const recentEvent = await db
-    .selectFrom('table_metric_events')
-    .select('id')
-    .where('table_id', '=', tableId)
-    .where('action', '=', action)
-    .where('fingerprint_hash', '=', fingerprint)
-    .where('created_at', '>', cutoff)
-    .executeTakeFirst();
-  return !recentEvent;
-}
-
 /**
  * Registra uma ação na mesa: evento (série temporal) + contador agregado, na
  * mesma transação. Repetição do mesmo visitante dentro da janela não conta.
+ *
+ * A checagem e a escrita ficam serializadas por um advisory lock de transação
+ * na chave de dedupe (mesa + ação + fingerprint). Sem ele, duas requisições
+ * simultâneas do mesmo visitante (clique duplo, retry paralelo) liam "nenhum
+ * evento recente" antes de qualquer insert e contavam as duas: o índice da
+ * migration 07 sobre `table_metric_events` não é único, e não pode ser, porque
+ * a janela é de tempo (achado do Codex na PR #337). O lock é liberado no
+ * commit/rollback e só bloqueia a mesma chave.
  */
 export async function recordTableMetric(
   tableId: string,
@@ -73,10 +68,22 @@ export async function recordTableMetric(
   req: Request,
 ): Promise<'counted' | 'throttled'> {
   const fingerprint = generateFingerprint(req);
-  if (!(await shouldCountMetric(tableId, action, fingerprint))) return 'throttled';
-
   const column = COUNTER_COLUMN[action];
-  await db.transaction().execute(async (trx) => {
+  const cutoff = new Date(Date.now() - METRIC_THROTTLE_WINDOWS[action]);
+
+  return db.transaction().execute(async (trx) => {
+    await sql`SELECT pg_advisory_xact_lock(hashtextextended(${`table_metric:${tableId}:${action}:${fingerprint}`}, 0))`.execute(trx);
+
+    const recentEvent = await trx
+      .selectFrom('table_metric_events')
+      .select('id')
+      .where('table_id', '=', tableId)
+      .where('action', '=', action)
+      .where('fingerprint_hash', '=', fingerprint)
+      .where('created_at', '>', cutoff)
+      .executeTakeFirst();
+    if (recentEvent) return 'throttled' as const;
+
     await trx
       .insertInto('table_metric_events')
       .values({ table_id: tableId, action, fingerprint_hash: fingerprint })
@@ -92,6 +99,6 @@ export async function recordTableMetric(
         }),
       )
       .execute();
+    return 'counted' as const;
   });
-  return 'counted';
 }

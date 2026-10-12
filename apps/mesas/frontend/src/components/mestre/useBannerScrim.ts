@@ -190,8 +190,21 @@ export function useBannerScrim(
   // texto ilegível na janela entre as duas (achado de review, PR #307).
   const [medido, setMedido] = useState<{ src: string; scrim: BannerScrim } | null>(null);
 
+  // O efeito depende dos três valores, não do objeto `enquadramento`: o
+  // chamador monta um objeto novo a cada render, e depender dele refaria a
+  // medição (nova `Image`, nova leitura de canvas) em todo render. O objeto é
+  // remontado DENTRO do efeito a partir dos primitivos, para que a lista de
+  // dependências seja exaustiva sem `eslint-disable` (spec 105 T1.7).
+  const largura = enquadramento?.largura;
+  const altura = enquadramento?.altura;
+  const objectPosition = enquadramento?.objectPosition;
+
   useEffect(() => {
     if (!src) return;
+    const enquadramentoAtual: EnquadramentoDoHero | undefined =
+      largura !== undefined && altura !== undefined && objectPosition !== undefined
+        ? { largura, altura, objectPosition }
+        : undefined;
 
     let cancelado = false;
     const img = new Image();
@@ -199,7 +212,7 @@ export function useBannerScrim(
 
     img.onload = () => {
       if (cancelado) return;
-      const medida = medirPiorCaso(img, enquadramento);
+      const medida = medirPiorCaso(img, enquadramentoAtual);
       if (!medida) {
         setMedido(null);
         return;
@@ -248,7 +261,7 @@ export function useBannerScrim(
     return () => {
       cancelado = true;
     };
-  }, [src, enquadramento?.largura, enquadramento?.altura, enquadramento?.objectPosition]);
+  }, [src, largura, altura, objectPosition]);
 
   // Sem banner, sem medição, medição falhada (CORS/imagem fora do ar), ou
   // medição que pertence a OUTRO banner: o comportamento é o padrão

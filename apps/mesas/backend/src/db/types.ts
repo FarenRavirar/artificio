@@ -1259,6 +1259,7 @@ export interface Database {
   table_metrics: TableMetricsTable;
   gm_profile_metrics: GmProfileMetricsTable;
   gm_profile_view_events: GmProfileViewEventsTable;
+  gm_profile_contact_events: GmProfileContactEventsTable; // Migration 167 (spec 105 M3)
   table_metric_events: TableMetricEventsTable;
   table_click_events: TableClickEventsTable; // Migration 007: A/B testing
 
@@ -1372,6 +1373,14 @@ export type GmProfileViewEvent = Selectable<GmProfileViewEventsTable>;
 export type NewGmProfileViewEvent = Insertable<GmProfileViewEventsTable>;
 export type GmProfileViewEventUpdate = Updateable<GmProfileViewEventsTable>;
 
+/** Clique em método de contato do perfil público do mestre. Sem IP e sem fingerprint. */
+export interface GmProfileContactEventsTable {
+  id: Generated<number>;
+  gm_profile_id: string;
+  channel: 'whatsapp' | 'email' | 'discord' | 'form';
+  clicked_at: Generated<Date>;
+}
+
 // Migration 07: Eventos de métricas para anti-abuso
 export type TableMetricAction = 'view' | 'click' | 'contact' | 'favorite';
 
@@ -1379,7 +1388,7 @@ export interface TableMetricEventsTable {
   id: Generated<string>;
   table_id: string;
   action: TableMetricAction;
-  fingerprint_hash: string;
+  fingerprint_hash: string | null; // anulado após 48 h (migration_168, spec 105)
   created_at: Generated<Date>;
 }
 
@@ -1391,7 +1400,7 @@ export type TableMetricEventUpdate = Updateable<TableMetricEventsTable>;
 export interface TableClickEventsTable {
   id: Generated<string>;
   table_id: string;
-  variant: string | null; // 'with_metrics' ou 'without_metrics'
+  variant: string | null; // tipo de clique: 'refactored_v4' | 'cta_entrar' | 'link_vtt' (spec 105)
   clicked_at: Generated<Date>;
 }
 

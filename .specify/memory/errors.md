@@ -5,14 +5,14 @@
 > **Este arquivo é o HISTÓRICO — o que aconteceu, quando, com que medição. A REGRA
 > (o que fazer antes de agir) vive em `docs/agents/deploy-flow.md`.**
 >
-> Os 22 incidentes abaixo são **5 famílias de causa raiz**, e três já tiveram
+> Os 23 incidentes abaixo são **5 famílias de causa raiz**, e três já tiveram
 > recorrência porque o procedimento vivia num arquivo e o incidente noutro — quem
 > lia um agia sem saber que faltava metade. Consolidado em 2026-09-03.
 >
 > | família | incidentes | regra |
 > |---|---|---|
 > | A — imagem de produção | E001 E002 E016 E017 E021 | `deploy-flow.md` §1 |
-> | B — resolução de dependência | E004 E008 | `deploy-flow.md` §2 |
+> | B — resolução de dependência | E004 E008 E023 | `deploy-flow.md` §2 |
 > | C — migration | E003 E010 E011 E012 E014 E015 E018 E020 | `deploy-flow.md` §3 |
 > | D — infra e borda | E005 E006 E007 E009 E013 | `deploy-flow.md` §4 |
 > | E — método do agente | E019 E022 | `deploy-flow.md` §5 |
@@ -105,7 +105,7 @@
 - **Sintoma:** `@artificio/site#build` falha (exit 1) com `[@tailwindcss/vite:generate:build] Missing field 'tsconfigPaths' on BindingViteResolvePluginConfig.resolveOptions` (stack: `rolldown@1.0.3` → `vite@8` `oxcResolvePlugin` → `@tailwindcss/vite`). Determinístico (não flaky); reproduzível local. Disparado por regeneração do lockfile (PR dependabot #73), não por bump direto.
 - **Causa raiz:** `apps/site` é Astro 6.4.8, cujo engine de build é **Vite 7** (`astro@6.4.8` pina `vite ^7.3.2`; Astro 6 não é rolldown/Vite 8). O site usa `@tailwindcss/vite`, que importa `vite` como peer. Como `apps/site` **não declarava `vite`**, a resolução dependia da topology de hoisting do lockfile: ao mudar o lock (regen do dependabot), o `@tailwindcss/vite` resolveu o **vite@8 hoisted** (das SPAs React) em vez do Vite 7 do Astro → dois Vite majors no mesmo build → o `oxcResolvePlugin` do vite@8 (rolldown 1.0.3) rejeita config sem `tsconfigPaths`.
 - **Solução:** declarar `"vite": "^7.3.2"` em `apps/site/package.json` devDeps (mesma faixa do Astro). `@tailwindcss/vite` passa a resolver `vite@7.3.5` deterministicamente. `^7` capa `<8` → dependabot não pode driftar p/ Vite 8 (que quebraria o Astro). NÃO bumpar rolldown (latest 1.1.2 é API-incompat com vite@8.0.16: remove `viteWasmFallbackPlugin`); tailwind/vite já latest. Vide D084.
-- **Prevenção:** Vite 8 é APENAS das SPAs React (accounts/mesas-frontend/glossario-frontend/site-admin/ui); o site Astro é Vite 7 por design (D084). Validar com `turbo build --force` (13/13) + `pnpm@11.8.0 install --frozen-lockfile`. Regen de lockfile (dependabot ou fresh) que mexa em hoisting pode reexpor combos latentes — rodar o build completo no CI de todo PR de deps.
+- **Prevenção:** Vite 8 é APENAS das SPAs React (accounts/mesas-frontend/glossario-frontend/site-admin/ui); o site Astro é Vite 7 por design (D084). Validar com `turbo build --force` (13/13) + `pnpm@11.8.0 install --frozen-lockfile`. Regen de lockfile (dependabot ou fresh) que mexa em hoisting pode reexpor combos latentes — rodar o build completo no CI de todo PR de deps. Lock que muda além do que a dependência explica: rodar o teste de determinismo de [[E023]] antes de aceitar o diff.
 - **Data:** 2026-06-19
 
 ### E010 — guard `validate_sql_against_class` barra DROP de atributo (falso-positivo `online-safe`)
@@ -310,6 +310,7 @@
   4. **Buscar o fato que derruba a hipótese, não o que a confirma.** Se a explicação é "X causou Y", procurar ativamente um caso de X sem Y. Nos três casos acima esse contra-exemplo existia e era barato de achar.
   5. **Ao corrigir achado de review, revisar o desenho, não só a linha citada.** Terceira correção no mesmo arquivo pelo mesmo motivo é sinal de que as duas anteriores trataram sintoma. Regra já escrita em `AGENTS.md` §Regras Gerais de Código ("solução mínima" proibida como critério) — este erro é o registro de ela ter sido violada na prática.
 - **Data:** 2026-07-30
+- **Recorrência (2026-10-12, [[E023]]):** vaivém do lockfile atribuído primeiro a versão do pnpm (nota da 11.15.0), sem testar; a bisseção mostrou 11.15.0 e 11.21.0 ainda erradas, e o mantenedor apontou que todos já usavam a mesma versão. A causa estava no grafo (`nodemon`).
 - **Relacionados:** [[E012]] (o registro que existia e não foi lido no caso 1), [[E011]] (mesmo padrão de falha que só estoura fora do CI), [[E018]] (precedente de **correção de veredito** — entrada anterior afirmava fechar o erro e não fechava; achado do Codex na PR #219. Mostra que veredito de diagnóstico erra também *dentro* do `errors.md`, e que a correção pertence à própria entrada).
 - **Prevenção:** migration nova em `apps/site/db/migrations/` **não** está aplicada só porque o PR foi mergeado — o caminho de aplicação do site é diferente do dos outros módulos. Depois de mergear migration do site, **verificar no banco**, nunca no log de deploy: `docker exec site-<env>-db psql -U admin -d site -t -c "select version from schema_migrations order by version desc limit 1"` tem de mostrar a nova. Se não mostrar, aplicar pelo procedimento pontual acima (o `docker exec ... pnpm run migrate` só resolve se o container já tiver o arquivo). A correção do entrypoint fecha a causa **para os deploys futuros**; container que já estava no ar antes dela continua defasado até o próximo deploy. Vale em dobro quando outro módulo **depende** do schema do site (spec 088: o ingest do Downloads lê a taxonomia central por HTTP e falharia com `catalog_material_type_not_found` em todo material, aparentando scraper quebrado quando o defeito é a migração ausente).
 - **Relacionados:** [[E003]] (também sobre módulo cujo DB é migrado por fluxo próprio e não pelo runner do monorepo — ali a consequência era o runner tentar aplicar o que não devia; aqui é ninguém aplicar o que devia).
@@ -374,3 +375,16 @@
   4. **Ao medir uma rejeição, medir também contra o quê.** Foi a pergunta ausente que transformou um achado correto em "escopo menor" na resposta ao mantenedor.
 - **Relacionados:** [[E019]] (mesma família de erro de processo: diagnóstico fechado no primeiro achado plausível, sem verificar a hipótese — aqui a hipótese verificada foi a errada), [[E016]]/[[E017]]/[[E021]] (falso-verde de CI: gate que passa sem cobrir o que promete cobrir; ali por stage não casado, aqui por projeto vazio).
 - **Data:** 2026-08-24
+
+---
+
+### E023 — lockfile reescreve o sufixo `(supports-color@5.5.0)` a cada mudança de dependência, mesmo sem relação
+- **Módulo/Pacote:** `pnpm-lock.yaml` (monorepo inteiro) · `nodemon` em `apps/mesas/backend`, `apps/glossario/backend`, `apps/downloads/backend` · `lighthouse` (raiz).
+- **Sintoma:** qualquer `pnpm add`/`pnpm install --lockfile-only` muda dezenas de linhas fora do escopo: `@babel/core@7.29.7(supports-color@5.5.0)` vira `@babel/core@7.29.7` (ou o contrário) em `@babel/core`, `eslint-plugin-react-hooks`, `gaxios`, `http-proxy-middleware`, `lighthouse`. O sufixo entrou e saiu em 15 commits (`git log -S "(supports-color@5.5.0)" -- pnpm-lock.yaml`). Registrado como sintoma na spec 102 (`tasks.md`, +26/−23 ao declarar `@types/react-dom`; +412/−42 no SSR) e no incidente de 2026-09-03 de `deploy-flow.md` §2 (`@babel/core` removido, site quebrado no CI). Nos três casos a saída foi restaurar o lock e contornar.
+- **Causa raiz (medida em 2026-10-12, spec 105, cópia isolada com manifests + lock do `HEAD`, só `--lockfile-only`):** o `nodemon@3.1.14` era o único pacote a trazer `supports-color@5.5.0`. Ele satisfazia o peer **opcional** do `debug` e criava a variante `debug@4.4.3(supports-color@5.5.0)`; os outros consumidores de `debug` caíam numa ou noutra variante conforme a **ordem de resolução**. Com pnpm 11.8.0 e o mesmo manifest final, add + remove de `is-number` reescrevia 189 linhas, e as ordens `+X`, `+Y +X −Y` e `+X −X +X` davam três locks diferentes (284 e 212 linhas). **Não era versão diferente entre máquinas** — todas rodavam 11.8.0. Atualizar o pnpm também não fechava: 11.14.0, 11.15.0 e 11.21.0 continuavam dependentes da ordem (a nota da 11.15.0 sobre peer opcional em `peerDependenciesMeta` cobre só parte); 11.27.1 fechava, mas exigiria trocar 14 linhas de Dockerfile.
+- **Segunda causa, achada ao regenerar:** `@paulirish/trace_engine@0.0.65` (via `lighthouse`) declara `third-party-web` e `legacy-javascript` como `"latest"`. Toda re-resolução da árvore puxava a versão do dia: `legacy-javascript` 0.0.1 → 0.0.3 (publicada 4 dias antes), `third-party-web` 0.29.2 → 0.30.0.
+- **Solução:** `tsx` virou o único executor TypeScript do monorepo, com versão única em `catalog:` (`pnpm-workspace.yaml`); `nodemon` e `ts-node` saíram dos três backends (`dev` = `tsx watch`, scripts `*:dev` = `tsx`). `overrides` com seletor de pai fixam `@paulirish/trace_engine>legacy-javascript: 0.0.1` e `>third-party-web: 0.29.2`. Lock regenerado: só sai a árvore de `nodemon`/`ts-node` (29 entradas), zero `supports-color@5.5.0`, `@babel/core` com as mesmas 26 referências.
+- **Validado contra o defeito:** no estado novo, com 11.8.0, as três ordens dão o **mesmo** lock; `is-number` entra com `+3`; `google-auth-library@11.1.0` entra com `+36`, `−0`. `pnpm install --frozen-lockfile` exit 0, `turbo build --force` 27/27, `turbo run lint` 27/27, `tsx` resolvido nos quatro backends, e os três backends sobem pelo `tsx` até a checagem de env.
+- **Prevenção:** (1) antes de aceitar diff de lock maior que a dependência adicionada, rodar o teste de determinismo de `deploy-flow.md` §2 (duas ordens, comparar locks). (2) Peer opcional satisfeito por um único pacote é ponto de instabilidade: ao ver sufixo de peer oscilando, procurar quem traz a versão (`grep -B12 "supports-color: 5.5.0" pnpm-lock.yaml`). (3) Dependência com `latest` na árvore se fixa por `overrides`, não se aceita.
+- **Relacionados:** [[E008]] (regeneração de lock reexpondo combinação latente — mesma família), [[E019]] (a primeira hipótese, "versão do pnpm", foi tratada como causa antes de testada).
+- **Data:** 2026-10-12

@@ -8,3 +8,11 @@ docker-entrypoint.sh text eol=lf
 # Workflows do GitHub Actions executam shell embutido em runners Linux — sempre LF.
 # CRLF no heredoc/script remoto quebra bash na VM (ver b5c172d). Pinar evita regressao.
 .github/workflows/*.yml text eol=lf
+
+# Scripts Node `.mjs` podem ter shebang (`#!/usr/bin/env node`). Com CRLF no
+# checkout do Windows (`core.autocrlf=true`), o vitest/esbuild recusa a linha
+# `#!` com `SyntaxError: Invalid or unexpected token` — medido em 2026-10-12 em
+# `scripts/check-test-typecheck-coverage.test.mjs` e
+# `check-typescript-7-readiness.test.mjs`, que passam no CI (Linux, LF) e
+# falhavam só local (spec 105).
+*.mjs text eol=lf

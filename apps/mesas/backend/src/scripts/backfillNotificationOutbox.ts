@@ -43,14 +43,14 @@
  * `package.json` — que é o único caminho que existe em produção (achado de
  * review, PR #289, Codex P1). O arquivo vive em `src/scripts/` de propósito: é o
  * padrão dos outros scripts operacionais do app (`og:worker`, `discord:sync`,
- * `metrics:cleanup`), e é o que garante as duas coisas que faltavam quando ele
+ * `metrics:anonymize`), e é o que garante as duas coisas que faltavam quando ele
  * estava em `scripts/` na raiz —
  *
  *   1. o `tsconfig.json` só inclui `src/**`, então o arquivo NÃO era checado por
  *      tipo por nada: nem `tsc -p`, nem `tsc -b`, nem o build (mesmo defeito de
  *      falso-verde registrado em `errors.md` E022);
  *   2. o `Dockerfile` copia apenas `apps/mesas/backend/dist` e a instalação
- *      `--prod` não traz `tsx` nem `ts-node`, então `tsx scripts/...` era um
+ *      `--prod` não traz o `tsx` (devDependency), então `tsx scripts/...` era um
  *      comando que não existia no container — e sem ele o histórico legado
  *      ficaria fora do `accounts.` para sempre, já que esta fase removeu as
  *      rotas antigas do `mesas`.
@@ -60,7 +60,7 @@
  *   docker exec mesas-api pnpm run notifications:backfill -- --apply
  *   docker exec mesas-api pnpm run notifications:backfill -- --status
  *
- * Localmente, com `ts-node` disponível:
+ * Localmente (`tsx`, devDependency, spec 105 T3.1):
  *   pnpm run notifications:backfill:dev
  */
 import { createHash } from 'node:crypto';
