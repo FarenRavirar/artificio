@@ -319,13 +319,15 @@ referência de tendência.
    frontend envia. Medido em produção: `table_click_events` com 0 linhas. O
    `click_breakdown` do `GET /api/v1/gm/insights` lia essa tabela vazia. Agora a rota
    `/click` grava os três tipos que o painel lê, e só quando o clique contou, para o
-   detalhamento somar o mesmo que `clicks_count`. O A/B morto saiu do código; a tabela
+   detalhamento somar o mesmo que `clicks_count`. O insert roda na mesma transação do
+   contador, pelo gancho `onCounted` de `recordTableMetric` (achado do CodeRabbit na PR
+   #338: fora dela, falha no insert deixava o clique contado e a rota em 500). O A/B morto saiu do código; a tabela
    continua, agora com uso.
 4. **Script que mataria a série.** `cleanupMetricEvents.ts` apagava eventos com mais de
    48 h. Nunca rodou (fora do `cronRunner`; eventos de 2026-04-07 no banco). Virou
    `anonymizeMetricEvents.ts` (`metrics:anonymize`): anula `fingerprint_hash` depois de 48 h
    e mantém a linha, recusando rodar se a retenção não cobrir a maior janela de dedupe
-   (24 h). `apps/mesas/database/migration_168_table_metric_events_fingerprint_nullable.sql`
+   (24 h). A migration 167 (`migration_167_spec105_metric_events.sql`, T1.5b)
    faz `DROP NOT NULL` na coluna (medido em produção: `is_nullable = NO`); header validado
    por `parse_header` e `validate_sql_against_class`, rc 0. Ligado no `cronRunner` (1×
    por dia e no boot), que roda em produção (`docker-compose.prod.yml:144`,
@@ -336,7 +338,7 @@ referência de tendência.
 
 ### [~] T1.5 — Clique em contato do mestre persistido (M3) — IMPLEMENTADO LOCAL; falta deploy
 
-- `apps/mesas/database/migration_167_gm_profile_contact_events.sql`: tabela
+- `apps/mesas/database/migration_167_spec105_metric_events.sql`: tabela
   `gm_profile_contact_events (id, gm_profile_id, channel, clicked_at)`, sem IP e sem
   fingerprint, padrão da `gm_profile_view_events` (migration 108). `CHECK` de canal
   idempotente por `DO $$` + `pg_constraint`, índice `(gm_profile_id, clicked_at DESC)` e
@@ -346,29 +348,32 @@ referência de tendência.
   produção (só leitura): `gm_profiles.id` é `uuid` e `to_regclass('gm_profile_contact_events')`
   é nulo. **Não medi a execução 2×:** Docker local parado, e rodar no banco da VM é escrita.
 - Rota `POST /api/v1/gm/perfis/:slug/contact-click` insere a linha no lugar do
-  `console.log`. `req.body` agora passa por normalizador (antes, `as { channel?: string }`),
-  e a lista de canais virou `GM_CONTACT_CHANNELS`, a mesma do `CHECK`.
+  `console.log`. `req.body` agora passa por normalizador (antes, `as { channel?: string }`).
+  **Achado do Codex na PR #338 (P1, procedente):** a rota aceitava só 4 canais e devolvia
+  400 — em silêncio, porque o frontend ignora erro de tracking — para `phone`, `facebook` e
+  `instagram`, que o perfil aceita desde a spec 096 R12. O defeito já existia na lista
+  `validChannels` antiga; a primeira versão do `CHECK` o copiou. Agora a rota e o `CHECK`
+  usam os 7 de `CONTACT_CHANNELS` (`utils/contactUrls.ts`), via `isGmContactChannel` em
+  `utils/profileContacts.ts`.
 - `GET /api/v1/gm/perfis/:slug/insights` devolve `profile_contacts: { total, by_channel }`,
-  campo novo e aditivo. O frontend ainda não exibe: mostrar ao mestre é decisão de produto.
+  campo novo e aditivo. As linhas do banco passam por `summarizeProfileContacts`, que as
+  trata como `unknown` (achado do Codex na PR #338, P1); 5 testes em
+  `profileContacts.test.ts`. O frontend ainda não exibe: mostrar ao mestre é decisão de produto.
 - `db/types.ts` com `GmProfileContactEventsTable`. Backend: `build`, `lint` e 1203 testes
   verdes.
 
 **Aceite.** M3: depois do deploy, um clique no perfil público gera linha nova em
 `gm_profile_contact_events`.
 
-### [ ] T1.5b — Juntar as migrations 167 e 168 numa só
+### [x] T1.5b — Migrations 167 e 168 unidas — FEITA (2026-10-12)
 
-Pedido do mantenedor em 2026-10-12: as duas migrations novas da spec
-(`migration_167_gm_profile_contact_events.sql` e
-`migration_168_table_metric_events_fingerprint_nullable.sql`) viram um arquivo só. Nenhuma
-foi aplicada (`to_regclass('gm_profile_contact_events')` nulo e `fingerprint_hash` ainda
-`NOT NULL` em produção, medido em 2026-10-12), então dá para juntar sem migration de
-correção. Header único `online-safe` (as duas já validaram assim), o bloco de validação de
-cada parte mantido, e as referências a `migration_168` em `anonymizeMetricEvents.ts` e
-`db/types.ts` atualizadas para o número único.
-
-**Aceite.** Um arquivo `migration_167_*.sql`; `parse_header` e `validate_sql_against_class`
-com rc 0; `rtk rg "migration_168" apps` sem resultado.
+Pedido do mantenedor; o Codex cobrou o mesmo na PR #338 (P1: cada arquivo conta no
+`MAX_AUTO_PENDING`). Agora é um arquivo só,
+`apps/mesas/database/migration_167_spec105_metric_events.sql`: tabela
+`gm_profile_contact_events` + `DROP NOT NULL` em `table_metric_events.fingerprint_hash`, com
+um bloco de validação para as duas partes. Nenhuma das duas tinha sido aplicada (medido em
+produção). `parse_header` e `validate_sql_against_class … online-safe` rc 0;
+`rtk rg "migration_168" apps` sem resultado.
 
 ### [ ] T1.6 — Formulário de contato do mestre (M4) · **decisão de produto pendente**
 

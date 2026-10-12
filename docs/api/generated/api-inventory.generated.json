@@ -4090,7 +4090,7 @@
       "method": "GET",
       "path": "/api/v1/gm/perfis/:slug",
       "sourceFile": "apps/mesas/backend/src/routes/gm.ts",
-      "line": 126,
+      "line": 119,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4099,7 +4099,7 @@
       "method": "POST",
       "path": "/api/v1/gm/perfis/:slug/contact",
       "sourceFile": "apps/mesas/backend/src/routes/gm.ts",
-      "line": 627,
+      "line": 617,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4108,7 +4108,7 @@
       "method": "POST",
       "path": "/api/v1/gm/perfis/:slug/contact-click",
       "sourceFile": "apps/mesas/backend/src/routes/gm.ts",
-      "line": 699,
+      "line": 689,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4117,7 +4117,7 @@
       "method": "GET",
       "path": "/api/v1/gm/perfis/:slug/insights",
       "sourceFile": "apps/mesas/backend/src/routes/gm.ts",
-      "line": 560,
+      "line": 553,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4126,7 +4126,7 @@
       "method": "GET",
       "path": "/api/v1/gm/perfis/:slug/reviews",
       "sourceFile": "apps/mesas/backend/src/routes/gm.ts",
-      "line": 745,
+      "line": 735,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4135,7 +4135,7 @@
       "method": "POST",
       "path": "/api/v1/gm/perfis/:slug/reviews",
       "sourceFile": "apps/mesas/backend/src/routes/gm.ts",
-      "line": 793,
+      "line": 783,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4144,7 +4144,7 @@
       "method": "POST",
       "path": "/api/v1/gm/perfis/:slug/view",
       "sourceFile": "apps/mesas/backend/src/routes/gm.ts",
-      "line": 492,
+      "line": 485,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4675,7 +4675,7 @@
       "method": "POST",
       "path": "/api/v1/tables/:slug/contact",
       "sourceFile": "apps/mesas/backend/src/routes/tables.ts",
-      "line": 1236,
+      "line": 1241,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4684,7 +4684,7 @@
       "method": "GET",
       "path": "/api/v1/tables/:slug/favorite",
       "sourceFile": "apps/mesas/backend/src/routes/tables.ts",
-      "line": 1258,
+      "line": 1263,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4693,7 +4693,7 @@
       "method": "POST",
       "path": "/api/v1/tables/:slug/favorite",
       "sourceFile": "apps/mesas/backend/src/routes/tables.ts",
-      "line": 1290,
+      "line": 1295,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4702,7 +4702,7 @@
       "method": "POST",
       "path": "/api/v1/tables/:slug/report",
       "sourceFile": "apps/mesas/backend/src/routes/tables.ts",
-      "line": 1356,
+      "line": 1361,
       "confidence": "high",
       "kind": "express-route"
     },

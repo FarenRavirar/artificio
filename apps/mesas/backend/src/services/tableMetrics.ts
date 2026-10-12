@@ -1,7 +1,8 @@
 import crypto from 'crypto';
 import type { Request } from 'express';
-import { sql } from 'kysely';
+import { sql, type Transaction } from 'kysely';
 import { db } from '../db/index.js';
+import type { Database } from '../db/types.js';
 
 /**
  * Métricas próprias de mesa (view/click/contact/favorite) — fonte única.
@@ -61,11 +62,17 @@ export function generateFingerprint(req: Request): string {
  * migration 07 sobre `table_metric_events` não é único, e não pode ser, porque
  * a janela é de tempo (achado do Codex na PR #337). O lock é liberado no
  * commit/rollback e só bloqueia a mesma chave.
+ *
+ * `onCounted` roda na MESMA transação, só quando a ação contou — para escrita
+ * que precisa andar junto com o contador (detalhamento de clique em
+ * `table_click_events`). Fora da transação, falha nela deixava o clique contado
+ * sem detalhamento e a rota respondendo 500 (achado do CodeRabbit na PR #338).
  */
 export async function recordTableMetric(
   tableId: string,
   action: MetricAction,
   req: Request,
+  onCounted?: (trx: Transaction<Database>) => Promise<void>,
 ): Promise<'counted' | 'throttled'> {
   const fingerprint = generateFingerprint(req);
   const column = COUNTER_COLUMN[action];
@@ -99,6 +106,8 @@ export async function recordTableMetric(
         }),
       )
       .execute();
+
+    if (onCounted) await onCounted(trx);
     return 'counted' as const;
   });
 }

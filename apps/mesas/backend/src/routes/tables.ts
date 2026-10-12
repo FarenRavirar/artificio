@@ -1199,24 +1199,29 @@ router.post('/:slug/click', async (req: Request, res: Response) => {
     }
 
     // Evento + contador, com dedupe por visitante (spec 105 M2).
-    const outcome = await recordTableMetric(tableId, 'click', req);
-
+    //
     // Detalhamento por tipo de clique, lido pelo painel do mestre
     // (`gmPanel.ts`, `click_breakdown`). Até a spec 105 só entravam
     // `with_metrics`/`without_metrics`, de um A/B test que nenhum frontend
     // envia; o frontend manda o tipo (`refactored_v4`, `cta_entrar`,
     // `link_vtt`), que era descartado. Medido em produção (2026-10-12):
     // `table_click_events` com 0 linhas, painel sempre zerado. Grava só o
-    // clique que contou, para o detalhamento somar o mesmo que `clicks_count`.
-    if (outcome === 'counted' && isClickBreakdownType(variant)) {
-      await db
-        .insertInto('table_click_events')
-        .values({
-          table_id: tableId,
-          variant,
-        })
-        .execute();
-    }
+    // clique que contou, na mesma transação do contador, para o detalhamento
+    // somar o mesmo que `clicks_count`.
+    const breakdownType = isClickBreakdownType(variant) ? variant : null;
+    await recordTableMetric(
+      tableId,
+      'click',
+      req,
+      breakdownType
+        ? async (trx) => {
+            await trx
+              .insertInto('table_click_events')
+              .values({ table_id: tableId, variant: breakdownType })
+              .execute();
+          }
+        : undefined,
+    );
 
     res.json({ success: true });
   } catch (error) {

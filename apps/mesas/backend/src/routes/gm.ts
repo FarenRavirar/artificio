@@ -7,6 +7,7 @@ import { isValidEmail, isValidSlugParam } from '../utils/validation.js';
 import { generateEmbedUrl, LinkType } from '../services/linkService.js';
 import { sanitizePublicImageUrl } from '../utils/publicImageUrl.js';
 import { serializeContact, serializeContactMethods } from '../utils/contactSerializer.js';
+import { isGmContactChannel, summarizeProfileContacts } from '../utils/profileContacts.js';
 import {
   sanitizeNullableUserMarkdown,
   sanitizeTableMarkdownFields,
@@ -39,14 +40,6 @@ type MetricRow = {
   contacts: number;
   favorites: number;
 };
-
-/** Canais de contato do perfil do mestre. Mesma lista do CHECK da migration_167. */
-const GM_CONTACT_CHANNELS = ['whatsapp', 'email', 'discord', 'form'] as const;
-type GmContactChannel = (typeof GM_CONTACT_CHANNELS)[number];
-
-function isGmContactChannel(value: unknown): value is GmContactChannel {
-  return typeof value === 'string' && (GM_CONTACT_CHANNELS as readonly string[]).includes(value);
-}
 
 type Recommendation = {
   table_slug: string;
@@ -599,16 +592,13 @@ router.get('/perfis/:slug/insights', authRateLimiter, authMiddleware, async (req
 
     // Contato pelo PERFIL (não pela mesa), por canal, desde a migration_167
     // (spec 105 M3). Separado de `metrics`, que é por mesa.
-    const profileContactRows = await db
+    const profileContactRows: unknown = await db
       .selectFrom('gm_profile_contact_events')
       .select(['channel', sql<number>`COUNT(*)::int`.as('count')])
       .where('gm_profile_id', '=', gm.id)
       .groupBy('channel')
       .execute();
-    const profileContacts = {
-      total: profileContactRows.reduce((sum, row) => sum + row.count, 0),
-      by_channel: Object.fromEntries(profileContactRows.map((row) => [row.channel, row.count])),
-    };
+    const profileContacts = summarizeProfileContacts(profileContactRows);
 
     return res.json({
       data: {

@@ -1,5 +1,6 @@
 import { ColumnType, Generated, Insertable, Selectable, Updateable } from 'kysely';
 import type { ChangelogEntry } from '@artificio/changelog';
+import type { ContactChannel } from '../utils/contactUrls.js';
 
 export type UserRole = 'visitor' | 'player' | 'gm' | 'admin';
 export type SystemNodeType = 'system' | 'edition' | 'variant';
@@ -1377,7 +1378,7 @@ export type GmProfileViewEventUpdate = Updateable<GmProfileViewEventsTable>;
 export interface GmProfileContactEventsTable {
   id: Generated<number>;
   gm_profile_id: string;
-  channel: 'whatsapp' | 'email' | 'discord' | 'form';
+  channel: ContactChannel; // os 7 de CONTACT_CHANNELS (utils/contactUrls.ts)
   clicked_at: Generated<Date>;
 }
 
@@ -1388,7 +1389,7 @@ export interface TableMetricEventsTable {
   id: Generated<string>;
   table_id: string;
   action: TableMetricAction;
-  fingerprint_hash: string | null; // anulado após 48 h (migration_168, spec 105)
+  fingerprint_hash: string | null; // anulado após 48 h (migration_167, spec 105)
   created_at: Generated<Date>;
 }
 

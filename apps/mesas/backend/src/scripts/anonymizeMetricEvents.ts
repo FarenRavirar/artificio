@@ -9,7 +9,7 @@ import { METRIC_THROTTLE_WINDOWS } from '../services/tableMetrics.js';
  * que destruiria a série (nunca rodou: não estava no `cronRunner`, e os eventos
  * de 2026-04-07 seguiam no banco em 2026-10-12). O fingerprint (hash de IP+UA)
  * só serve para o dedupe; passada a maior janela, ele é dado pessoal sem uso.
- * Aqui ele vira `NULL` e a linha fica (migration_168).
+ * Aqui ele vira `NULL` e a linha fica (migration_167).
  *
  * Uso: `npm run metrics:anonymize` (dist) ou `metrics:anonymize:dev`.
  */
