@@ -5,6 +5,8 @@ export interface GaOptions {
   cookieDomain?: string;
   anonymizeIp?: boolean;
   debug?: boolean;
+  /** `false` desliga o `page_view` automático do `config` (SPA envia o seu por rota). */
+  sendPageView?: boolean;
 }
 
 export const ANALYTICS_DEFAULTS = {

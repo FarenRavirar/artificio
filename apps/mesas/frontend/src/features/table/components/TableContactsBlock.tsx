@@ -1,5 +1,6 @@
 import { MessageCircle, MessageSquare, Mail, FileText, ExternalLink, HelpCircle, type LucideIcon } from 'lucide-react';
 import type { TableContact } from '../../../types/tables';
+import { registerTableContact, type TableTrackingContext } from '../utils/contactTracking';
 import {
   toSafeDiscordInviteUrl,
   toSafeHttpsUrl,
@@ -10,13 +11,18 @@ import {
 
 interface TableContactsBlockProps {
   contacts: TableContact[];
+  /**
+   * Presente só na página pública da mesa: clicar num canal registra o contato
+   * (spec 105 M1/I3). Ausente no preview do dono, que não é visitante.
+   */
+  tracking?: TableTrackingContext;
 }
 
 /**
  * Bloco de contatos estilizado seguindo design system Artifício
  * Implementa botões full-width com cores semânticas e links de apoio
  */
-export function TableContactsBlock({ contacts }: TableContactsBlockProps) {
+export function TableContactsBlock({ contacts, tracking }: TableContactsBlockProps) {
   if (contacts.length === 0) return null;
 
   return (
@@ -26,7 +32,11 @@ export function TableContactsBlock({ contacts }: TableContactsBlockProps) {
       </h3>
       <div className="space-y-3">
         {contacts.map((contact, idx) => (
-          <ContactButton key={idx} contact={contact} />
+          <ContactButton
+            key={idx}
+            contact={contact}
+            onOpen={tracking ? () => registerTableContact(tracking, contact.channel) : undefined}
+          />
         ))}
       </div>
     </div>
@@ -36,7 +46,7 @@ export function TableContactsBlock({ contacts }: TableContactsBlockProps) {
 /**
  * Botão individual de contato com estilo por canal
  */
-function ContactButton({ contact }: { contact: TableContact }) {
+function ContactButton({ contact, onOpen }: { contact: TableContact; onOpen?: () => void }) {
   const config = getChannelConfig(contact.channel);
 
   // Validar se value existe e não está vazio
@@ -56,6 +66,7 @@ function ContactButton({ contact }: { contact: TableContact }) {
             <a
               href={safeDiscordServerUrl}
               target="_blank"
+              onClick={onOpen}
               rel="noopener noreferrer"
               className={`w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl font-semibold text-white transition-all ${config.bg} shadow-lg hover:shadow-xl`}
             >
@@ -72,6 +83,7 @@ function ContactButton({ contact }: { contact: TableContact }) {
               <a 
                 href={safeDiscordServerUrl}
                 target="_blank"
+              onClick={onOpen}
                 rel="noopener noreferrer"
                 className="text-indigo-400 hover:text-indigo-300 underline break-all"
               >
@@ -147,6 +159,7 @@ function ContactButton({ contact }: { contact: TableContact }) {
         <a
           href={validUrl}
           target="_blank"
+              onClick={onOpen}
           rel="noopener noreferrer"
           className={`w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl font-semibold text-white transition-all ${config.bg} shadow-lg hover:shadow-xl`}
         >
@@ -163,6 +176,7 @@ function ContactButton({ contact }: { contact: TableContact }) {
           <a 
             href={validUrl}
             target="_blank"
+              onClick={onOpen}
             rel="noopener noreferrer"
             className="text-green-400 hover:text-green-300 underline break-all"
           >
@@ -184,6 +198,7 @@ function ContactButton({ contact }: { contact: TableContact }) {
     <a
       href={validUrl}
       target="_blank"
+              onClick={onOpen}
       rel="noopener noreferrer"
       className={`w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl font-semibold text-white transition-all ${config.bg} shadow-lg hover:shadow-xl`}
     >

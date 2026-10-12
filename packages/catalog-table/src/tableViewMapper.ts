@@ -51,6 +51,7 @@ function generateCTAConfig(table: TableDetail, slotsLeft: number, contacts: Tabl
         variant: 'primary',
         action: 'external-link',
         actionUrl: primaryContact.discord_server_url,
+        channel: 'discord',
       };
     }
     if (primaryContact.channel === 'whatsapp') {
@@ -68,6 +69,7 @@ function generateCTAConfig(table: TableDetail, slotsLeft: number, contacts: Tabl
           variant: 'primary',
           action: 'external-link',
           actionUrl: url,
+          channel: 'whatsapp',
         };
       }
     }

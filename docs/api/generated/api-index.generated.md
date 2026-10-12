@@ -4,7 +4,7 @@
 > Bundle machine-readable: `docs/api/generated/artificio-api.bundle.json`.
 > Não editar à mão. Regenerar com `pnpm api:bundle` (faz parte de `pnpm verify:api`).
 
-Total: **502 operações**.
+Total: **499 operações**.
 
 ## accounts (53)
 
@@ -259,7 +259,7 @@ Total: **502 operações**.
 | GET | `/grupo/{slug}` | public-page | none | active | — | Consulta grupo slug |
 | GET | `/healthz` | internal | none | active | — | Consulta healthz |
 
-## mesas (211)
+## mesas (208)
 
 | Método | Path | Scope | Auth | Status | Consumidores | Resumo |
 |--------|------|-------|------|--------|--------------|--------|
@@ -407,11 +407,7 @@ Total: **502 operações**.
 | GET | `/api/v1/gm/tables/{id}` | public | user | active | — | Consulta api v1 gm tables id |
 | PUT | `/api/v1/gm/tables/{id}` | public | user | active | — | Substitui api v1 gm tables id |
 | PATCH | `/api/v1/gm/tables/{id}/archive` | public | user | active | — | Atualiza api v1 gm tables id archive |
-| POST | `/api/v1/gm/tables/{id}/click` | telemetry | none | active | — | Cria ou executa api v1 gm tables id click |
-| POST | `/api/v1/gm/tables/{id}/contact` | telemetry | none | active | — | Cria ou executa api v1 gm tables id contact |
-| POST | `/api/v1/gm/tables/{id}/favorite` | telemetry | none | active | — | Cria ou executa api v1 gm tables id favorite |
 | PATCH | `/api/v1/gm/tables/{id}/status` | public | user | active | — | Atualiza api v1 gm tables id status |
-| POST | `/api/v1/gm/tables/{slug}/view` | telemetry | none | active | — | Cria ou executa api v1 gm tables slug view |
 | GET | `/api/v1/health` | internal | none | active | — | Consulta api v1 health |
 | GET | `/api/v1/me` | public | user | active | — | Consulta api v1 me |
 | GET | `/api/v1/me/options` | public | user | active | — | Consulta api v1 me options |
@@ -451,6 +447,7 @@ Total: **502 operações**.
 | GET | `/api/v1/tables` | public | none | active | — | Consulta api v1 tables |
 | GET | `/api/v1/tables/{slug}` | public | none | active | — | Consulta api v1 tables slug |
 | POST | `/api/v1/tables/{slug}/click` | telemetry | none | active | — | Cria ou executa api v1 tables slug click |
+| POST | `/api/v1/tables/{slug}/contact` | telemetry | none | active | — | Cria ou executa api v1 tables slug contact |
 | GET | `/api/v1/tables/{slug}/favorite` | telemetry | none | active | — | Consulta api v1 tables slug favorite |
 | POST | `/api/v1/tables/{slug}/favorite` | telemetry | none | active | — | Cria ou executa api v1 tables slug favorite |
 | POST | `/api/v1/tables/{slug}/report` | public | user | active | — | Cria ou executa api v1 tables slug report |

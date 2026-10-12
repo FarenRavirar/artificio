@@ -15,11 +15,25 @@ export function trackEvent(name: string, params: Record<string, unknown> = {}): 
   window.gtag!("event", name, cleanParams(params));
 }
 
-/** page_view com apenas o pathname (query string descartada para evitar vazar PII). */
+/**
+ * page_view de SPA com a URL sem query string (evita vazar PII de filtro/busca).
+ *
+ * `page_location`/`page_title` são os parâmetros que a doc do GA4 documenta para
+ * page view manual ("Measure pageviews"). A versão anterior enviava `page_path`,
+ * parâmetro da geração UA que a doc do GA4 não lista — e o gtag continuava
+ * coletando `page_location` da URL do documento, com a query. O `set` vale para
+ * os eventos seguintes da página (select_mesa, contact_click…), que assim também
+ * herdam a URL limpa. Spec 105 I1.
+ */
 export function trackPageview(path: string): void {
   if (!hasGtag()) return;
-  const safePath = path.split("?")[0];
-  window.gtag!("event", "page_view", { page_path: safePath });
+  const safePath = path.split("?")[0].split("#")[0];
+  const page = {
+    page_location: `${window.location.origin}${safePath}`,
+    page_title: document.title,
+  };
+  window.gtag!("set", page);
+  window.gtag!("event", "page_view", page);
 }
 
 function cleanParams(params: Record<string, unknown>): Record<string, unknown> {
@@ -63,6 +77,26 @@ export function trackSelectMesa(params: {
   trackEvent("select_mesa", {
     mesa_id: params.mesa_id,
     mesa_nome: params.mesa_nome,
+    sistema: params.sistema,
+  });
+}
+
+/**
+ * Contato iniciado: o visitante abriu o canal do mestre (WhatsApp, Discord,
+ * e-mail, formulário…). É a conversão principal do `mesas` (spec 105 I3).
+ * Sem PII: só o canal e identificadores públicos — nunca o número, o e-mail
+ * ou a URL de destino.
+ */
+export function trackContactClick(params: {
+  origem: "mesa" | "mestre";
+  canal: string;
+  mesa_id?: string;
+  sistema?: string;
+}): void {
+  trackEvent("contact_click", {
+    origem: params.origem,
+    canal: params.canal,
+    mesa_id: params.mesa_id,
     sistema: params.sistema,
   });
 }

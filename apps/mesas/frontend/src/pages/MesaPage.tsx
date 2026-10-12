@@ -13,6 +13,7 @@ import { MasterCard } from '../features/table/components/MasterCard';
 import { ReportTableButton } from '../features/table/components/ReportTableButton';
 import { useAuth } from '../contexts/useAuth'; // CORREÇÃO DT-026: Importar useAuth
 import { handleCTA, getButtonStyle } from '../features/table/utils/uiHelpers';
+import { trackingFromVm } from '../features/table/utils/contactTracking';
 import { trackSelectMesa } from '@artificio/analytics';
 import { TableConversation } from '../components/TableConversation';
 // Tipo, normalizador e frase do encerramento vivem em arquivo próprio desde
@@ -272,7 +273,7 @@ export const MesaPage = () => {
         <div className="lg:hidden fixed bottom-0 inset-x-0 z-40 p-4 bg-gradient-to-t from-[var(--color-artificio-blue)] via-[var(--color-artificio-blue)] to-transparent">
           <button
             disabled={vm.cta.disabled}
-            onClick={() => handleCTA(vm.cta)}
+            onClick={() => handleCTA(vm.cta, trackingFromVm(vm))}
             className={`w-full py-3 rounded-xl font-semibold shadow-2xl ${getButtonStyle(vm.cta.variant)}`}
           >
             {vm.cta.label}

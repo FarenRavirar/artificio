@@ -1,6 +1,7 @@
 import type { CTAConfig } from '../types/tableView.types';
 import { authPatch } from '../../../services/apiClient';
 import { openSafeExternalUrl } from '../../../utils/safeExternalUrl';
+import { registerTableClick, registerTableContact, type TableTrackingContext } from './contactTracking';
 
 /**
  * Retorna classes CSS para botões baseado no variant do CTA
@@ -38,20 +39,23 @@ export function getUrgencyColor(tone: 'critical' | 'high' | 'medium' | 'low' | '
 }
 
 /**
- * Handler para ações de CTA
+ * Handler para ações de CTA.
+ *
+ * Com `tracking`, conta o clique UMA vez e, quando o CTA abre o canal do mestre
+ * direto (`external-link`), registra também o contato. A versão anterior contava
+ * o clique aqui (slug tirado do pathname) e o `TableActionPanel` contava de novo
+ * antes de chamar esta função — `clicks_count` dobrava no CTA externo (spec 105).
+ * Sem `tracking` (preview do dono, testes), não mede nada.
  */
-export function handleCTA(cta: CTAConfig): void {
+export function handleCTA(cta: CTAConfig, tracking?: TableTrackingContext): void {
+  if (tracking && cta.action !== 'none') {
+    registerTableClick(tracking, 'cta_entrar');
+  }
+
   if (cta.action === 'external-link' && cta.actionUrl) {
-    // Tracking de clique antes de abrir link
-    if (typeof window !== 'undefined') {
-      const slug = window.location.pathname.split('/').pop();
-      if (slug) {
-        fetch(`/api/v1/tables/${slug}/click`, { method: 'POST' }).catch(() => {
-          // Silencioso - tracking não deve quebrar UX
-        });
-      }
+    if (tracking) {
+      registerTableContact(tracking, cta.channel ?? 'link');
     }
-    
     openSafeExternalUrl(cta.actionUrl);
     return;
   }

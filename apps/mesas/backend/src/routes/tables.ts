@@ -5,6 +5,7 @@ import { authMiddleware, optionalAuth } from '../middleware/auth.js';
 import { logDatabaseError } from '../middleware/requestLogger.js';
 import { sanitizePublicImageUrl } from '../utils/publicImageUrl.js';
 import { serializeContact, serializeContacts } from '../utils/contactSerializer.js';
+import { recordTableMetric } from '../services/tableMetrics.js';
 import {
   classifyTablePublicDisposition,
   importedTableExpiryDate,
@@ -1137,20 +1138,8 @@ router.post('/:slug/view', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Mesa não encontrada.' });
     }
 
-    // Incrementar contador de visualizações
-    await db
-      .insertInto('table_metrics')
-      .values({
-        table_id: table.id,
-        views_count: 1,
-      })
-      .onConflict((oc) =>
-        oc.column('table_id').doUpdateSet({
-          views_count: sql`table_metrics.views_count + 1`,
-          updated_at: sql`NOW()`,
-        })
-      )
-      .execute();
+    // Evento + contador, com dedupe por visitante (spec 105 M2).
+    await recordTableMetric(table.id, 'view', req);
 
     res.json({ success: true });
   } catch (error) {
@@ -1192,20 +1181,8 @@ router.post('/:slug/click', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Mesa não encontrada.' });
     }
 
-    // Incrementar contador de cliques em table_metrics
-    await db
-      .insertInto('table_metrics')
-      .values({
-        table_id: table.id,
-        clicks_count: 1,
-      })
-      .onConflict((oc) =>
-        oc.column('table_id').doUpdateSet({
-          clicks_count: sql`table_metrics.clicks_count + 1`,
-          updated_at: sql`NOW()`,
-        })
-      )
-      .execute();
+    // Evento + contador, com dedupe por visitante (spec 105 M2).
+    await recordTableMetric(table.id, 'click', req);
 
     // Registrar evento de clique para A/B test (se variant fornecida)
     if (variant && (variant === 'with_metrics' || variant === 'without_metrics')) {
@@ -1222,6 +1199,42 @@ router.post('/:slug/click', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('[POST /tables/:slug/click]', error);
     res.status(500).json({ error: 'Erro ao registrar clique.' });
+  }
+});
+
+// POST /api/v1/tables/:slug/contact — Registrar contato iniciado (spec 105 M1)
+//
+// "Contato" é o visitante abrir o canal do mestre (WhatsApp, Discord, e-mail,
+// formulário). É a conversão do produto. Até aqui o `contacts_count` só crescia
+// por `POST /api/v1/gm/tables/:id/contact`, rota que nenhum frontend chamava —
+// medido em produção (2026-10-12): soma 1 em 206 mesas. O canal não é gravado no
+// banco (a tabela de evento não tem coluna para ele); vai para o GA4 no
+// `contact_click`.
+router.post('/:slug/contact', async (req: Request, res: Response) => {
+  const { slug } = req.params;
+
+  if (!slug || slug.length > 200 || !/^[a-z0-9-]+$/i.test(slug)) {
+    return res.status(400).json({ error: 'Slug inválido.' });
+  }
+
+  try {
+    const table = await db
+      .selectFrom('tables as t')
+      .select(['t.id', 't.status', 't.archived_at', 't.origin', 't.created_at', 't.starts_at'])
+      .where('t.slug', '=', slug)
+      .where('t.status', '=', 'active')
+      .where('t.archived_at', 'is', null)
+      .executeTakeFirst();
+
+    if (!table || !isPublicTable(table)) {
+      return res.status(404).json({ error: 'Mesa não encontrada.' });
+    }
+
+    await recordTableMetric(table.id, 'contact', req);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('[POST /tables/:slug/contact]', error);
+    res.status(500).json({ error: 'Erro ao registrar contato.' });
   }
 });
 

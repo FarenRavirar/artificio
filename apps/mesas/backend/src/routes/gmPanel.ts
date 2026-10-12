@@ -15,7 +15,6 @@ import {
   bioSuggestionsUserRateLimiter,
 } from '../middleware/rateLimit.js';
 import { resolveActorName } from '../services/actorNameResolver.js';
-import crypto from 'crypto';
 import {
   createTableSchema,
   updateTableSchema,
@@ -183,14 +182,6 @@ const getErrorMessage = (error: unknown): string =>
 // CONSTANTES
 // ============================================================================
 
-const METRIC_THROTTLE_WINDOWS = {
-  view: 15 * 60 * 1000,
-  click: 5 * 60 * 1000,
-  contact: 30 * 60 * 1000,
-  favorite: 24 * 60 * 60 * 1000,
-} as const;
-
-type MetricAction = keyof typeof METRIC_THROTTLE_WINDOWS;
 type QuartileTag = 'q1' | 'q2' | 'q3' | 'q4';
 
 function toQuartile(value: number, quartiles: { p25: number; p50: number; p75: number }): QuartileTag {
@@ -206,47 +197,6 @@ function quartileLabel(quartile: QuartileTag): string {
   if (quartile === 'q3') return 'Acima da maioria';
   return 'Entre as mais vistas';
 }
-
-
-function getClientIp(req: Request): string {
-  const forwarded = req.headers['x-forwarded-for'];
-  if (forwarded && typeof forwarded === 'string') {
-    return forwarded.split(',')[0].trim();
-  }
-  const realIp = req.headers['x-real-ip'];
-  if (realIp && typeof realIp === 'string') {
-    return realIp.trim();
-  }
-  return req.socket.remoteAddress || 'unknown';
-}
-
-function generateFingerprint(req: Request): string {
-  const ip = getClientIp(req);
-  const userAgent = req.headers['user-agent'] || 'unknown';
-  const raw = `${ip}:${userAgent}`;
-  return crypto.createHash('sha256').update(raw).digest('hex');
-}
-
-async function shouldCountMetric(
-  tableId: string,
-  action: MetricAction,
-  fingerprint: string
-): Promise<boolean> {
-  const windowMs = METRIC_THROTTLE_WINDOWS[action];
-  const cutoff = new Date(Date.now() - windowMs);
-
-  const recentEvent = await db
-    .selectFrom('table_metric_events')
-    .select('id')
-    .where('table_id', '=', tableId)
-    .where('action', '=', action)
-    .where('fingerprint_hash', '=', fingerprint)
-    .where('created_at', '>', cutoff)
-    .executeTakeFirst();
-
-  return !recentEvent;
-}
-
 
 
 // ============================================================================
@@ -1749,155 +1699,10 @@ router.delete('/tables/:id', authMiddleware, async (req: Request, res: Response)
 // ROTAS DE MÉTRICAS
 // ============================================================================
 
-router.post('/tables/:slug/view', async (req: Request, res: Response) => {
-  const { slug } = req.params;
-
-  try {
-    const table = await db
-      .selectFrom('tables')
-      .select('id')
-      .where('slug', '=', slug)
-      .executeTakeFirst();
-
-    if (!table) return res.sendStatus(404);
-
-    const fingerprint = generateFingerprint(req);
-    const shouldCount = await shouldCountMetric(table.id, 'view', fingerprint);
-
-    if (!shouldCount) return res.sendStatus(202);
-
-    await db.transaction().execute(async (trx) => {
-      await trx
-        .insertInto('table_metric_events')
-        .values({ table_id: table.id, action: 'view', fingerprint_hash: fingerprint })
-        .execute();
-
-      await trx
-        .insertInto('table_metrics')
-        .values({ table_id: table.id, views_count: 1 })
-        .onConflict((oc) =>
-          oc.column('table_id').doUpdateSet({
-            views_count: sql`table_metrics.views_count + 1`,
-            updated_at: sql`NOW()`,
-          })
-        )
-        .execute();
-    });
-
-    res.sendStatus(200);
-  } catch (error) {
-    console.error('[POST /tables/:slug/view]', error);
-    res.sendStatus(500);
-  }
-});
-
-router.post('/tables/:id/click', async (req: Request, res: Response) => {
-  const { id } = req.params;
-
-  try {
-    const table = await db.selectFrom('tables').select('id').where('id', '=', id).executeTakeFirst();
-    if (!table) return res.sendStatus(404);
-
-    const fingerprint = generateFingerprint(req);
-    const shouldCount = await shouldCountMetric(id, 'click', fingerprint);
-    if (!shouldCount) return res.sendStatus(202);
-
-    await db.transaction().execute(async (trx) => {
-      await trx
-        .insertInto('table_metric_events')
-        .values({ table_id: id, action: 'click', fingerprint_hash: fingerprint })
-        .execute();
-
-      await trx
-        .insertInto('table_metrics')
-        .values({ table_id: id, clicks_count: 1 })
-        .onConflict((oc) =>
-          oc.column('table_id').doUpdateSet({
-            clicks_count: sql`table_metrics.clicks_count + 1`,
-            updated_at: sql`NOW()`,
-          })
-        )
-        .execute();
-    });
-
-    res.sendStatus(200);
-  } catch (error) {
-    console.error('[POST /tables/:id/click]', error);
-    res.sendStatus(500);
-  }
-});
-
-router.post('/tables/:id/contact', async (req: Request, res: Response) => {
-  const { id } = req.params;
-
-  try {
-    const table = await db.selectFrom('tables').select('id').where('id', '=', id).executeTakeFirst();
-    if (!table) return res.sendStatus(404);
-
-    const fingerprint = generateFingerprint(req);
-    const shouldCount = await shouldCountMetric(id, 'contact', fingerprint);
-    if (!shouldCount) return res.sendStatus(202);
-
-    await db.transaction().execute(async (trx) => {
-      await trx
-        .insertInto('table_metric_events')
-        .values({ table_id: id, action: 'contact', fingerprint_hash: fingerprint })
-        .execute();
-
-      await trx
-        .insertInto('table_metrics')
-        .values({ table_id: id, contacts_count: 1 })
-        .onConflict((oc) =>
-          oc.column('table_id').doUpdateSet({
-            contacts_count: sql`table_metrics.contacts_count + 1`,
-            updated_at: sql`NOW()`,
-          })
-        )
-        .execute();
-    });
-
-    res.sendStatus(200);
-  } catch (error) {
-    console.error('[POST /tables/:id/contact]', error);
-    res.sendStatus(500);
-  }
-});
-
-router.post('/tables/:id/favorite', async (req: Request, res: Response) => {
-  const { id } = req.params;
-
-  try {
-    const table = await db.selectFrom('tables').select('id').where('id', '=', id).executeTakeFirst();
-    if (!table) return res.sendStatus(404);
-
-    const fingerprint = generateFingerprint(req);
-    const shouldCount = await shouldCountMetric(id, 'favorite', fingerprint);
-    if (!shouldCount) return res.sendStatus(202);
-
-    await db.transaction().execute(async (trx) => {
-      await trx
-        .insertInto('table_metric_events')
-        .values({ table_id: id, action: 'favorite', fingerprint_hash: fingerprint })
-        .execute();
-
-      await trx
-        .insertInto('table_metrics')
-        .values({ table_id: id, favorites_count: 1 })
-        .onConflict((oc) =>
-          oc.column('table_id').doUpdateSet({
-            favorites_count: sql`table_metrics.favorites_count + 1`,
-            updated_at: sql`NOW()`,
-          })
-        )
-        .execute();
-    });
-
-    res.sendStatus(200);
-  } catch (error) {
-    console.error('[POST /tables/:id/favorite]', error);
-    res.sendStatus(500);
-  }
-});
+// As rotas de métrica que viviam aqui (`/api/v1/gm/tables/.../view|click|contact|favorite`)
+// foram removidas na spec 105: nenhum frontend as chamava (medido por busca em
+// `apps/`, `packages/` e `scripts/`, 2026-10-12). A lógica foi para
+// `services/tableMetrics.ts` e é usada pelas rotas públicas `/api/v1/tables/:slug/*`.
 
 // GET /api/v1/gm/insights — Dashboard de insights agregados
 router.get('/insights', authMiddleware, async (req: Request, res: Response) => {

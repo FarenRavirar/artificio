@@ -5128,132 +5128,6 @@ paths:
           description: Sem permissão
         "500":
           description: Erro interno
-  /api/v1/gm/tables/{id}/click:
-    post:
-      operationId: postapi_v1_gm_tables_id_click
-      summary: "Cria ou executa api v1 gm tables id click"
-      x-artificio-owner: mesas
-      x-artificio-scope: telemetry
-      x-artificio-status: active
-      x-artificio-auth: none
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        "400":
-          description: Requisição inválida
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        "401":
-          description: Não autenticado
-        "403":
-          description: Sem permissão
-        "500":
-          description: Erro interno
-  /api/v1/gm/tables/{id}/contact:
-    post:
-      operationId: postapi_v1_gm_tables_id_contact
-      summary: "Cria ou executa api v1 gm tables id contact"
-      x-artificio-owner: mesas
-      x-artificio-scope: telemetry
-      x-artificio-status: active
-      x-artificio-auth: none
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        "400":
-          description: Requisição inválida
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        "401":
-          description: Não autenticado
-        "403":
-          description: Sem permissão
-        "500":
-          description: Erro interno
-  /api/v1/gm/tables/{id}/favorite:
-    post:
-      operationId: postapi_v1_gm_tables_id_favorite
-      summary: "Cria ou executa api v1 gm tables id favorite"
-      x-artificio-owner: mesas
-      x-artificio-scope: telemetry
-      x-artificio-status: active
-      x-artificio-auth: none
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        "400":
-          description: Requisição inválida
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        "401":
-          description: Não autenticado
-        "403":
-          description: Sem permissão
-        "500":
-          description: Erro interno
   /api/v1/gm/tables/{id}/status:
     patch:
       operationId: patchapi_v1_gm_tables_id_status
@@ -5264,48 +5138,6 @@ paths:
       x-artificio-auth: user
       parameters:
         - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        "400":
-          description: Requisição inválida
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        "401":
-          description: Não autenticado
-        "403":
-          description: Sem permissão
-        "500":
-          description: Erro interno
-  /api/v1/gm/tables/{slug}/view:
-    post:
-      operationId: postapi_v1_gm_tables_slug_view
-      summary: "Cria ou executa api v1 gm tables slug view"
-      x-artificio-owner: mesas
-      x-artificio-scope: telemetry
-      x-artificio-status: active
-      x-artificio-auth: none
-      parameters:
-        - name: slug
           in: path
           required: true
           schema:
@@ -6613,6 +6445,48 @@ paths:
     post:
       operationId: postapi_v1_tables_slug_click
       summary: "Cria ou executa api v1 tables slug click"
+      x-artificio-owner: mesas
+      x-artificio-scope: telemetry
+      x-artificio-status: active
+      x-artificio-auth: none
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /api/v1/tables/{slug}/contact:
+    post:
+      operationId: postapi_v1_tables_slug_contact
+      summary: "Cria ou executa api v1 tables slug contact"
       x-artificio-owner: mesas
       x-artificio-scope: telemetry
       x-artificio-status: active
