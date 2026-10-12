@@ -1,11 +1,11 @@
 import { Router, Request, Response } from 'express';
-import { sql, type RawBuilder } from 'kysely';
+import { sql, type RawBuilder, type Transaction } from 'kysely';
 import { db } from '../db/index.js';
 import { authMiddleware, optionalAuth } from '../middleware/auth.js';
 import { logDatabaseError } from '../middleware/requestLogger.js';
 import { sanitizePublicImageUrl } from '../utils/publicImageUrl.js';
 import { serializeContact, serializeContacts } from '../utils/contactSerializer.js';
-import { recordTableMetric } from '../services/tableMetrics.js';
+import { recordTableMetric, type MetricAction } from '../services/tableMetrics.js';
 import { isValidSlugParam } from '../utils/validation.js';
 import {
   classifyTablePublicDisposition,
@@ -27,7 +27,7 @@ import {
   filterCatalogTree,
   flattenTree,
 } from '../services/catalogClient.js';
-import type { TableModality, TableType, TableAudience, PriceType, ExperienceLevel, TableReportReason } from '../db/types.js';
+import type { Database, TableModality, TableType, TableAudience, PriceType, ExperienceLevel, TableReportReason } from '../db/types.js';
 
 const VALID_REPORT_REASONS: Set<TableReportReason> = new Set(['golpe', 'conteudo_inadequado', 'spam', 'informacao_falsa', 'outro']);
 
@@ -1146,89 +1146,72 @@ async function findPublicTableIdBySlug(slug: string): Promise<string | null> {
   return table && isPublicTable(table) ? table.id : null;
 }
 
-// POST /api/v1/tables/:slug/view — Registrar visualização
-//
-// Validação de slug igual à `/click` e à `/contact` (spec 105). Antes a `/view`
-// mandava qualquer string para a query; o resultado era 404, agora é 400.
-router.post('/:slug/view', async (req: Request, res: Response) => {
-  const { slug } = req.params;
-
-  if (!isValidSlugParam(slug)) {
-    return res.status(400).json({ error: 'Slug inválido.' });
-  }
-
-  try {
-    const tableId = await findPublicTableIdBySlug(slug);
-    if (!tableId) {
-      return res.status(404).json({ error: 'Mesa não encontrada.' });
+/**
+ * Handler das rotas de métrica (`view`, `click`, `contact`): valida o slug,
+ * resolve a mesa pública e registra a ação. As três repetiam essa casca inteira
+ * (Sonar, duplicação em código novo na PR #338); só mudam a ação, a mensagem de
+ * erro e, no `click`, a escrita extra na mesma transação.
+ *
+ * Validação de slug igual nas três (spec 105). Antes a `/view` mandava
+ * qualquer string para a query; o resultado era 404, agora é 400.
+ */
+function tableMetricHandler(
+  action: MetricAction,
+  errorMessage: string,
+  buildOnCounted?: (req: Request, tableId: string) => ((trx: Transaction<Database>) => Promise<void>) | undefined,
+) {
+  return async (req: Request, res: Response) => {
+    const { slug } = req.params;
+    if (!isValidSlugParam(slug)) {
+      return res.status(400).json({ error: 'Slug inválido.' });
     }
 
-    // Evento + contador, com dedupe por visitante (spec 105 M2).
-    await recordTableMetric(tableId, 'view', req);
+    try {
+      const tableId = await findPublicTableIdBySlug(slug);
+      if (!tableId) {
+        return res.status(404).json({ error: 'Mesa não encontrada.' });
+      }
 
-    res.json({ success: true });
-  } catch (error) {
-    console.error('[POST /tables/:slug/view]', error);
-    res.status(500).json({ error: 'Erro ao registrar visualização.' });
-  }
-});
+      // Evento + contador, com dedupe por visitante (spec 105 M2).
+      await recordTableMetric(tableId, action, req, buildOnCounted?.(req, tableId));
+      res.json({ success: true });
+    } catch (error) {
+      console.error(`[POST /tables/:slug/${action}]`, error);
+      res.status(500).json({ error: errorMessage });
+    }
+  };
+}
 
-// POST /api/v1/tables/:slug/click — Registrar clique (para CTR tracking e A/B test)
-router.post('/:slug/click', async (req: Request, res: Response) => {
-  const { slug } = req.params;
-  // `variant` é opcional; requisição sem body também é válida.
-  // Achado durante T6B.1 (spec 089): destructuring de undefined devolvia 500.
-  // `req.body` é `unknown` até ser normalizado (regra pétrea): o `as` anterior
-  // afirmava `variant?: string` sobre payload que pode ser array, número ou
-  // `{variant: {}}` (achado de review, P2). Aqui a afirmação vira verificação.
+/**
+ * Detalhamento por tipo de clique, lido pelo painel do mestre (`gmPanel.ts`,
+ * `click_breakdown`). Até a spec 105 só entravam `with_metrics`/
+ * `without_metrics`, de um A/B test que nenhum frontend envia; o frontend manda
+ * o tipo (`refactored_v4`, `cta_entrar`, `link_vtt`), que era descartado.
+ * Medido em produção (2026-10-12): `table_click_events` com 0 linhas, painel
+ * sempre zerado. Grava só o clique que contou, na mesma transação do contador,
+ * para o detalhamento somar o mesmo que `clicks_count`.
+ *
+ * `variant` é opcional; requisição sem body também é válida (spec 089 T6B.1:
+ * destructuring de undefined devolvia 500). `req.body` é `unknown` até ser
+ * normalizado (regra pétrea).
+ */
+function clickBreakdownWriter(req: Request, tableId: string) {
   const body: unknown = req.body;
   const variant =
     typeof body === 'object' && body !== null && !Array.isArray(body)
       ? (body as Record<string, unknown>).variant
       : undefined;
+  if (!isClickBreakdownType(variant)) return undefined;
+  return async (trx: Transaction<Database>) => {
+    await trx.insertInto('table_click_events').values({ table_id: tableId, variant }).execute();
+  };
+}
 
-  // CORREÇÃO UX-SENIOR-02: Validar formato do slug
-  if (!isValidSlugParam(slug)) {
-    return res.status(400).json({ error: 'Slug inválido.' });
-  }
+// POST /api/v1/tables/:slug/view — Registrar visualização
+router.post('/:slug/view', tableMetricHandler('view', 'Erro ao registrar visualização.'));
 
-  try {
-    const tableId = await findPublicTableIdBySlug(slug);
-    if (!tableId) {
-      return res.status(404).json({ error: 'Mesa não encontrada.' });
-    }
-
-    // Evento + contador, com dedupe por visitante (spec 105 M2).
-    //
-    // Detalhamento por tipo de clique, lido pelo painel do mestre
-    // (`gmPanel.ts`, `click_breakdown`). Até a spec 105 só entravam
-    // `with_metrics`/`without_metrics`, de um A/B test que nenhum frontend
-    // envia; o frontend manda o tipo (`refactored_v4`, `cta_entrar`,
-    // `link_vtt`), que era descartado. Medido em produção (2026-10-12):
-    // `table_click_events` com 0 linhas, painel sempre zerado. Grava só o
-    // clique que contou, na mesma transação do contador, para o detalhamento
-    // somar o mesmo que `clicks_count`.
-    const breakdownType = isClickBreakdownType(variant) ? variant : null;
-    await recordTableMetric(
-      tableId,
-      'click',
-      req,
-      breakdownType
-        ? async (trx) => {
-            await trx
-              .insertInto('table_click_events')
-              .values({ table_id: tableId, variant: breakdownType })
-              .execute();
-          }
-        : undefined,
-    );
-
-    res.json({ success: true });
-  } catch (error) {
-    console.error('[POST /tables/:slug/click]', error);
-    res.status(500).json({ error: 'Erro ao registrar clique.' });
-  }
-});
+// POST /api/v1/tables/:slug/click — Registrar clique (CTR e detalhamento por tipo)
+router.post('/:slug/click', tableMetricHandler('click', 'Erro ao registrar clique.', clickBreakdownWriter));
 
 // POST /api/v1/tables/:slug/contact — Registrar contato iniciado (spec 105 M1)
 //
@@ -1238,26 +1221,7 @@ router.post('/:slug/click', async (req: Request, res: Response) => {
 // medido em produção (2026-10-12): soma 1 em 206 mesas. O canal não é gravado no
 // banco (a tabela de evento não tem coluna para ele); vai para o GA4 no
 // `contact_click`.
-router.post('/:slug/contact', async (req: Request, res: Response) => {
-  const { slug } = req.params;
-
-  if (!isValidSlugParam(slug)) {
-    return res.status(400).json({ error: 'Slug inválido.' });
-  }
-
-  try {
-    const tableId = await findPublicTableIdBySlug(slug);
-    if (!tableId) {
-      return res.status(404).json({ error: 'Mesa não encontrada.' });
-    }
-
-    await recordTableMetric(tableId, 'contact', req);
-    res.json({ success: true });
-  } catch (error) {
-    console.error('[POST /tables/:slug/contact]', error);
-    res.status(500).json({ error: 'Erro ao registrar contato.' });
-  }
-});
+router.post('/:slug/contact', tableMetricHandler('contact', 'Erro ao registrar contato.'));
 
 // GET /api/v1/tables/:slug/favorite — Estado de favorito do usuário logado (401 se não logado)
 router.get('/:slug/favorite', authMiddleware, async (req: Request, res: Response) => {
