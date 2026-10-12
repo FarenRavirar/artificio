@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import { trackContactClick } from '@artificio/analytics';
 
 /**
  * Hook reutilizável para tracking de eventos de engajamento
@@ -28,6 +29,8 @@ export function useTracking() {
    * @param channel - Canal de contato (whatsapp, email, discord, form)
    */
   const trackGmContactClick = useCallback((gmSlug: string, channel: string) => {
+    // Conversão no GA4 (spec 105 I3); o backend guarda a contagem própria.
+    trackContactClick({ origem: 'mestre', canal: channel });
     fetch(`/api/v1/gm/perfis/${gmSlug}/contact-click`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

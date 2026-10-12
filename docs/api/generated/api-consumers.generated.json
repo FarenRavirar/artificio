@@ -1616,7 +1616,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authDelete",
-      "line": 401
+      "line": 402
     },
     {
       "app": "mesas-frontend",
@@ -1776,7 +1776,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "fetch",
-      "line": 31
+      "line": 34
     },
     {
       "app": "mesas-frontend",
@@ -1906,7 +1906,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authDelete",
-      "line": 401
+      "line": 402
     },
     {
       "app": "mesas-frontend",
@@ -1936,7 +1936,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authPatch",
-      "line": 115
+      "line": 119
     },
     {
       "app": "mesas-frontend",
@@ -1966,7 +1966,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authPatch",
-      "line": 90
+      "line": 94
     },
     {
       "app": "mesas-frontend",
@@ -2420,6 +2420,16 @@
     },
     {
       "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/features/table/utils/contactTracking.ts",
+      "method": "POST",
+      "endpoint": "/api/v1/tables/:param/:param",
+      "confidence": "medium",
+      "pattern": "template-literal",
+      "wrapper": "fetch",
+      "line": 16
+    },
+    {
+      "app": "mesas-frontend",
       "consumerFile": "apps/mesas/frontend/src/components/TableCard.tsx",
       "method": "POST",
       "endpoint": "/api/v1/tables/:param/click",
@@ -2430,23 +2440,13 @@
     },
     {
       "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/features/table/utils/uiHelpers.ts",
-      "method": "POST",
-      "endpoint": "/api/v1/tables/:param/click",
-      "confidence": "medium",
-      "pattern": "template-literal",
-      "wrapper": "fetch",
-      "line": 49
-    },
-    {
-      "app": "mesas-frontend",
       "consumerFile": "apps/mesas/frontend/src/hooks/useTracking.ts",
       "method": "POST",
       "endpoint": "/api/v1/tables/:param/click",
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "fetch",
-      "line": 15
+      "line": 16
     },
     {
       "app": "mesas-frontend",
@@ -2486,7 +2486,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "fetch",
-      "line": 59
+      "line": 60
     },
     {
       "app": "mesas-frontend",

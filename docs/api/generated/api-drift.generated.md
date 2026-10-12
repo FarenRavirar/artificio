@@ -13,8 +13,8 @@
 | ✅ OK | 202 | ❌ |
 | ⚠️ CODE_ONLY | 0 | ✅ (se novo) |
 | 📄 CONTRACT_ONLY | 5 | ❌ |
-| 🔍 CONSUMER_ONLY | 9 | ✅ (se new + high) |
-| 🕳️ UNUSED_ROUTE | 174 | ❌ |
+| 🔍 CONSUMER_ONLY | 10 | ✅ (se new + high) |
+| 🕳️ UNUSED_ROUTE | 171 | ❌ |
 | 👻 ORPHAN_SUSPECT | 69 | ❌ |
 | ❓ UNCERTAIN | 0 | ❌ |
 
@@ -280,7 +280,7 @@
 |--------|------|:-----:|:-------:|:----------:|-----|
 | DELETE | `/api/groups/:param/report` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 🆕 Novo (não bloqueante) |
 
-### mesas (173 rotas no inventário)
+### mesas (170 rotas no inventário)
 
 | Method | Path | Estado | OpenAPI | Consumidor | Obs |
 |--------|------|:-----:|:-------:|:----------:|-----|
@@ -430,10 +430,6 @@
 | POST | `/api/v1/gm/profile` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/gm/profile/bio-suggestions` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/gm/tables` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
-| POST | `/api/v1/gm/tables/:id/click` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
-| POST | `/api/v1/gm/tables/:id/contact` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
-| POST | `/api/v1/gm/tables/:id/favorite` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
-| POST | `/api/v1/gm/tables/:slug/view` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/profile/links` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/profile/me/connect/discord` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/profile/me/google-picture` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
@@ -442,6 +438,7 @@
 | POST | `/api/v1/scenarios/admin` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/systems/admin` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/tables/:slug/click` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
+| POST | `/api/v1/tables/:slug/contact` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/tables/:slug/favorite` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/tables/:slug/report` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/tables/:slug/view` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
@@ -469,6 +466,7 @@
 | GET | `/api/v1/masters/:param` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/profile/:param` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/:param` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 🆕 Novo (não bloqueante) |
+| POST | `/api/v1/tables/:param/:param` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 🆕 Novo (não bloqueante) |
 
 ### site (46 rotas no inventário)
 
@@ -633,6 +631,7 @@ Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificaç
 | mesas-frontend | GET | `/api/v1/masters/:param` | medium |
 | mesas-frontend | GET | `/api/v1/profile/:param` | medium |
 | mesas-frontend | POST | `/:param` | medium |
+| mesas-frontend | POST | `/api/v1/tables/:param/:param` | medium |
 | site-admin | POST | `/media` | medium |
 | site-admin | POST | `/preview` | medium |
 | glossario-frontend | PUT | `/:param` | medium |

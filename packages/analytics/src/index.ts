@@ -10,5 +10,6 @@ export {
   trackSearch,
   trackViewTermo,
   trackSelectMesa,
+  trackContactClick,
   trackFilterSistema,
 } from "./events.js";

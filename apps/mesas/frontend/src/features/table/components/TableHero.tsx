@@ -2,6 +2,7 @@ import { cropToObjectPosition } from '@artificio/media/image-kinds';
 import type { TableViewModel, TableHeroVariant } from '../types/tableView.types';
 import { getTableBadges, getBadgeClasses } from '../../../utils/tableBadges';
 import { getButtonStyle, handleCTA } from '../utils/uiHelpers';
+import { trackingFromVm } from '../utils/contactTracking';
 import { SystemBadge } from '../../../components/SystemBadge';
 import { applyTableImageFallback, tableImageAttrs } from '../../../utils/tableImage';
 
@@ -205,7 +206,7 @@ export function TableHero({
           {/* CTA (apenas em highlight) */}
           {variant === 'highlight' && !vm.cta.disabled && (
             <button
-              onClick={() => handleCTA(vm.cta)}
+              onClick={() => handleCTA(vm.cta, trackingFromVm(vm))}
               className={`mt-3 px-5 py-2 rounded-lg font-semibold ${getButtonStyle(vm.cta.variant)}`}
             >
               {vm.cta.label}

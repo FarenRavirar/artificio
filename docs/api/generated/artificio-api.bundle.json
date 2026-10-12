@@ -7,10 +7,10 @@
     "downloads": 108,
     "glossario": 50,
     "links": 22,
-    "mesas": 211,
+    "mesas": 208,
     "site": 58
   },
-  "total": 502,
+  "total": 499,
   "operations": [
     {
       "app": "accounts",
@@ -4671,42 +4671,6 @@
     },
     {
       "app": "mesas",
-      "method": "POST",
-      "path": "/api/v1/gm/tables/{id}/click",
-      "summary": "Cria ou executa api v1 gm tables id click",
-      "owner": "mesas",
-      "scope": "telemetry",
-      "status": "active",
-      "auth": "none",
-      "consumers": [],
-      "operationId": "postapi_v1_gm_tables_id_click"
-    },
-    {
-      "app": "mesas",
-      "method": "POST",
-      "path": "/api/v1/gm/tables/{id}/contact",
-      "summary": "Cria ou executa api v1 gm tables id contact",
-      "owner": "mesas",
-      "scope": "telemetry",
-      "status": "active",
-      "auth": "none",
-      "consumers": [],
-      "operationId": "postapi_v1_gm_tables_id_contact"
-    },
-    {
-      "app": "mesas",
-      "method": "POST",
-      "path": "/api/v1/gm/tables/{id}/favorite",
-      "summary": "Cria ou executa api v1 gm tables id favorite",
-      "owner": "mesas",
-      "scope": "telemetry",
-      "status": "active",
-      "auth": "none",
-      "consumers": [],
-      "operationId": "postapi_v1_gm_tables_id_favorite"
-    },
-    {
-      "app": "mesas",
       "method": "PATCH",
       "path": "/api/v1/gm/tables/{id}/status",
       "summary": "Atualiza api v1 gm tables id status",
@@ -4716,18 +4680,6 @@
       "auth": "user",
       "consumers": [],
       "operationId": "patchapi_v1_gm_tables_id_status"
-    },
-    {
-      "app": "mesas",
-      "method": "POST",
-      "path": "/api/v1/gm/tables/{slug}/view",
-      "summary": "Cria ou executa api v1 gm tables slug view",
-      "owner": "mesas",
-      "scope": "telemetry",
-      "status": "active",
-      "auth": "none",
-      "consumers": [],
-      "operationId": "postapi_v1_gm_tables_slug_view"
     },
     {
       "app": "mesas",
@@ -5196,6 +5148,18 @@
       "auth": "none",
       "consumers": [],
       "operationId": "postapi_v1_tables_slug_click"
+    },
+    {
+      "app": "mesas",
+      "method": "POST",
+      "path": "/api/v1/tables/{slug}/contact",
+      "summary": "Cria ou executa api v1 tables slug contact",
+      "owner": "mesas",
+      "scope": "telemetry",
+      "status": "active",
+      "auth": "none",
+      "consumers": [],
+      "operationId": "postapi_v1_tables_slug_contact"
     },
     {
       "app": "mesas",

@@ -1,6 +1,6 @@
 import type { CropRect } from '@artificio/media/image-kinds';
 
-import type { TableSchedule, TableContact, PriceType, TableAgeRating } from './types.js';
+import type { TableSchedule, TableContact, TableContactChannel, PriceType, TableAgeRating } from './types.js';
 
 /**
  * Variantes de renderização para componentes de mesa
@@ -18,6 +18,12 @@ export interface CTAConfig {
   variant: 'primary' | 'secondary' | 'disabled';
   action: 'scroll-contact' | 'external-link' | 'none';
   actionUrl?: string;
+  /**
+   * Canal do contato que o `external-link` abre. Existe para a métrica de
+   * contato (spec 105 I3/M1): abrir o link É o contato, e a medição precisa
+   * saber por qual canal ele aconteceu.
+   */
+  channel?: TableContactChannel;
 }
 
 /**

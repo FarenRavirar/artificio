@@ -4,6 +4,7 @@ import type { TableViewModel, TableActionPanelVariant } from '../types/tableView
 import type { TableDetail } from '../../../types/tables';
 import { InlineDeleteConfirmation } from '../../../components/InlineDeleteConfirmation';
 import { getButtonStyle, getUrgencyColor, handleCTA, handleEdit, handleStatus, handleArchive } from '../utils/uiHelpers';
+import { trackingFromVm } from '../utils/contactTracking';
 import { TableContactsBlock } from './TableContactsBlock';
 import { CopyAnnouncementButton } from './CopyAnnouncementButton';
 import { isTableAnnounceable } from '../share/whatsappAnnouncement';
@@ -367,13 +368,13 @@ function DeleteTablePanel({ vm, isOpen, isDeleting, onOpen, onCancel, onConfirm 
   );
 }
 
-function VisitorPreview({ vm, trackTableClick }: { readonly vm: PanelVm; readonly trackTableClick: (slug: string, action: string) => void }) {
+function VisitorPreview({ vm }: { readonly vm: PanelVm }) {
   return (
     <div className="pt-4 border-t border-[var(--line)]">
       <p className="text-xs font-semibold text-[var(--fg-muted)] uppercase tracking-wide mb-3">👁 Preview Público</p>
       <PricePanel vm={vm} className="mb-3" />
       <QuickInfoPanel vm={vm} showStatus className="mb-3" />
-      <PlatformsPanel vm={vm} trackTableClick={trackTableClick} className="mb-3" />
+      <PlatformsPanel vm={vm} className="mb-3" />
       <TableContactsBlock contacts={vm.contacts} />
     </div>
   );
@@ -427,7 +428,10 @@ export function TableActionPanel({ vm, variant = 'full', deleteEndpointScope = '
           onCancel={() => setIsDeleteConfirmOpen(false)}
           onConfirm={handleDeleteTable}
         />
-        <VisitorPreview vm={vm} trackTableClick={trackTableClick} />
+        {/* Sem métrica: é o dono olhando a própria mesa. Antes, este preview era o
+            ÚNICO lugar que contava clique no link de VTT, e o painel público não
+            contava — `clicks_count` media o mestre, não o visitante (spec 105). */}
+        <VisitorPreview vm={vm} />
       </aside>
     );
   }
@@ -436,10 +440,7 @@ export function TableActionPanel({ vm, variant = 'full', deleteEndpointScope = '
     <aside className="space-y-4">
       <button
         disabled={vm.cta.disabled}
-        onClick={() => {
-          trackTableClick(vm.slug, 'cta_entrar');
-          handleCTA(vm.cta);
-        }}
+        onClick={() => handleCTA(vm.cta, trackingFromVm(vm))}
         className={`w-full py-3 rounded-xl font-semibold ${getButtonStyle(vm.cta.variant)}`}
       >
         {vm.cta.label}
@@ -450,8 +451,8 @@ export function TableActionPanel({ vm, variant = 'full', deleteEndpointScope = '
       </div>
       <PricePanel vm={vm} />
       <QuickInfoPanel vm={vm} />
-      <PlatformsPanel vm={vm} />
-      <TableContactsBlock contacts={vm.contacts} />
+      <PlatformsPanel vm={vm} trackTableClick={trackTableClick} />
+      <TableContactsBlock contacts={vm.contacts} tracking={trackingFromVm(vm)} />
     </aside>
   );
 }
