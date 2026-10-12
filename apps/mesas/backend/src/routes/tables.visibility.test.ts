@@ -124,6 +124,24 @@ describe('GET /api/v1/tables/:slug — visibilidade pública', () => {
     expect(response.body.data.closed_at).toBe('2026-07-28T01:00:00.000Z');
   });
 
+  // Autor sem perfil: cai no username. O fallback antigo citava `u.name`, coluna
+  // que `users` não tem — em produção a consulta devolvia 500 (2026-10-12).
+  it('autor sem nome de exibição cai no username', async () => {
+    dbMocks.executeTakeFirst
+      .mockResolvedValueOnce({
+        ...visibleTable,
+        archived_at: new Date('2026-07-28T01:00:00.000Z'),
+        archived_by: 'user-1',
+        closed_reason: 'gm',
+      })
+      .mockResolvedValueOnce({ display_name: null, username: 'fulano' });
+
+    const response = await request(makeApp()).get('/api/v1/tables/mesa-publica');
+
+    expect(response.status).toBe(410);
+    expect(response.body.data.closed_by_name).toBe('fulano');
+  });
+
   // Importada vencida não tem `archived_at` — ninguém a encerrou, ela expirou.
   // A data exibida é o limite calculado, e o motivo é derivado, não gravado.
   it('devolve 410 com motivo derivado para importada expirada', async () => {

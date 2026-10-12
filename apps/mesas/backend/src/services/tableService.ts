@@ -3,6 +3,7 @@ import { CreateTableInput } from '../validators/tableValidators.js';
 import { Insertable, sql } from 'kysely';
 import { TablesTable } from '../db/types.js';
 import { getSystemCatalogProvider } from './systemCatalogProvider.js';
+import { isUuid } from '../utils/validation.js';
 
 /**
  * Sistemas elegíveis ao selo DDAL (D&D Adventurers League).
@@ -44,18 +45,36 @@ export class TableService {
     }
 
     /**
-     * Valida e retorna UUID da VTT platform
+     * Valida e retorna UUID da VTT platform.
+     *
+     * Aceita o UUID ou o slug. O select do editor trabalha com slug, mas a
+     * herança do perfil pré-carrega `gm_profiles.preferred_vtt_platforms[0]`,
+     * que é UUID, e só o `WherePart` convertia UUID→slug — e o editor monta
+     * apenas a parte ativa. Quem publicava sem abrir "Onde" recebia 400
+     * "Plataforma VTT inválida" (logs do mesas-api, 2026-10-05 a 10-09: 4
+     * rajadas, cada uma seguida de mesa criada minutos depois, 2 delas sem VTT).
+     * O campo se chama `vtt_platform_id`; aceitar o id é o contrato do nome.
      */
     static async validateVttPlatform(vttPlatformId: string | null): Promise<string | null> {
         if (!vttPlatformId || vttPlatformId === 'custom') {
             return null;
         }
 
+        // Comparar texto livre com a coluna `uuid` faria o Postgres lançar
+        // `invalid input syntax for type uuid`, então valor sem forma de UUID
+        // só consulta `slug`. Valor COM forma de UUID consulta as duas colunas:
+        // um slug que por acaso tivesse essa forma não pode deixar de resolver
+        // (ressalva do CodeRabbit na PR #336; medido em produção: 0 de 10 slugs
+        // têm essa forma hoje). Havendo os dois, o `id` vence pelo `orderBy`.
+        const value = vttPlatformId;
         const vttPlatform = await db
             .selectFrom('vtt_platforms')
             .select(['id'])
-            .where('slug', '=', vttPlatformId)
+            .where((eb) => (isUuid(value)
+                ? eb.or([eb('id', '=', value), eb('slug', '=', value)])
+                : eb('slug', '=', value)))
             .where('is_active', '=', true)
+            .orderBy(sql`(id::text = ${value})`, 'desc')
             .executeTakeFirst();
 
         if (!vttPlatform) {

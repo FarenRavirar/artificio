@@ -53,6 +53,7 @@ import {
 } from '../discord/shared.js';
 import { loadActiveLabelAliases } from '../discord/learningRules.js';
 import { z } from 'zod';
+import { UUID_RE } from '../utils/validation.js';
 
 /**
  * Teto de `languages`/`specialties`/`badges` (achado de review, PR #301).
@@ -130,7 +131,6 @@ const isSellingPoint = (point: unknown): point is SellingPoint => {
  * atravessava a validação e derrubava o PUT com 500 — a mesma classe de falha
  * que esta PR corrige em `db/jsonb.ts`.
  */
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function sanitizeUuidList(value: unknown): string[] | undefined {
   return Array.isArray(value)

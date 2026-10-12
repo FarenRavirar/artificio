@@ -26,3 +26,14 @@ export function isValidEmail(value: unknown): value is string {
 
   return !email.includes(' ') && !email.includes('\t') && !email.includes('\n');
 }
+
+/**
+ * UUID em forma canônica (qualquer versão). Fonte única do backend do mesas —
+ * `gmPanel.ts`, `devFeedbackAdmin.ts` e `tableService.ts` tinham cada um a sua
+ * cópia da mesma regex.
+ */
+export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function isUuid(value: unknown): value is string {
+  return typeof value === 'string' && UUID_RE.test(value);
+}

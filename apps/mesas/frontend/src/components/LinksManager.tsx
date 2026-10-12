@@ -1,32 +1,11 @@
 import { useState } from 'react';
-import { Trash2, Video, Music, Radio, MessageCircle, FileText, Globe, Plus, Loader, Camera, Share2, Briefcase } from 'lucide-react';
+import { Trash2, Plus, Loader, Globe } from 'lucide-react';
 import { useLinks, type UserLink } from '../hooks/useLinks';
 import { TextInput, useConfirm } from "@artificio/ui";
 import { RECOMMENDED_GAIN } from './mestre/editor/profileEditorDomain';
+import { linkHostname, linkTypeLabel } from '../utils/linkTypes';
+import { LinkTypeIcon } from './LinkTypeIcon';
 import './LinksManager.css';
-
-const LINK_TYPE_ICONS = {
-  youtube: Video,
-  spotify: Music,
-  twitch: Radio,
-  twitter: MessageCircle,
-  instagram: Camera,
-  facebook: Share2,
-  tiktok: Music,
-  linkedin: Briefcase,
-  podcast: Radio,
-  article: FileText,
-  website: Globe,
-};
-
-const LINK_TYPE_LABELS = {
-  youtube: 'YouTube',
-  spotify: 'Spotify',
-  twitch: 'Twitch',
-  twitter: 'Twitter/X',
-  article: 'Artigo',
-  website: 'Website',
-};
 
 export function LinksManager() {
   const { links, loading, error, addLink, removeLink } = useLinks();
@@ -173,13 +152,12 @@ interface LinkItemProps {
 }
 
 function LinkItem({ link, onRemove }: LinkItemProps) {
-  const Icon = LINK_TYPE_ICONS[link.type];
-  const label = LINK_TYPE_LABELS[link.type];
+  const label = linkTypeLabel(link.type);
 
   return (
     <div className="link-item">
       <div className="link-item-icon">
-        <Icon className="w-5 h-5" />
+        <LinkTypeIcon type={link.type} className="w-5 h-5" />
       </div>
       
       <div className="link-item-content">
@@ -188,7 +166,7 @@ function LinkItem({ link, onRemove }: LinkItemProps) {
         </div>
         
         <p className="link-item-title">
-          {link.title || new URL(link.url).hostname}
+          {link.title || linkHostname(link.url)}
         </p>
         
         {link.description && (

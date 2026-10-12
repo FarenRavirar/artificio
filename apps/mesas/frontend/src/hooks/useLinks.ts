@@ -2,12 +2,15 @@ import { useState, useEffect, useCallback, useSyncExternalStore } from 'react';
 import { useAuth } from '../contexts/useAuth';
 import { authGet, authPost, authPatch, authDelete } from '../utils/authenticatedFetch';
 import { isAbortError } from '../services/apiClient';
+import type { LinkType } from '../utils/linkTypes';
 
 export interface UserLink {
   id: string;
   user_id: string;
   url: string;
-  type: 'youtube' | 'spotify' | 'twitch' | 'twitter' | 'article' | 'website';
+  // Fonte única em `utils/linkTypes.ts`. O valor vem do servidor, então os
+  // consumidores resolvem ícone/rótulo com fallback (`linkTypeIcon`).
+  type: LinkType;
   title: string | null;
   description: string | null;
   thumbnail_url: string | null;
