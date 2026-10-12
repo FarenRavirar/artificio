@@ -861,13 +861,18 @@ async function buildClosedTablePayload(table: {
   // nas 64 mesas antigas, que nunca terão `archived_by`.
   let closedByName: string | null = null;
   if (table.archived_by) {
+    // Colunas tipadas, não `sql` cru: o COALESCE antigo citava `u.name`, que
+    // `users` não tem — o Postgres respondia `column u.name does not exist` e
+    // toda mesa encerrada com autor gravado devolvia 500 (logs do mesas-api,
+    // 2026-10-12). Com o select tipado, coluna inexistente é erro de compilação.
+    // Fallback igual ao de `activityLog.ts`: nome de exibição, senão username.
     const actor = await db
       .selectFrom('users as u')
       .leftJoin('profiles as p', 'p.user_id', 'u.id')
-      .select([sql<string | null>`COALESCE(p.display_name, u.name)`.as('display_name')])
+      .select(['p.display_name', 'u.username'])
       .where('u.id', '=', table.archived_by)
       .executeTakeFirst();
-    closedByName = actor?.display_name ?? null;
+    closedByName = actor?.display_name || actor?.username || null;
   }
 
   return {

@@ -6,6 +6,7 @@ import { deleteFromCloudinary } from '../services/cloudinary.js';
 import { buildMerge, MAX_MERGE_SOURCES, type MergeableFeedback } from '../services/devFeedbackMerge.js';
 import type { DevFeedbackStatus } from '../db/types.js';
 import { sanitizeNullableUserMarkdown, sanitizeUserMarkdown } from '../utils/userMarkdown.js';
+import { UUID_RE } from '../utils/validation.js';
 
 const router = Router();
 
@@ -15,7 +16,6 @@ const VALID_STATUS: ReadonlySet<DevFeedbackStatus> = new Set([
 
 const VALID_KIND = new Set(['bug', 'suggestion']);
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * Resolve nomes de varios reporters em lote (evita N+1):

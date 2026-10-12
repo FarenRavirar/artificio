@@ -3,6 +3,7 @@ import { CreateTableInput } from '../validators/tableValidators.js';
 import { Insertable, sql } from 'kysely';
 import { TablesTable } from '../db/types.js';
 import { getSystemCatalogProvider } from './systemCatalogProvider.js';
+import { isUuid } from '../utils/validation.js';
 
 /**
  * Sistemas elegíveis ao selo DDAL (D&D Adventurers League).
@@ -44,17 +45,28 @@ export class TableService {
     }
 
     /**
-     * Valida e retorna UUID da VTT platform
+     * Valida e retorna UUID da VTT platform.
+     *
+     * Aceita o UUID ou o slug. O select do editor trabalha com slug, mas a
+     * herança do perfil pré-carrega `gm_profiles.preferred_vtt_platforms[0]`,
+     * que é UUID, e só o `WherePart` convertia UUID→slug — e o editor monta
+     * apenas a parte ativa. Quem publicava sem abrir "Onde" recebia 400
+     * "Plataforma VTT inválida" (logs do mesas-api, 2026-10-05 a 10-09: 4
+     * rajadas, cada uma seguida de mesa criada minutos depois, 2 delas sem VTT).
+     * O campo se chama `vtt_platform_id`; aceitar o id é o contrato do nome.
      */
     static async validateVttPlatform(vttPlatformId: string | null): Promise<string | null> {
         if (!vttPlatformId || vttPlatformId === 'custom') {
             return null;
         }
 
+        // Comparar texto livre com a coluna `uuid` faria o Postgres lançar
+        // `invalid input syntax for type uuid`; por isso a coluna é escolhida
+        // pela forma do valor.
         const vttPlatform = await db
             .selectFrom('vtt_platforms')
             .select(['id'])
-            .where('slug', '=', vttPlatformId)
+            .where(isUuid(vttPlatformId) ? 'id' : 'slug', '=', vttPlatformId)
             .where('is_active', '=', true)
             .executeTakeFirst();
 

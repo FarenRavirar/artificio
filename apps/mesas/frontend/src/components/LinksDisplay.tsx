@@ -1,36 +1,8 @@
-import { Video, Music, Radio, MessageCircle, FileText, Globe, ExternalLink, Camera, Share2, Briefcase, BookOpen, Mic2 } from 'lucide-react';
+import { Video, MessageCircle, ExternalLink, Share2, BookOpen, Mic2 } from 'lucide-react';
 import type { UserLink } from '../hooks/useLinks';
+import { linkTypeLabel } from '../utils/linkTypes';
+import { LinkTypeIcon } from './LinkTypeIcon';
 import './LinksDisplay.css';
-
-const LINK_TYPE_ICONS = {
-  youtube: Video,
-  spotify: Music,
-  twitch: Radio,
-  twitter: MessageCircle,
-  instagram: Camera,
-  facebook: Share2,
-  tiktok: Music,
-  linkedin: Briefcase,
-  whatsapp: MessageCircle,
-  podcast: Radio,
-  article: FileText,
-  website: Globe,
-};
-
-const LINK_TYPE_LABELS = {
-  youtube: 'YouTube',
-  spotify: 'Spotify',
-  twitch: 'Twitch',
-  twitter: 'Twitter/X',
-  instagram: 'Instagram',
-  facebook: 'Facebook',
-  tiktok: 'TikTok',
-  linkedin: 'LinkedIn',
-  whatsapp: 'WhatsApp',
-  podcast: 'Podcast',
-  article: 'Artigo',
-  website: 'Website',
-};
 
 // Categorias para organização visual
 const CATEGORIES = {
@@ -109,8 +81,7 @@ interface LinkCardProps {
 }
 
 function LinkCard({ link }: LinkCardProps) {
-  const Icon = LINK_TYPE_ICONS[link.type as keyof typeof LINK_TYPE_ICONS] || Globe;
-  const label = LINK_TYPE_LABELS[link.type as keyof typeof LINK_TYPE_LABELS] || 'Link';
+  const label = linkTypeLabel(link.type);
   
   // Apenas YouTube, Spotify e Twitch têm embed pesado
   const hasHeavyEmbed = ['youtube', 'spotify', 'twitch'].includes(link.type) && link.embed_url;
@@ -125,7 +96,7 @@ function LinkCard({ link }: LinkCardProps) {
     <div className="link-card">
       <div className="link-card-header">
         <div className="link-card-icon">
-          <Icon className="w-5 h-5" />
+          <LinkTypeIcon type={link.type} className="w-5 h-5" />
         </div>
         <span className="link-card-type">{label}</span>
       </div>
@@ -133,7 +104,7 @@ function LinkCard({ link }: LinkCardProps) {
       {/* Canal YouTube sem embed (preview leve) */}
       {isChannelLike && (
         <div className="link-card-channel-preview">
-          <Icon className="w-10 h-10" />
+          <LinkTypeIcon type={link.type} className="w-10 h-10" />
           <div>
             <p className="link-card-channel-handle">
               {(() => {
