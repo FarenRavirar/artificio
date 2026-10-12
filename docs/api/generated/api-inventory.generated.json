@@ -4126,7 +4126,7 @@
       "method": "GET",
       "path": "/api/v1/gm/perfis/:slug/reviews",
       "sourceFile": "apps/mesas/backend/src/routes/gm.ts",
-      "line": 735,
+      "line": 730,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4135,7 +4135,7 @@
       "method": "POST",
       "path": "/api/v1/gm/perfis/:slug/reviews",
       "sourceFile": "apps/mesas/backend/src/routes/gm.ts",
-      "line": 783,
+      "line": 778,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4666,7 +4666,7 @@
       "method": "POST",
       "path": "/api/v1/tables/:slug/click",
       "sourceFile": "apps/mesas/backend/src/routes/tables.ts",
-      "line": 1214,
+      "line": 1209,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4675,7 +4675,7 @@
       "method": "POST",
       "path": "/api/v1/tables/:slug/contact",
       "sourceFile": "apps/mesas/backend/src/routes/tables.ts",
-      "line": 1224,
+      "line": 1219,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4684,7 +4684,7 @@
       "method": "GET",
       "path": "/api/v1/tables/:slug/favorite",
       "sourceFile": "apps/mesas/backend/src/routes/tables.ts",
-      "line": 1227,
+      "line": 1222,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4693,7 +4693,7 @@
       "method": "POST",
       "path": "/api/v1/tables/:slug/favorite",
       "sourceFile": "apps/mesas/backend/src/routes/tables.ts",
-      "line": 1259,
+      "line": 1247,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4702,7 +4702,7 @@
       "method": "POST",
       "path": "/api/v1/tables/:slug/report",
       "sourceFile": "apps/mesas/backend/src/routes/tables.ts",
-      "line": 1325,
+      "line": 1306,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4711,7 +4711,7 @@
       "method": "POST",
       "path": "/api/v1/tables/:slug/view",
       "sourceFile": "apps/mesas/backend/src/routes/tables.ts",
-      "line": 1211,
+      "line": 1206,
       "confidence": "high",
       "kind": "express-route"
     },

@@ -47,3 +47,16 @@ export function isUuid(value: unknown): value is string {
 export function isValidSlugParam(value: unknown): value is string {
   return typeof value === 'string' && value.length > 0 && value.length <= 200 && /^[a-z0-9-]+$/i.test(value);
 }
+
+/**
+ * Lê um campo de `req.body` sem afirmar o formato do payload. `req.body` é
+ * `unknown` até ser normalizado (regra pétrea): pode vir ausente, array,
+ * número ou string. Devolve `unknown` — quem chama valida o valor. Fonte única:
+ * `tables.ts` (`variant`) e `gm.ts` (`channel`) repetiam a mesma checagem
+ * (Sonar, duplicação em código novo na PR #338).
+ */
+export function readBodyField(body: unknown, field: string): unknown {
+  return typeof body === 'object' && body !== null && !Array.isArray(body)
+    ? (body as Record<string, unknown>)[field]
+    : undefined;
+}

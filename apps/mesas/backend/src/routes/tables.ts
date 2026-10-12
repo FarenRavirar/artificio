@@ -6,7 +6,7 @@ import { logDatabaseError } from '../middleware/requestLogger.js';
 import { sanitizePublicImageUrl } from '../utils/publicImageUrl.js';
 import { serializeContact, serializeContacts } from '../utils/contactSerializer.js';
 import { recordTableMetric, type MetricAction } from '../services/tableMetrics.js';
-import { isValidSlugParam } from '../utils/validation.js';
+import { isValidSlugParam, readBodyField } from '../utils/validation.js';
 import {
   classifyTablePublicDisposition,
   importedTableExpiryDate,
@@ -1192,15 +1192,10 @@ function tableMetricHandler(
  * para o detalhamento somar o mesmo que `clicks_count`.
  *
  * `variant` é opcional; requisição sem body também é válida (spec 089 T6B.1:
- * destructuring de undefined devolvia 500). `req.body` é `unknown` até ser
- * normalizado (regra pétrea).
+ * destructuring de undefined devolvia 500).
  */
 function clickBreakdownWriter(req: Request, tableId: string) {
-  const body: unknown = req.body;
-  const variant =
-    typeof body === 'object' && body !== null && !Array.isArray(body)
-      ? (body as Record<string, unknown>).variant
-      : undefined;
+  const variant = readBodyField(req.body, 'variant');
   if (!isClickBreakdownType(variant)) return undefined;
   return async (trx: Transaction<Database>) => {
     await trx.insertInto('table_click_events').values({ table_id: tableId, variant }).execute();
@@ -1229,22 +1224,15 @@ router.get('/:slug/favorite', authMiddleware, async (req: Request, res: Response
   const userId = req.user!.userId;
 
   try {
-    const table = await db
-      .selectFrom('tables as t')
-      .select(['t.id', 't.status', 't.archived_at', 't.origin', 't.created_at', 't.starts_at'])
-      .where('t.slug', '=', slug)
-      .where('t.status', '=', 'active')
-      .where('t.archived_at', 'is', null)
-      .executeTakeFirst();
-
-    if (!table || !isPublicTable(table)) {
+    const tableId = await findPublicTableIdBySlug(slug);
+    if (!tableId) {
       return res.status(404).json({ error: 'Mesa não encontrada.' });
     }
 
     const favorite = await db
       .selectFrom('table_favorites')
       .select(['id'])
-      .where('table_id', '=', table.id)
+      .where('table_id', '=', tableId)
       .where('user_id', '=', userId)
       .executeTakeFirst();
 
@@ -1261,15 +1249,8 @@ router.post('/:slug/favorite', authMiddleware, async (req: Request, res: Respons
   const userId = req.user!.userId;
 
   try {
-    const table = await db
-      .selectFrom('tables as t')
-      .select(['t.id', 't.status', 't.archived_at', 't.origin', 't.created_at', 't.starts_at'])
-      .where('t.slug', '=', slug)
-      .where('t.status', '=', 'active')
-      .where('t.archived_at', 'is', null)
-      .executeTakeFirst();
-
-    if (!table || !isPublicTable(table)) {
+    const tableId = await findPublicTableIdBySlug(slug);
+    if (!tableId) {
       return res.status(404).json({ error: 'Mesa não encontrada.' });
     }
 
@@ -1280,7 +1261,7 @@ router.post('/:slug/favorite', authMiddleware, async (req: Request, res: Respons
       const existing = await trx
         .selectFrom('table_favorites')
         .select(['id'])
-        .where('table_id', '=', table.id)
+        .where('table_id', '=', tableId)
         .where('user_id', '=', userId)
         .forUpdate()
         .executeTakeFirst();
@@ -1290,18 +1271,18 @@ router.post('/:slug/favorite', authMiddleware, async (req: Request, res: Respons
         await trx
           .updateTable('table_metrics')
           .set({ favorites_count: sql`GREATEST(favorites_count - 1, 0)`, updated_at: sql`NOW()` })
-          .where('table_id', '=', table.id)
+          .where('table_id', '=', tableId)
           .execute();
         return false;
       }
 
       await trx
         .insertInto('table_favorites')
-        .values({ table_id: table.id, user_id: userId })
+        .values({ table_id: tableId, user_id: userId })
         .execute();
       await trx
         .insertInto('table_metrics')
-        .values({ table_id: table.id, favorites_count: 1 })
+        .values({ table_id: tableId, favorites_count: 1 })
         .onConflict((oc) =>
           oc.column('table_id').doUpdateSet({
             favorites_count: sql`table_metrics.favorites_count + 1`,

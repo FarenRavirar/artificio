@@ -3,7 +3,7 @@ import { sql } from 'kysely';
 import { db } from '../db/index.js';
 import { authMiddleware, optionalAuth } from '../middleware/auth.js';
 import { publicRateLimiter, authRateLimiter } from '../middleware/rateLimit.js';
-import { isValidEmail, isValidSlugParam } from '../utils/validation.js';
+import { isValidEmail, isValidSlugParam, readBodyField } from '../utils/validation.js';
 import { generateEmbedUrl, LinkType } from '../services/linkService.js';
 import { sanitizePublicImageUrl } from '../utils/publicImageUrl.js';
 import { serializeContact, serializeContactMethods } from '../utils/contactSerializer.js';
@@ -688,13 +688,8 @@ router.post('/perfis/:slug/contact', publicRateLimiter, async (req: Request, res
 // POST /api/v1/gm/perfis/:slug/contact-click — Registrar clique em método de contato
 router.post('/perfis/:slug/contact-click', publicRateLimiter, async (req: Request, res: Response) => {
   const { slug } = req.params;
-  // `req.body` é `unknown` até ser normalizado (regra pétrea): o `as` anterior
-  // afirmava `{ channel?: string }` sobre qualquer payload.
-  const body: unknown = req.body;
-  const channel =
-    typeof body === 'object' && body !== null && !Array.isArray(body)
-      ? (body as Record<string, unknown>).channel
-      : undefined;
+  // O `as { channel?: string }` anterior afirmava o formato sobre qualquer payload.
+  const channel = readBodyField(req.body, 'channel');
 
   // Validar slug
   if (!isValidSlugParam(slug)) {

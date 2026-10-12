@@ -289,7 +289,10 @@ continua OK. O username do Discord continua texto, nunca link (achado da 102 de
   usado também nas duas cópias de `gm.ts`). Na PR #338 o Sonar ainda marcou 30% na casca
   dos handlers (validar, buscar, 404, registrar, 500): virou `tableMetricHandler`, com o
   detalhamento de clique em `clickBreakdownWriter`; os `router.post` seguem literais, e o
-  `api:inventory` continua achando as três rotas com confiança `high`. A `/view` passa a validar slug como as outras:
+  `api:inventory` continua achando as três rotas com confiança `high`. Na rodada seguinte (25%),
+  as rotas de favorito (GET/POST) repetiam a mesma busca de mesa pública e passaram a
+  usar `findPublicTableIdBySlug`; a leitura de campo de `req.body` repetida entre `gm.ts` e
+  `tables.ts` virou `readBodyField` (`utils/validation.ts`, com `validation.test.ts`). A `/view` passa a validar slug como as outras:
   0 de 208 slugs em produção falham na regex (`psql` read-only), então nenhum slug real
   muda de resposta.
 - Rotas públicas `POST /api/v1/tables/:slug/view` e `/click` passam a usar o serviço. Rota
