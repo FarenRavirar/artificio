@@ -90,6 +90,12 @@ describe('buildTableJsonLd — preço (regra 1 de T4.3)', () => {
     expect(offer.priceCurrency).toBe('BRL');
   });
 
+  it('brand do mestre é Brand, não Person (Merchant listings rejeita Person)', () => {
+    const { product } = jsonLdOf(makeTableDetail({ master_display_name: 'Mestre Nido' }));
+
+    expect(product.brand).toEqual({ '@type': 'Brand', name: 'Mestre Nido' });
+  });
+
   it('mesa paga emite o valor de price_value', () => {
     const { offer } = jsonLdOf(makeTableDetail({ price_type: 'paga', price_value: 50 }));
 

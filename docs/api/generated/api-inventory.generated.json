@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "total": 608,
+    "total": 607,
     "byApp": {
       "accounts": {
         "total": 56,
@@ -57,17 +57,17 @@
         }
       },
       "mesas": {
-        "total": 259,
+        "total": 258,
         "byMethod": {
           "GET": 77,
-          "POST": 71,
+          "POST": 70,
           "USE": 54,
           "PATCH": 26,
           "DELETE": 20,
           "PUT": 11
         },
         "byConfidence": {
-          "high": 259
+          "high": 258
         }
       },
       "site": {
@@ -4097,18 +4097,9 @@
     {
       "app": "mesas",
       "method": "POST",
-      "path": "/api/v1/gm/perfis/:slug/contact",
-      "sourceFile": "apps/mesas/backend/src/routes/gm.ts",
-      "line": 617,
-      "confidence": "high",
-      "kind": "express-route"
-    },
-    {
-      "app": "mesas",
-      "method": "POST",
       "path": "/api/v1/gm/perfis/:slug/contact-click",
       "sourceFile": "apps/mesas/backend/src/routes/gm.ts",
-      "line": 689,
+      "line": 617,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4126,7 +4117,7 @@
       "method": "GET",
       "path": "/api/v1/gm/perfis/:slug/reviews",
       "sourceFile": "apps/mesas/backend/src/routes/gm.ts",
-      "line": 730,
+      "line": 658,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4135,7 +4126,7 @@
       "method": "POST",
       "path": "/api/v1/gm/perfis/:slug/reviews",
       "sourceFile": "apps/mesas/backend/src/routes/gm.ts",
-      "line": 778,
+      "line": 706,
       "confidence": "high",
       "kind": "express-route"
     },

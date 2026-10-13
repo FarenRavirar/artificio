@@ -7,10 +7,10 @@
     "downloads": 108,
     "glossario": 50,
     "links": 22,
-    "mesas": 208,
+    "mesas": 207,
     "site": 58
   },
-  "total": 499,
+  "total": 498,
   "operations": [
     {
       "app": "accounts",
@@ -4488,18 +4488,6 @@
       "auth": "user",
       "consumers": [],
       "operationId": "getapi_v1_gm_perfis_slug"
-    },
-    {
-      "app": "mesas",
-      "method": "POST",
-      "path": "/api/v1/gm/perfis/{slug}/contact",
-      "summary": "Cria ou executa api v1 gm perfis slug contact",
-      "owner": "mesas",
-      "scope": "telemetry",
-      "status": "active",
-      "auth": "none",
-      "consumers": [],
-      "operationId": "postapi_v1_gm_perfis_slug_contact"
     },
     {
       "app": "mesas",

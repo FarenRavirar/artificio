@@ -15,7 +15,6 @@ import { MestreTablesSection } from '../components/mestre/MestreTablesSection';
 import { MestreSystems } from '../components/mestre/MestreSystems';
 import { MestreVttPlatforms } from '../components/mestre/MestreVttPlatforms';
 import { MestreContactMethods } from '../components/mestre/MestreContactMethods';
-import { MestreContactForm } from '../components/mestre/MestreContactForm';
 import { MestreReviewsSection } from '../components/mestre/MestreReviewsSection';
 import { useMestre } from '../hooks/useMestre';
 import type { MestreLoaderData } from '../routes/mestre';
@@ -178,12 +177,6 @@ export const MestrePage = () => {
                 contacts={profile.contact_methods}
                 gmSlug={slug || ''}
               />
-            </section>
-          )}
-
-          {profile.contact_methods?.some((c) => c.channel === 'form') && slug && (
-            <section className="container">
-              <MestreContactForm mestreSlug={slug} />
             </section>
           )}
 

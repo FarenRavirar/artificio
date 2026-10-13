@@ -2,6 +2,7 @@ import {
   canonicalizeDiscordInviteUrl,
   canonicalizeHttpsUrl,
   canonicalizeSocialProfileUrl,
+  isResolvableUrl,
   PROFILE_CONTACT_CHANNELS,
   SOCIAL_PROFILE_CHANNELS,
   URL_VALUE_CHANNELS,
@@ -26,6 +27,14 @@ export function serializeContact<T extends SerializableContact>(contact: T): T |
   } else if (URL_VALUE_CHANNELS.has(contact.channel)) {
     const safeFormUrl = canonicalizeHttpsUrl(value);
     if (!safeFormUrl.ok) return null;
+    // Mesma regra da escrita (`canonicalizeContactValue`) e do importador
+    // (`extractContacts`, 2026-08-03): identificador solto não é link. Legado
+    // gravado antes da regra (`form: uwill`, 2026-07-09) virava `https://uwill/`,
+    // um CTA que só dá erro de DNS; aqui vira contato Discord, onde o nick é
+    // localizável. O texto do mestre é preservado, só o canal muda.
+    if (!isResolvableUrl(value)) {
+      return { ...contact, channel: 'discord', value: contact.value.trim(), discord_server_url: null };
+    }
     value = safeFormUrl.value;
   }
 

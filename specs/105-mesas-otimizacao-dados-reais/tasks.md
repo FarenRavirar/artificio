@@ -3,6 +3,15 @@
 Evidência: `spec.md` §2. Desenho: `plan.md`. Cada task tem **um** bloco de estado. Ao
 retomar, o bloco é reescrito, nunca recebe anexo.
 
+**Prioridade (mantenedor, 2026-10-13):** o básico do Analytics e do Search Console vem antes de
+qualquer evento. Nas palavras dele: *"essa porcaria de evento, deixa pra lá por enquanto
+[…] isso é bônus, onde o básico do analytics e search console mal está funcionando"*.
+**Adiado, por ordem dele:** `contact_click`, contagem de contato por canal e o clique do
+perfil (T1.3, M1 por canal, T1.5 aceite, lacunas de T1.4). Não investigar nem medir mais
+nada disso até o básico fechar. O básico em aberto: T1.0 (linha de `hostName` no relatório
+padrão e aviso do painel), T1.1 (`pagePathPlusQueryString`), T1.2 (`page_view` 2N),
+T1b.1 (stream de `downloads`), T2.4 e a indexação (T2.2, T4.1).
+
 Legenda: `[ ]` aberta · `[~]` em andamento · `[x]` fechada com medição · **(mantenedor)**
 ação que só ele faz · **(aprovação)** ação de §Autorização.
 
@@ -134,7 +143,7 @@ Está sem dado. Os streams `www`, `Artificio 2` e `glossariorpg` apontam para ho
 **Decisão do mantenedor:** manter só como histórico ou arquivar. Não apagar sem ordem,
 porque guarda o histórico do WordPress.
 
-### [~] T1b.4 — Auditoria dos painéis (GA4 + Search Console) — LEVANTADA; escrita no GA4 pendente
+### [~] T1b.4 — Auditoria dos painéis (GA4 + Search Console) — falta Google Signals (produto) e filtros/referral (painel)
 
 Medido em 2026-10-12 pela Admin API (v1alpha) e pela Search Console API, só leitura,
 script fora do repositório, mesma chave:
@@ -182,7 +191,7 @@ conferida por nova leitura.
 
 ## F1 — Instrumentação
 
-### [~] T1.0 — GA4 não coleta em `mesas`, `glossario` e `downloads` — CORRIGIDO LOCAL; falta deploy
+### [~] T1.0 — GA4 não coleta em `mesas`, `glossario` e `downloads` — em prod; falta linha de `hostName` na API padrão
 
 **Causa, medida em produção em 2026-10-12, no Chrome, em `https://mesas.artificiorpg.com/`:**
 
@@ -216,11 +225,20 @@ O jsdom do vitest não executa o inline no `window` do teste, então o teste rod
 snippet por eval indireto (comentado no teste). `lint`, `typecheck` e `build` do pacote
 limpos.
 
-**Aceite (aberto até deploy).** Em produção, nos três apps, pelo menos um `/g/collect`
-depois do load; o painel do stream deixa de mostrar "A coleta de dados não está ativa"; a
-API devolve linhas de `hostName` `mesas.artificiorpg.com`.
+**Medido em produção em 2026-10-13, depois do deploy dos 6 (Playwright sem sessão).**
+`POST www.google-analytics.com/g/collect` com `en=page_view`, resposta 204: `mesas`
+(`tid=G-43T3C6K6V6`), `glossario` (`G-YVHMJEVTE4`) e `downloads` (`G-8FKEJX5L9G`, o mesmo
+stream do `site`, T1b.1). `run_realtime_report` por `streamId`: `15290051302` (Mesas) e
+`15290119709` (Glossario) com `page_view`. `run_report` padrão por `hostName` e `date`
+(2026-10-12 a hoje, medido em 2026-10-13): `mesas.artificiorpg.com` 3 eventos e 1 usuário em
+20261012; `glossario.artificiorpg.com` sem linha; 20261013 só tem `artificiorpg.com` (46
+eventos). O relatório padrão atrasa o dia corrente.
 
-### [~] T1.1 — `page_view` limpo e sem repetição (I1) — CORRIGIDO LOCAL; falta deploy
+**Aceite (aberto).** Falta: `run_report` por `hostName` devolver
+`glossario.artificiorpg.com` (e `mesas.` em 20261013); e o painel do stream deixar de mostrar
+"A coleta de dados não está ativa" (painel, não medi).
+
+### [~] T1.1 — `page_view` limpo e sem repetição (I1) — em prod; falta relatório
 
 1. `trackPageview` envia `page_location` (origem + path, sem query e sem fragmento) e
    `page_title`, os parâmetros da doc GA4 *Measure pageviews*. Antes do evento roda
@@ -235,8 +253,16 @@ Não medi se a query chegava ao GA4 antes, porque não chegava nada (T1.0). O te
 continua TODO em `analytics.test.ts`: exigiria `@testing-library/react`, que é dependência
 nova.
 
-**Aceite.** Depois do deploy, `pagePathPlusQueryString` sem `?` nas rotas dos três apps, e
-filtro de catálogo sem gerar `page_view`.
+**Medido em prod (2026-10-13).** Carregando `glossario` e `downloads` com `?x=1`, o `dl` do
+`/g/collect` veio sem query (`https://glossario.artificiorpg.com/`,
+`https://downloads.artificiorpg.com/`); `mesas` na rota de mesa, `dl` com o path limpo.
+
+**Relatório (2026-10-13).** `run_report` por `hostName` × `pagePathPlusQueryString`,
+filtrado em `mesas.artificiorpg.com`: 1 linha, `/` (3 eventos), sem `?`. Amostra só da home;
+rota de mesa e catálogo com filtro ainda não aparecem.
+
+**Aceite (aberto).** `pagePathPlusQueryString` sem `?` numa rota com query (catálogo
+filtrado) e filtro de catálogo sem gerar `page_view` — ainda não medidos.
 
 ### [ ] T1.2 — `page_view` duplicado pela Enhanced Measurement (I2)
 
@@ -244,9 +270,18 @@ Medir no DebugView depois do deploy da T1.0, com navegação de N rotas. Se vier
 *"Page changes based on browser history events"* nas streams `mesas` e `glossario`. Com o
 papel Editor, o agente faz isso pela Admin API quando o mantenedor pedir a regularização.
 
-**Aceite.** I2.
+**Medido em prod (2026-10-13, `mesas`, Playwright sem sessão).** Navegação sintética
+(`history.pushState` + `popstate`) por 3 rotas, `/g/collect` capturados: a carga inicial
+gerou 1 `page_view`; cada rota seguinte gerou 2 `page_view` com o mesmo `dl`
+(`/mesas/<slug>`, `/mestre/nidolina`, `/`). É o padrão 2N do I2. Ressalva: a navegação não
+passou pelo roteador do app com clique real, então o par pode ser EM + app, ou o app
+duas vezes; o DebugView separa. **Escrita no GA4 (desligar *Page changes* em `mesas` e
+`glossario`) não aplicada:** só com ordem do mantenedor.
 
-### [~] T1.3 — Evento `contact_click` (I3) — IMPLEMENTADO LOCAL; falta deploy e key event
+**Aceite (aberto).** I2 confirmado no DebugView e, depois do ajuste, N `page_view` em N
+rotas.
+
+### [ ] T1.3 — Evento `contact_click` (I3) — ADIADO por ordem do mantenedor (2026-10-13)
 
 `trackContactClick({ origem, canal, mesa_id?, sistema? })` no catálogo de
 `packages/analytics` (sem número, e-mail ou URL de destino). Disparado em três lugares:
@@ -257,8 +292,7 @@ papel Editor, o agente faz isso pela Admin API quando o mantenedor pedir a regul
 - Botões e links do bloco de contato da mesa (`TableContactsBlock`, só na página pública).
 - Contato pelo perfil do mestre (`useTracking.trackGmContactClick`, com `origem: 'mestre'`).
 
-Falta marcar `contact_click` como key event no GA4. O agente faz isso pela Admin API quando
-o mantenedor pedir (papel Editor).
+Key event `contact_click` marcado no GA4 em 2026-10-12 (T1b.4).
 
 **Coerência com a 102 (conferido em 2026-10-12).** A 102 T4.4 decidiu que o contato da mesa
 é **candidatura, não reserva**: `form 108 | whatsapp 46 | discord 33 | email 1`, e o mestre
@@ -268,9 +302,12 @@ decisão. O JSON-LD não foi tocado, e o guard G-F da 102 (`smoke:jsonld-price-s
 continua OK. O username do Discord continua texto, nunca link (achado da 102 de
 2026-09-11): o rastreio entrou só nos `<a>` que já existiam.
 
-**Aceite.** I3, mais o key event marcado.
+**Aceite (aberto).** I3: um `contact_click` em produção. O clique no CTA de uma mesa real
+abre o WhatsApp de um mestre real; o classificador do auto mode barrou a ação
+(`[Real-World Transactions]`) e não contornei. Medir exige o mantenedor clicar, ou ele
+liberar o clique.
 
-### [~] T1.4 — Contato e série temporal da mesa (M1, M2) — IMPLEMENTADO LOCAL; falta deploy
+### [~] T1.4 — Contato e série temporal da mesa (M1, M2) — em prod; `view` medido, `click`/`contact` não
 
 - `services/tableMetrics.ts` (novo): `recordTableMetric(tableId, action, req)` grava evento
   em `table_metric_events` e contador em `table_metrics` na mesma transação, com dedupe por
@@ -339,10 +376,47 @@ referência de tendência.
    por dia e no boot), que roda em produção (`docker-compose.prod.yml:144`,
    `npm run og:cron`). `README_CLEANUP.md`, que documentava o apagamento, saiu.
 
-**Aceite.** M1, mais `SELECT action, count(*) FROM table_metric_events WHERE created_at >
-<deploy> GROUP BY 1` com linhas novas.
+**Medido em prod (2026-10-13, depois do deploy).** `POST /api/v1/tables/<slug>/view` → 200
+e `table_metric_events` com 1 linha `view` (16:17 UTC). `mesas-cron` rodou
+`metrics:anonymize` (15:30 UTC): "4 eventos anonimizados".
 
-### [~] T1.5 — Clique em contato do mestre persistido (M3) — IMPLEMENTADO LOCAL; falta deploy
+Clique em card do catálogo (2026-10-13, 16:23 UTC, mantenedor): `table_metric_events` ganhou
+1 linha `click` e `table_click_events` a primeira linha da tabela (`variant = refactored_v4`),
+que tinha 0 linhas antes do deploy — o detalhamento do painel do mestre passa a ter dado.
+
+**CTA medido em prod (2026-10-13, 16:45 UTC).** Mantenedor relatou clicar no CTA, mas o log
+da API mostra 3 `POST /click` (16:23, 16:41, 16:42), todos colados num `POST /view` 0,1–0,4
+s depois (padrão do clique em card) e nenhum `POST /contact`; não identifiquei por quê. Com
+`window.open` substituído por stub (sem abrir o WhatsApp) e o botão `💬 Enviar WhatsApp`
+acionado por JS no Playwright, o código de prod fez `POST /click`, `POST /contact` e
+`/g/collect` com `en=contact_click`, `origem=mesa`, `canal=whatsapp` (204). Banco: linha
+`contact` em `table_metric_events` (16:45:06) e `contacts_count = 1` em `table_metrics`.
+Isso gravou 1 `click` e 1 `contact` de visitante sintético em `caverna-do-dragao-lv-4`.
+
+**Lacunas de contagem por canal (medido em 2026-10-13, 39 mesas ativas).**
+
+- `table_metric_events` não tem coluna de canal, e o dedupe de `contact` (30 min por
+  visitante e mesa) ignora o canal: WhatsApp e depois Discord contam 1 no banco e 2
+  `contact_click` no GA4. Os dois números divergem por construção.
+- Mesa só com WhatsApp (11) tem 3 alvos clicáveis para o mesmo `wa.me`: CTA, botão do bloco
+  "Como participar" e o link com a URL crua. O CTA e o bloco chamam `registerTableContact`.
+- 22 das 39 têm só `form`: o CTA vira `scroll-contact` (`tableViewMapper.ts`), gera `click` e
+  nunca `contact`; o contato só conta no botão do bloco.
+- Nick do Discord sem `discord_server_url` é texto sem link e não mede nada. Hoje são 0 nas
+  ativas (os 2 Discord têm convite), mas o importador cria esse caso. Telefone abre `wa.me`
+  com rótulo "Ligar ou enviar SMS" (0 nas ativas).
+- Correção proposta, não aplicada: coluna `channel` + dedupe por canal (migration, exige
+  aprovação), botão "Copiar" no nick, rótulo do telefone, e dedupe visual CTA × bloco
+  (decisão de produto do mantenedor).
+
+**ADIADO (mantenedor, 2026-10-13):** correção por canal, botão de copiar nick e UI
+duplicada ficam para depois do básico do Analytics e do Search Console.
+
+**Aceite (aberto).** M1 fechado pelo caminho do CTA. Falta o `contact_click` aparecer no GA4
+(o realtime não o listou 2 min depois do 204; não medi o relatório padrão) e o clique
+do perfil (M3).
+
+### [ ] T1.5 — Clique em contato do mestre persistido (M3) — em prod; aceite ADIADO (mantenedor, 2026-10-13)
 
 - `apps/mesas/database/migration_167_spec105_metric_events.sql`: tabela
   `gm_profile_contact_events (id, gm_profile_id, channel, clicked_at)`, sem IP e sem
@@ -365,11 +439,18 @@ referência de tendência.
   campo novo e aditivo. As linhas do banco passam por `summarizeProfileContacts`, que as
   trata como `unknown` (achado do Codex na PR #338, P1); 5 testes em
   `profileContacts.test.ts`. O frontend ainda não exibe: mostrar ao mestre é decisão de produto.
-- `db/types.ts` com `GmProfileContactEventsTable`. Backend: `build`, `lint` e 1203 testes
-  verdes.
+- `db/types.ts` com `GmProfileContactEventsTable`. Backend: `build`, `lint` e testes
+  verdes (1214 passam, 1 pulado, medido em 2026-10-13 com a árvore atual).
 
-**Aceite.** M3: depois do deploy, um clique no perfil público gera linha nova em
-`gm_profile_contact_events`.
+**Deploy (medido em 2026-10-13).** Dos 6 módulos: beta de `glossario`, `site` e
+`downloads`; promote `dev → main` (`main` = `dev` = `a02f6ca`); prod de `mesas`, `glossario`,
+`site`, `downloads`, `links` e `accounts`, um por vez, todos com run verde e containers
+novos `healthy`. `mesas` prod: migration 167 em `schema_migrations`,
+`to_regclass('gm_profile_contact_events')` não nulo, `fingerprint_hash` `is_nullable = YES`.
+`accounts`: antes do deploy, só `tsx` → `catalog:` (devDependency) no diff, ledger 12/12.
+
+**Aceite (aberto).** M3: um clique no perfil público gerar linha nova em
+`gm_profile_contact_events` (hoje 0 linhas, medido depois do deploy).
 
 ### [x] T1.5b — Migrations 167 e 168 unidas — FEITA (2026-10-12)
 
@@ -381,13 +462,42 @@ um bloco de validação para as duas partes. Nenhuma das duas tinha sido aplicad
 produção). `parse_header` e `validate_sql_against_class … online-safe` rc 0;
 `rtk rg "migration_168" apps` sem resultado.
 
-### [ ] T1.6 — Formulário de contato do mestre (M4) · **decisão de produto pendente**
+### [~] T1.6 — Formulário interno do mestre responde sucesso sem enviar (M4) — removido; falta deploy
 
-Opções medidas em `plan.md` §3.6: (a) enviar por `@artificio/email`, recomendada; (b)
-retirar o canal `form` (2 perfis em produção). Independente da resposta, o endpoint deixa
-de responder sucesso sem ter enviado.
+**Correção do enquadramento (2026-10-13, medido).** `plan.md` §3.6 trata o canal `form` como
+"o formulário que não envia" e oferece enviar por `@artificio/email` ou retirar o canal. Isso
+confundia duas coisas de mesmo nome:
 
-**Aceite.** M4.
+- **Canal `form`** = link externo. `classifyContactChannel` (`syncHelpers.ts:187`) devolve
+  `form` para qualquer URL de host desconhecido; `MestreContactMethods.tsx:140` abre
+  `contact.value` com `openSafeExternalUrl`. Funciona. Produção: 131 de 235 contatos de mesa
+  são `form` (86 `forms.gle`, 39 `docs.google.com`, 1 `forms.cloud.microsoft`, 2 sites) e 2
+  de 42 contatos de perfil (`forms.gle`, `docs.google.com`). É o canal mais usado.
+- **`MestreContactForm`** = formulário interno (nome, e-mail, mensagem) que `MestrePage.tsx:184`
+  renderiza **sempre que o perfil tem algum canal `form`**. Posta em
+  `POST /api/v1/gm/perfis/:slug/contact` (`gm.ts:617`), que valida, faz `console.log` do
+  tamanho e responde "enviada com sucesso" (`TODO: Implementar envio de email`). A mensagem
+  se perde. Os 2 mestres que cadastraram `form` informaram o próprio Google Form: o
+  formulário interno aparece além dele, sem ter sido pedido, e mente.
+
+**Achado lateral:** 3 dos 131 `form` de mesa não são URL (`kauarang`, `.zero9899`, `uwill`):
+o `catch` de `classifyContactChannel` joga texto não reconhecido em `form`, e o CTA abre
+nada. Vindo de import do Discord (`syncHelpers.ts`). Não medi o que o CTA faz com eles.
+
+**Aplicado (2026-10-13, ordem do mantenedor: "siga o caminho sugerido").** Removidos
+`MestreContactForm`, o bloco em `MestrePage.tsx` e `POST /api/v1/gm/perfis/:slug/contact`
+(`verify:api`: 1 breaking, a rota; consumidor único era o componente). Não foi para e-mail:
+o canal `form` já é o formulário do mestre, e uma mensagem anônima por e-mail seria canal
+novo, decisão de produto que ele não pediu.
+
+**Achado lateral corrigido.** `classifyContactChannel` e a escrita já recusam identificador
+solto desde 2026-08-03 (medido: 90 `form` criados depois, 0 não-URL). Os 3 `form` não-URL
+são de 2026-07-09, de mesas **fechadas** (410 na API). A leitura (`serializeContact`) não
+aplicava a regra e emitiria `https://uwill/` para legado ativo: agora `form` não-resolvível
+sai como `discord`, igual ao importador. 3 testes novos. As 3 linhas no banco seguem como
+estão; corrigi-las é SQL write em prod (aprovação), e a leitura já as neutraliza.
+
+**Aceite.** M4: nenhuma rota responde sucesso sem ter enviado. Falta deploy de `mesas`.
 
 ### [x] T1.7 — Aviso de lint em `useBannerScrim.ts` — FEITA (2026-10-12)
 
@@ -408,36 +518,78 @@ O comportamento é o mesmo por construção: mesmas três dependências, mesmo v
 
 ## F2 — Baseline
 
-### [ ] T2.1 — Volume e janela
+Medido em 2026-10-13, só leitura. Janela GSC: 2026-09-13 a 2026-10-10 (28 dias fechados,
+`dataState=final`).
 
-Os itens 1 e 5 de `plan.md` §4, mais a janela de comparação fixada (§4.1).
+### [~] T2.1 — Volume e janela
 
-### [ ] T2.2 — Cobertura de indexação
+- GSC, `mesas.artificiorpg.com`: **5 cliques e 133 impressões** em 28 dias (`/` 2 cliques,
+  três mesas 1 cada), 56 páginas com impressão (`/` 51 impressões, posição 2,3; o resto 1–7
+  cada). Mesmo número no MCP e no `coletar.mjs` (T3.1). O
+  domínio todo: 2.301 cliques e 23.698 impressões em 28 dias (posição 6,1), então o `mesas` é
+  pequeno no total.
+- GA4: **sem baseline.** `hostName` `mesas.`/`glossario.` tiveram 0 evento nos 28 dias
+  (T0.2); a coleta existe desde o deploy de 2026-10-13. Comparação antes/depois da F4 só
+  pode usar GA4 a partir dessa data; GSC e banco têm série anterior.
+- Banco: contadores `table_metrics` existem, mas `views_count`/`clicks_count` mudaram de
+  semântica no deploy (T1.4); a série anterior não é comparável.
 
-`batch_url_inspection` nas 17 URLs do sitemap e nos perfis públicos de mestre. Contar
-antes quantos dos 61 `gm_profiles` são públicos.
+**Janela mínima** (`plan.md` §4.1): com 5 cliques/28 dias, qualquer efeito de título ou
+description em cliques é indetectável; a F4 só pode medir impressão, posição e indexação.
 
-### [ ] T2.3 — Consultas e CTR por posição
+### [x] T2.2 — Cobertura de indexação
 
-Item 3 de `plan.md` §4. Lista de páginas candidatas a ajuste de título e description, e de
-consultas por sistema com impressão (insumo da decisão de página por sistema).
+`batch_url_inspection`, 78 URLs:
+
+- **17 do sitemap:** 16 `Submitted and indexed`; 1 `Discovered - currently not indexed`
+  (`caverna-do-dragao-lv-4`, mesa nova, nunca rastreada).
+- **61 perfis públicos de mestre** (todos 200 na API; fora do sitemap): 41 indexados, 14
+  `URL is unknown to Google`, 6 `Duplicate, Google chose different canonical than user`
+  (`foolangel`, `marcio-abreu`, `mesa-video-game`, `mestre-kevin`, `mestre-noir`, `vidal17`).
+  Os 14 desconhecidos sustentam a hipótese da T4.1.
+- **Achado:** as 16 mesas indexadas inspecionadas têm o mesmo aviso de *Merchant listings*:
+  `Invalid object type for field "brand"` — o JSON-LD usava `Person`. Corrigido para `Brand`
+  (`tableMeta.ts`, teste novo); falta deploy. Os demais avisos (`review`, `aggregateRating`,
+  `shippingDetails`, `hasMerchantReturnPolicy`) são opcionais e não se aplicam a mesa de RPG.
+- Não medi o porquê do canonical diferente nos 6 perfis.
+
+### [~] T2.3 — Consultas e CTR por posição
+
+A API anonimiza consulta de baixo volume: `query × page` devolveu 8 linhas
+(`site:artificiorpg.com` 35 impressões na home, `artificio rpg` 6, `o mestre do artifício` 4,
+`vaasa dnd` 2, `casarao agua verde` 1). Não há faixa 4–15 com volume para CTR por posição.
+Páginas na faixa 4–15 com mais impressões: `bem-vindos-a-vaasa-dnd-2024` (7, pos. 12),
+`cronicas-do-ninho-flamejante` (4, 15,2), `o-vale-dos-sinos` (4, 16), `sombra-de-falmouth`
+(3, 13,3), `/mestre/alquenauta` (3, 9,7), `/mestre/yuripi` (3, 7,7). **Conclusão medida:** o
+tráfego orgânico é majoritariamente de marca (`artificio rpg`, `site:`); não há consulta de
+sistema com impressão que justifique página por sistema.
 
 ### [ ] T2.4 — Entrada e funil
 
-Item 4 de `plan.md` §4. O funil completo só depois de T1.3 no ar.
+Sem dado: `page_view(mesa) → select_mesa → contact_click` só existe depois de 2026-10-13, e
+`contact_click` ainda não foi medido (T1.3). Reabrir com 14 dias de coleta.
 
-**Aceite da F2.** B1: cada task com número, período e consulta citados.
+**Aceite da F2.** B1: T2.1–T2.3 com número, período e consulta citados (feito); T2.4 depende
+de coleta.
 
 ---
 
 ## F3 — Coleta reproduzível
 
-### [ ] T3.1 — `scripts/seo/coletar.mjs` + manifesto
+### [x] T3.1 — `scripts/seo/coletar.mjs` + manifesto — FEITA (2026-10-13)
 
-Desenho em `plan.md` §5. `google-auth-library@11.1.0` autorizado pelo mantenedor em
-2026-10-12 (11.1.0 com 26 dias de publicada; a 11.2.0 tinha 5). Entra junto com o script,
-para não ficar dependência sem consumidor. No estado atual do lock, ele entra com `+36`,
-`−0` (medido em cópia isolada).
+Desenho em `plan.md` §5. `scripts/seo/apps.json` (mesas, glossario, downloads, site; uma linha
+por app, com `hostName` porque os apps dividem a property), `coletar-lib.mjs` (funções
+puras) e `coletar.mjs` (REST com `google-auth-library@11.1.0`, autorizada pelo mantenedor em
+2026-10-12; 11.1.0 com 26 dias de publicada). A dependência está em `scripts/package.json`;
+o lock ganhou `+37`, `−0` (`pnpm install --lockfile-only`, conferido com `git diff`),
+`--frozen-lockfile` depois exit 0. Recusa período aberto (`--end` ≥ hoje) e measurement id
+`G-…` no lugar do id numérico.
+
+**Medido.** `node scripts/seo/coletar.mjs --start 2026-09-13 --end 2026-10-10`, duas
+execuções (todos os apps e só `mesas`): `diff` vazio nas duas. `mesas`: 5 cliques, 133
+impressões, 56 páginas, igual ao MCP; GA4 de `mesas` vazio no período, esperado (T0.2). 10
+testes em `coletar-lib.test.mjs`; `smoke:test-typecheck-coverage` verde.
 
 **Lock destravado na causa (2026-10-12) — histórico em `errors.md` E023, regra em
 `deploy-flow.md` §2.** A primeira tentativa de instalar reescreveu o lock fora do escopo
@@ -462,7 +614,8 @@ quatro backends; os três backends sobem pelo `tsx` até a checagem de env. No `
 test`, `downloads-frontend` falhou na corrida paralela e passou sozinho (326/326) — teste
 sensível à carga, não investigado.
 
-**Aceite.** S1: duas execuções no mesmo período fechado, saída idêntica (`diff` vazio).
+**Aceite.** S1: duas execuções no mesmo período fechado, saída idêntica — **cumprido**
+(`diff` vazio).
 
 ---
 
@@ -471,12 +624,22 @@ sensível à carga, não investigado.
 Formato obrigatório de cada task: hipótese · métrica · antes · janela · depois
 (`plan.md` §6).
 
-### [ ] T4.1 — Perfis de mestre no sitemap
+### [~] T4.1 — Perfis de mestre no sitemap — implementado; falta deploy e a janela
 
-Hipótese: os perfis indexáveis fora do sitemap demoram mais para ser descobertos.
-Métrica: estado de indexação (T2.2) e impressões em `/mestre/` (T2.3). Usar o mesmo
-critério de visibilidade da rota pública do perfil, como fonte única (lição da 102 Achado
-B).
+- **Hipótese:** perfis indexáveis fora do sitemap demoram mais para ser descobertos.
+- **Métrica:** perfis `Submitted and indexed` no `batch_url_inspection`; impressões em
+  `/mestre/` no GSC.
+- **Antes (2026-10-13):** 41 de 61 indexados, 14 `URL is unknown to Google`, 6 `Duplicate,
+  Google chose different canonical`; 0 dos 61 no sitemap (T2.2). Impressões em `/mestre/`
+  na janela 2026-09-13…10-10: 16 páginas, 1–3 impressões cada, 0 cliques (T2.3).
+- **Janela:** 28 dias fechados depois do deploy, com o sitemap reenviado no GSC.
+- **Depois:** a medir.
+
+`routes/sitemap.ts` passa a listar `gm_profiles` ⨝ `users`, o mesmo critério da rota
+pública `GET /gm/perfis/:slug` (que só dá 404 sem essa linha; 61 de 61 devolveram 200). Sem
+teste de rota: o arquivo não tinha teste e a consulta é um join sem regra própria; `tsc` e
+`eslint` limpos. Os 6 perfis com canonical diferente não têm causa medida: o sitemap não os
+resolve, e não devem ser contados como efeito da mudança.
 
 ### [ ] T4.x — Derivadas da F2
 
