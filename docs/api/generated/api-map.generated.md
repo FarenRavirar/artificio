@@ -23,9 +23,9 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | downloads | 134 | 134 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
 | glossario | 66 | 66 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
 | links | 23 | 23 | 0 | 0 | DELETE, GET, PATCH, POST, USE |
-| mesas | 259 | 259 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
+| mesas | 258 | 258 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
 | site | 70 | 70 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
-| **Total** | **608** | 608 | 0 | 0 | |
+| **Total** | **607** | 607 | 0 | 0 | |
 
 ## accounts
 
@@ -496,11 +496,10 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | GET | `/api/v1/gm/me` | ✅ high | `apps/mesas/backend/src/routes/gmPanel.ts` | 619 |
 | POST | `/api/v1/gm/parse-preview` | ✅ high | `apps/mesas/backend/src/routes/gmPanel.ts` | 807 |
 | GET | `/api/v1/gm/perfis/:slug` | ✅ high | `apps/mesas/backend/src/routes/gm.ts` | 119 |
-| POST | `/api/v1/gm/perfis/:slug/contact` | ✅ high | `apps/mesas/backend/src/routes/gm.ts` | 617 |
-| POST | `/api/v1/gm/perfis/:slug/contact-click` | ✅ high | `apps/mesas/backend/src/routes/gm.ts` | 689 |
+| POST | `/api/v1/gm/perfis/:slug/contact-click` | ✅ high | `apps/mesas/backend/src/routes/gm.ts` | 617 |
 | GET | `/api/v1/gm/perfis/:slug/insights` | ✅ high | `apps/mesas/backend/src/routes/gm.ts` | 553 |
-| GET | `/api/v1/gm/perfis/:slug/reviews` | ✅ high | `apps/mesas/backend/src/routes/gm.ts` | 730 |
-| POST | `/api/v1/gm/perfis/:slug/reviews` | ✅ high | `apps/mesas/backend/src/routes/gm.ts` | 778 |
+| GET | `/api/v1/gm/perfis/:slug/reviews` | ✅ high | `apps/mesas/backend/src/routes/gm.ts` | 658 |
+| POST | `/api/v1/gm/perfis/:slug/reviews` | ✅ high | `apps/mesas/backend/src/routes/gm.ts` | 706 |
 | POST | `/api/v1/gm/perfis/:slug/view` | ✅ high | `apps/mesas/backend/src/routes/gm.ts` | 485 |
 | POST | `/api/v1/gm/profile` | ✅ high | `apps/mesas/backend/src/routes/gmPanel.ts` | 207 |
 | PUT | `/api/v1/gm/profile` | ✅ high | `apps/mesas/backend/src/routes/gmPanel.ts` | 368 |

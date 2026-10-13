@@ -4568,48 +4568,6 @@ paths:
           description: Sem permissão
         "500":
           description: Erro interno
-  /api/v1/gm/perfis/{slug}/contact:
-    post:
-      operationId: postapi_v1_gm_perfis_slug_contact
-      summary: "Cria ou executa api v1 gm perfis slug contact"
-      x-artificio-owner: mesas
-      x-artificio-scope: telemetry
-      x-artificio-status: active
-      x-artificio-auth: none
-      parameters:
-        - name: slug
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        "400":
-          description: Requisição inválida
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        "401":
-          description: Não autenticado
-        "403":
-          description: Sem permissão
-        "500":
-          description: Erro interno
   /api/v1/gm/perfis/{slug}/contact-click:
     post:
       operationId: postapi_v1_gm_perfis_slug_contact_click

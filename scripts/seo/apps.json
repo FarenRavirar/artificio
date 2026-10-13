@@ -1,0 +1,30 @@
+[
+  {
+    "app": "mesas",
+    "host": "https://mesas.artificiorpg.com/",
+    "hostName": "mesas.artificiorpg.com",
+    "gscSite": "sc-domain:artificiorpg.com",
+    "ga4Property": "475307720"
+  },
+  {
+    "app": "glossario",
+    "host": "https://glossario.artificiorpg.com/",
+    "hostName": "glossario.artificiorpg.com",
+    "gscSite": "sc-domain:artificiorpg.com",
+    "ga4Property": "475307720"
+  },
+  {
+    "app": "downloads",
+    "host": "https://downloads.artificiorpg.com/",
+    "hostName": "downloads.artificiorpg.com",
+    "gscSite": "sc-domain:artificiorpg.com",
+    "ga4Property": "475307720"
+  },
+  {
+    "app": "site",
+    "host": "https://artificiorpg.com/",
+    "hostName": "artificiorpg.com",
+    "gscSite": "sc-domain:artificiorpg.com",
+    "ga4Property": "475307720"
+  }
+]

@@ -26,7 +26,6 @@ const FLOW_CHILDREN = [
   'MestreSellingPoints',
   'MestreContactMethods',
   'MestreVttPlatforms',
-  'MestreContactForm',
   'MestreTablesSection',
   'MestreReviewsSection',
   'MestreClosedGroupSection',
@@ -63,7 +62,6 @@ describe('MestrePage — ritmo vertical das seções (spec 099 C3)', () => {
     'MestreReviewsSection',
     'MestreClosedGroupSection',
     'MestreContactMethods',
-    'MestreContactForm',
     'MestreVttPlatforms',
   ])('%s não usa h2 dentro de um grupo', (component) => {
     const source = readFileSync(resolve(componentDir, `${component}.tsx`), 'utf8');

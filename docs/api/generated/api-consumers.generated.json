@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "total": 296,
-    "uniqueEndpoints": 271,
+    "total": 295,
+    "uniqueEndpoints": 270,
     "byApp": {
       "accounts-frontend": {
         "total": 8,
@@ -38,14 +38,14 @@
         }
       },
       "mesas-frontend": {
-        "total": 178,
+        "total": 177,
         "byConfidence": {
-          "medium": 76,
+          "medium": 75,
           "high": 102
         },
         "byPattern": {
           "unknown": 4,
-          "template-literal": 70,
+          "template-literal": 69,
           "service-wrapper": 45,
           "literal": 59
         }
@@ -1760,16 +1760,6 @@
     },
     {
       "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/components/mestre/MestreContactForm.tsx",
-      "method": "POST",
-      "endpoint": "/api/v1/gm/perfis/:param/contact",
-      "confidence": "medium",
-      "pattern": "template-literal",
-      "wrapper": "fetch",
-      "line": 23
-    },
-    {
-      "app": "mesas-frontend",
       "consumerFile": "apps/mesas/frontend/src/hooks/useTracking.ts",
       "method": "POST",
       "endpoint": "/api/v1/gm/perfis/:param/contact-click",
@@ -1806,7 +1796,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authPost",
-      "line": 69
+      "line": 68
     },
     {
       "app": "mesas-frontend",

@@ -3,7 +3,7 @@ import { sql } from 'kysely';
 import { db } from '../db/index.js';
 import { authMiddleware, optionalAuth } from '../middleware/auth.js';
 import { publicRateLimiter, authRateLimiter } from '../middleware/rateLimit.js';
-import { isValidEmail, isValidSlugParam, readBodyField } from '../utils/validation.js';
+import { isValidSlugParam, readBodyField } from '../utils/validation.js';
 import { generateEmbedUrl, LinkType } from '../services/linkService.js';
 import { sanitizePublicImageUrl } from '../utils/publicImageUrl.js';
 import { serializeContact, serializeContactMethods } from '../utils/contactSerializer.js';
@@ -610,78 +610,6 @@ router.get('/perfis/:slug/insights', authRateLimiter, authMiddleware, async (req
   } catch (error) {
     console.error('[GET /gm/perfis/:slug/insights]', error);
     return res.status(500).json({ error: 'Erro ao buscar insights.' });
-  }
-});
-
-// POST /api/v1/gm/perfis/:slug/contact - Formulário de contato
-router.post('/perfis/:slug/contact', publicRateLimiter, async (req: Request, res: Response) => {
-  try {
-    const { slug } = req.params;
-    const { name, email, message } = req.body;
-
-    // Validações
-    if (!name || !email || !message) {
-      return res.status(400).json({ error: 'Nome, email e mensagem são obrigatórios.' });
-    }
-
-    if (name.length > 100) {
-      return res.status(400).json({ error: 'Nome muito longo (máximo 100 caracteres).' });
-    }
-
-    if (message.length > 1000) {
-      return res.status(400).json({ error: 'Mensagem muito longa (máximo 1000 caracteres).' });
-    }
-
-    // Validar formato de email
-    if (!isValidEmail(email)) {
-      return res.status(400).json({ error: 'Email inválido.' });
-    }
-
-    // Buscar email do mestre
-    // display_name vive em profiles, não em gm_profiles (mesmo padrão de GET /gm/perfis/:slug:
-    // COALESCE(gm.nickname, p.display_name)). Achado ao remover @ts-ignore legado: a
-    // seleção anterior de 'gp.display_name' não existia na tabela e só compilava
-    // suprimida — corrigido aqui para a fonte real do nome de exibição.
-    const profile = await db
-      .selectFrom('gm_profiles as gp')
-      .innerJoin('users as u', 'gp.user_id', 'u.id')
-      // `profiles` é opcional (ver GET /gm/perfis/:slug): com `innerJoin`, o
-      // formulário de contato dava 404 para mestre que nunca salvou o perfil
-      // geral — 22 dos 48 em produção (medido 2026-08-27). O e-mail vem de
-      // `users`, que continua obrigatório.
-      .leftJoin('profiles as p', 'p.user_id', 'u.id')
-      .select((eb) => [
-        eb.ref('u.email').as('email'),
-        sql<string>`COALESCE(gp.nickname, p.display_name, gp.slug)`.as('display_name'),
-      ])
-      .where('gp.slug', '=', slug)
-      .executeTakeFirst();
-
-    if (!profile || !profile.email) {
-      return res.status(404).json({ error: 'Mestre não encontrado.' });
-    }
-
-    // TODO: Implementar envio de email
-    // Por enquanto, apenas registrar no console.
-    // O log NÃO carrega PII (e-mail do mestre, e-mail/nome do remetente ou o
-    // corpo da mensagem): é log de aplicação sem política de retenção definida
-    // e o contato é dado pessoal de terceiro (achado de review PR #227).
-    // Só o slug do mestre, que já é identificador público da rota, e o tamanho
-    // da mensagem, útil para diagnosticar o envio quando o e-mail for implementado.
-    const safeMessage = sanitizeNullableUserMarkdown(message);
-    console.log('[CONTACT FORM]', {
-      gmSlug: slug,
-      messageLength: safeMessage?.length ?? 0,
-    });
-
-    // Retornar sucesso
-    return res.json({
-      success: true,
-      message: 'Mensagem enviada com sucesso! O mestre receberá seu contato em breve.',
-    });
-  } catch (error) {
-    console.error('[POST /gm/perfis/:slug/contact]', error);
-    return res.status(500).json({ error: 'Erro ao enviar mensagem.' });
   }
 });
 

@@ -4,7 +4,7 @@
 > Bundle machine-readable: `docs/api/generated/artificio-api.bundle.json`.
 > Não editar à mão. Regenerar com `pnpm api:bundle` (faz parte de `pnpm verify:api`).
 
-Total: **499 operações**.
+Total: **498 operações**.
 
 ## accounts (53)
 
@@ -259,7 +259,7 @@ Total: **499 operações**.
 | GET | `/grupo/{slug}` | public-page | none | active | — | Consulta grupo slug |
 | GET | `/healthz` | internal | none | active | — | Consulta healthz |
 
-## mesas (208)
+## mesas (207)
 
 | Método | Path | Scope | Auth | Status | Consumidores | Resumo |
 |--------|------|-------|------|--------|--------------|--------|
@@ -392,7 +392,6 @@ Total: **499 operações**.
 | GET | `/api/v1/gm/me` | public | user | active | — | Consulta api v1 gm me |
 | POST | `/api/v1/gm/parse-preview` | public | user | active | — | Cria ou executa api v1 gm parse-preview |
 | GET | `/api/v1/gm/perfis/{slug}` | public | user | active | — | Consulta api v1 gm perfis slug |
-| POST | `/api/v1/gm/perfis/{slug}/contact` | telemetry | none | active | — | Cria ou executa api v1 gm perfis slug contact |
 | POST | `/api/v1/gm/perfis/{slug}/contact-click` | public | user | active | — | Cria ou executa api v1 gm perfis slug contact-click |
 | GET | `/api/v1/gm/perfis/{slug}/insights` | public | user | active | — | Consulta api v1 gm perfis slug insights |
 | GET | `/api/v1/gm/perfis/{slug}/reviews` | public | user | active | — | Consulta api v1 gm perfis slug reviews |

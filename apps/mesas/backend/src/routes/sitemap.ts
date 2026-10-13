@@ -24,9 +24,22 @@ router.get('/sitemap.xml', async (_req, res) => {
   const rows = await db.selectFrom('tables').select(['slug', 'updated_at'])
     .where('status', '=', 'active').where('archived_at', 'is', null)
     .where(importedTableIsCurrentSql('tables')).execute();
+  // Perfis de mestre (spec 105 T4.1). Medido em 2026-10-13: dos 61 perfis
+  // públicos, 14 estavam "URL is unknown to Google" — indexáveis, mas fora do
+  // sitemap e sem link rastreável que os levasse ao índice. O critério é o da
+  // rota pública `GET /gm/perfis/:slug` (`gm_profiles` ⨝ `users`, sem outro
+  // filtro) e do loader de `/mestre/:slug`, que só devolve 404 quando essa linha
+  // não existe; divergir dela reabriria o soft-404 da 102 Achado B.
+  const profiles = await db
+    .selectFrom('gm_profiles as gm')
+    .innerJoin('users as u', 'u.id', 'gm.user_id')
+    .select(['gm.slug', 'gm.updated_at'])
+    .orderBy('gm.slug')
+    .execute();
   const entries = [
     { url: SITE_URL, priority: 1 },
     ...rows.map((row) => ({ url: `${SITE_URL}/mesas/${encodeURIComponent(row.slug)}`, lastmod: row.updated_at?.toISOString() })),
+    ...profiles.map((row) => ({ url: `${SITE_URL}/mestre/${encodeURIComponent(row.slug)}`, lastmod: row.updated_at?.toISOString() })),
   ];
   res.type('application/xml').set('Cache-Control', 'public, max-age=300').send(sitemapXml(entries));
 });

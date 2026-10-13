@@ -14,6 +14,15 @@ describe('serialização segura de contatos legados', () => {
     ]);
   });
 
+  it.each(['uwill', '.zero9899', 'kauarang'])(
+    'formulário legado que é identificador solto vira contato Discord: %s',
+    (value) => {
+      expect(serializeContacts([{ channel: 'form', value }])).toEqual([
+        { channel: 'discord', value, discord_server_url: null },
+      ]);
+    },
+  );
+
   it.each(['facebook', 'instagram'])(
     'remove URL insegura do canal navegável %s',
     (channel) => {
