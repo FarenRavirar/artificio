@@ -68,7 +68,7 @@ export function generateFingerprint(req: Request): string {
  * `table_click_events`). Fora da transação, falha nela deixava o clique contado
  * sem detalhamento e a rota respondendo 500 (achado do CodeRabbit na PR #338).
  */
-export async function recordTableMetric(
+export function recordTableMetric(
   tableId: string,
   action: MetricAction,
   req: Request,
@@ -77,9 +77,10 @@ export async function recordTableMetric(
   const fingerprint = generateFingerprint(req);
   const column = COUNTER_COLUMN[action];
   const cutoff = new Date(Date.now() - METRIC_THROTTLE_WINDOWS[action]);
+  const lockKey = `table_metric:${tableId}:${action}:${fingerprint}`;
 
   return db.transaction().execute(async (trx) => {
-    await sql`SELECT pg_advisory_xact_lock(hashtextextended(${`table_metric:${tableId}:${action}:${fingerprint}`}, 0))`.execute(trx);
+    await sql`SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`.execute(trx);
 
     const recentEvent = await trx
       .selectFrom('table_metric_events')

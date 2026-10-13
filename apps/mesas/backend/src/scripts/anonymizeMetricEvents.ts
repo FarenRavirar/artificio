@@ -37,9 +37,10 @@ async function anonymizeOldMetricEvents(): Promise<void> {
   );
 }
 
-anonymizeOldMetricEvents()
-  .then(() => process.exit(0))
-  .catch((error: unknown) => {
-    console.error('[metrics:anonymize] Erro:', error);
-    process.exit(1);
-  });
+try {
+  await anonymizeOldMetricEvents();
+  process.exit(0);
+} catch (error: unknown) {
+  console.error('[metrics:anonymize] Erro:', error);
+  process.exit(1);
+}
