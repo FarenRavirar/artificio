@@ -51,6 +51,8 @@ export function escapeRe2(text) {
 
 export const GSC_ROW_LIMIT = 25000;
 export const GA4_PAGE_LIMIT = 10000;
+/** Teto de requisições concorrentes por property na Data API do GA4. */
+export const GA4_MAX_CONCURRENT = 10;
 
 /**
  * Corpo de `searchAnalytics.query`: período fechado, dados finais, filtro por host.
@@ -89,9 +91,36 @@ export function ga4Body(entry, { start, end }, { dimensions, metrics, orderMetri
         stringFilter: { matchType: 'EXACT', value: entry.hostName },
       },
     },
-    orderBys: [{ metric: { metricName: orderMetric }, desc: true }],
+    // Métrica primeiro, dimensões como desempate: sem ordem total, empates mudam de
+    // página entre chamadas e a paginação por `offset` repete ou pula linhas.
+    orderBys: [
+      { metric: { metricName: orderMetric }, desc: true },
+      ...dimensions.map((dimensionName) => ({ dimension: { dimensionName }, desc: false })),
+    ],
     limit: GA4_PAGE_LIMIT,
     offset,
+  };
+}
+
+/**
+ * Semáforo: no máximo `max` tarefas ao mesmo tempo; as demais esperam a vez.
+ * A Data API do GA4 limita requisições concorrentes por property.
+ */
+export function createLimiter(max) {
+  let active = 0;
+  const waiting = [];
+  const release = () => {
+    active -= 1;
+    waiting.shift()?.();
+  };
+  return async function run(task) {
+    if (active >= max) await new Promise((resolve) => waiting.push(resolve));
+    active += 1;
+    try {
+      return await task();
+    } finally {
+      release();
+    }
   };
 }
 

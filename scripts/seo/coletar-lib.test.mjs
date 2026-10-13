@@ -4,6 +4,7 @@ import {
   GSC_ROW_LIMIT,
   collectGa4Report,
   collectGscRows,
+  createLimiter,
   escapeRe2,
   ga4Body,
   gscBody,
@@ -94,7 +95,10 @@ describe('corpos das requisições', () => {
     );
 
     expect(body.dimensionFilter.filter.stringFilter.value).toBe('mesas.artificiorpg.com');
-    expect(body.orderBys).toEqual([{ metric: { metricName: 'eventCount' }, desc: true }]);
+    expect(body.orderBys).toEqual([
+      { metric: { metricName: 'eventCount' }, desc: true },
+      { dimension: { dimensionName: 'eventName' }, desc: false },
+    ]);
   });
 });
 
@@ -215,5 +219,30 @@ describe('selectEntries', () => {
     expect(selectEntries(manifest, 'mesas')).toEqual([entry]);
     expect(() => selectEntries(manifest, '')).toThrow(/não está no manifesto/);
     expect(() => selectEntries(manifest, 'x')).toThrow(/não está no manifesto/);
+  });
+});
+
+describe('createLimiter', () => {
+  it('nunca passa de max tarefas simultâneas e roda todas', async () => {
+    const run = createLimiter(3);
+    let ativas = 0;
+    let pico = 0;
+    const tarefa = async () => {
+      ativas += 1;
+      pico = Math.max(pico, ativas);
+      await new Promise((r) => setTimeout(r, 5));
+      ativas -= 1;
+      return 1;
+    };
+    const out = await Promise.all(Array.from({ length: 12 }, () => run(tarefa)));
+
+    expect(out).toHaveLength(12);
+    expect(pico).toBe(3);
+  });
+
+  it('erro de uma tarefa libera a vaga', async () => {
+    const run = createLimiter(1);
+    await expect(run(async () => { throw new Error('x'); })).rejects.toThrow('x');
+    await expect(run(async () => 'ok')).resolves.toBe('ok');
   });
 });

@@ -17,8 +17,10 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { GoogleAuth } from 'google-auth-library';
 import {
+  GA4_MAX_CONCURRENT,
   collectGa4Report,
   collectGscRows,
+  createLimiter,
   ga4Body,
   gscBody,
   normalizeGa4Rows,
@@ -60,6 +62,14 @@ const GA4_REPORTS = [
   ],
 ];
 
+// Um limitador por property, compartilhado entre os apps: vários apps dividem a mesma
+// property, e o teto de concorrência da Data API vale para a property, não para o app.
+const ga4Limiters = new Map();
+function ga4Limiter(property) {
+  if (!ga4Limiters.has(property)) ga4Limiters.set(property, createLimiter(GA4_MAX_CONCURRENT));
+  return ga4Limiters.get(property);
+}
+
 async function post(url, token, body) {
   const res = await fetch(url, {
     method: 'POST',
@@ -87,7 +97,9 @@ async function collectApp(entry, period, token) {
   const ga4Reports = await Promise.all(
     GA4_REPORTS.map(async ([, spec]) => {
       const report = await collectGa4Report((offset) =>
-        post(ga4Url, token, ga4Body(entry, period, spec, offset)),
+        ga4Limiter(entry.ga4Property)(() =>
+          post(ga4Url, token, ga4Body(entry, period, spec, offset)),
+        ),
       );
       return normalizeGa4Rows(report, spec.orderMetric);
     }),
