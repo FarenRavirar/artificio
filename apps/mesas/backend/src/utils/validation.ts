@@ -37,3 +37,26 @@ export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f
 export function isUuid(value: unknown): value is string {
   return typeof value === 'string' && UUID_RE.test(value);
 }
+
+/**
+ * Slug de rota (`/:slug`) antes de entrar em query. Fonte única: `tables.ts` e
+ * `gm.ts` repetiam a mesma condição em cada handler (spec 105, apontado pelo
+ * Sonar como duplicação). Medido em produção (2026-10-12): 0 de 208 slugs de
+ * `tables` falham nesta regex.
+ */
+export function isValidSlugParam(value: unknown): value is string {
+  return typeof value === 'string' && value.length > 0 && value.length <= 200 && /^[a-z0-9-]+$/i.test(value);
+}
+
+/**
+ * Lê um campo de `req.body` sem afirmar o formato do payload. `req.body` é
+ * `unknown` até ser normalizado (regra pétrea): pode vir ausente, array,
+ * número ou string. Devolve `unknown` — quem chama valida o valor. Fonte única:
+ * `tables.ts` (`variant`) e `gm.ts` (`channel`) repetiam a mesma checagem
+ * (Sonar, duplicação em código novo na PR #338).
+ */
+export function readBodyField(body: unknown, field: string): unknown {
+  return typeof body === 'object' && body !== null && !Array.isArray(body)
+    ? (body as Record<string, unknown>)[field]
+    : undefined;
+}

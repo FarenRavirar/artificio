@@ -234,7 +234,7 @@ Contrato completo: `docs/agents/deploy-flow.md` §6.
 - Acesso ao DB da VM é read-only por padrão. Escrita exige aprovação.
 - Cada app tem schema isolado; SSO/usuários é o único cross-cutting.
 - Credencial hardcoded e segredo versionado são barrados pelo TruffleHog (`secret-scan.yml`). Tunnel `cloudflared` paralelo: procedimento em `deploy-flow.md` §Segredos.
-- Migration e Dockerfile são as duas maiores famílias de incidente (13 dos 22 de `errors.md`). Procedimento em `deploy-flow.md` §3 e §1, leitura obrigatória antes de tocar.
+- Migration e Dockerfile são as duas maiores famílias de incidente (13 dos 23 de `errors.md`). Procedimento em `deploy-flow.md` §3 e §1, leitura obrigatória antes de tocar.
 
 ---
 

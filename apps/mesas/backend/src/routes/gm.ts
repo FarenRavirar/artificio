@@ -3,10 +3,11 @@ import { sql } from 'kysely';
 import { db } from '../db/index.js';
 import { authMiddleware, optionalAuth } from '../middleware/auth.js';
 import { publicRateLimiter, authRateLimiter } from '../middleware/rateLimit.js';
-import { isValidEmail } from '../utils/validation.js';
+import { isValidEmail, isValidSlugParam, readBodyField } from '../utils/validation.js';
 import { generateEmbedUrl, LinkType } from '../services/linkService.js';
 import { sanitizePublicImageUrl } from '../utils/publicImageUrl.js';
 import { serializeContact, serializeContactMethods } from '../utils/contactSerializer.js';
+import { isGmContactChannel, summarizeProfileContacts } from '../utils/profileContacts.js';
 import {
   sanitizeNullableUserMarkdown,
   sanitizeTableMarkdownFields,
@@ -485,7 +486,7 @@ router.post('/perfis/:slug/view', async (req: Request, res: Response) => {
   const { slug } = req.params;
   const sessionId = req.header('x-session-id')?.trim();
 
-  if (!slug || slug.length > 200 || !/^[a-z0-9-]+$/i.test(slug)) {
+  if (!isValidSlugParam(slug)) {
     return res.status(400).json({ error: 'Slug inválido.' });
   }
 
@@ -589,10 +590,21 @@ router.get('/perfis/:slug/insights', authRateLimiter, authMiddleware, async (req
 
     const recommendations = buildRecommendations(metrics as MetricRow[]);
 
+    // Contato pelo PERFIL (não pela mesa), por canal, desde a migration_167
+    // (spec 105 M3). Separado de `metrics`, que é por mesa.
+    const profileContactRows: unknown = await db
+      .selectFrom('gm_profile_contact_events')
+      .select(['channel', sql<number>`COUNT(*)::int`.as('count')])
+      .where('gm_profile_id', '=', gm.id)
+      .groupBy('channel')
+      .execute();
+    const profileContacts = summarizeProfileContacts(profileContactRows);
+
     return res.json({
       data: {
         metrics,
         recommendations,
+        profile_contacts: profileContacts,
       },
     });
   } catch (error) {
@@ -676,16 +688,15 @@ router.post('/perfis/:slug/contact', publicRateLimiter, async (req: Request, res
 // POST /api/v1/gm/perfis/:slug/contact-click — Registrar clique em método de contato
 router.post('/perfis/:slug/contact-click', publicRateLimiter, async (req: Request, res: Response) => {
   const { slug } = req.params;
-  const { channel } = req.body as { channel?: string };
+  // O `as { channel?: string }` anterior afirmava o formato sobre qualquer payload.
+  const channel = readBodyField(req.body, 'channel');
 
   // Validar slug
-  if (!slug || slug.length > 200 || !/^[a-z0-9-]+$/i.test(slug)) {
+  if (!isValidSlugParam(slug)) {
     return res.status(400).json({ error: 'Slug inválido.' });
   }
 
-  // Validar channel
-  const validChannels = ['whatsapp', 'email', 'discord', 'form'];
-  if (!channel || !validChannels.includes(channel)) {
+  if (!isGmContactChannel(channel)) {
     return res.status(400).json({ error: 'Canal inválido.' });
   }
 
@@ -701,16 +712,12 @@ router.post('/perfis/:slug/contact-click', publicRateLimiter, async (req: Reques
       return res.status(404).json({ error: 'Mestre não encontrado.' });
     }
 
-    // Registrar clique (por enquanto apenas log, futuramente pode salvar em tabela)
-    console.log('[GM CONTACT CLICK]', {
-      gm_profile_id: profile.id,
-      slug,
-      channel,
-      timestamp: new Date().toISOString(),
-    });
-
-    // TODO: Salvar em tabela gm_contact_metrics para analytics
-    // await db.insertInto('gm_contact_clicks').values({ gm_profile_id: profile.id, channel }).execute();
+    // Spec 105 M3: antes só `console.log`. A linha guarda perfil, canal e
+    // instante — sem IP e sem fingerprint (migration_167).
+    await db
+      .insertInto('gm_profile_contact_events')
+      .values({ gm_profile_id: profile.id, channel })
+      .execute();
 
     res.json({ success: true });
   } catch (error) {

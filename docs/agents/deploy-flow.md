@@ -109,6 +109,7 @@ Não há diff no código daquele app; o que mudou foi *qual versão* ele resolve
 | [[E004]] | `@types/multer@2` | build do `mesas-backend` (express 4 vs tipos express 5) |
 | [[E008]] | **regeneração de lockfile** (dependabot), não bump direto | `apps/site`: hoisting mudou, dois Vite majors no mesmo build |
 | 2026-09-03 (spec 100) | **`pnpm install` sem flag** ao acrescentar dependência de workspace | `apps/site`: `@babel/core@7.29.7` removido do lock, teste quebrado no CI |
+| 2026-10-12 (spec 105) | qualquer `pnpm add`/`install --lockfile-only`, mesmo de pacote sem relação | sufixo `(supports-color@5.5.0)` some e volta em `@babel/core`, `gaxios`, `http-proxy-middleware`… (15 commits) |
 
 O caso de 2026-09-03 é o mais instrutivo porque o agente **negou a autoria com
 convicção**: o diff de `apps/site/` era vazio, e ele concluiu daí que a PR não
@@ -130,6 +131,27 @@ resolução transitiva. Ver §5.
 - **Regeneração de lockfile pode reexpor combo latente de versões.** Quando o
   lock mudar de verdade (bump, dependabot, refresh), rodar o build completo —
   `turbo build --force` — e não só o do app que você estava mexendo.
+- **Lock que muda sozinho tem causa no grafo, não na versão do pnpm.** O vaivém do
+  `(supports-color@5.5.0)` (2026-10-12, spec 105) não era máquina com pnpm diferente
+  — todos rodavam 11.8.0. O `nodemon` era o único pacote a trazer
+  `supports-color@5.5.0`; ele satisfazia o peer **opcional** do `debug` e criava a
+  variante `debug@4.4.3(supports-color@5.5.0)`, e os outros consumidores de `debug`
+  caíam numa ou noutra variante conforme a ordem de resolução. Medido em cópia
+  isolada com 11.8.0: com o mesmo manifest final, add + remove de um pacote sem
+  relação reescrevia 189 linhas, e três ordens de operação davam três locks
+  diferentes. Sem o `nodemon`, as três ordens dão o mesmo lock e um pacote novo
+  entra só por adição. Correção: `tsx` virou o único executor TypeScript do
+  monorepo (`catalog:` em `pnpm-workspace.yaml`), e `nodemon`/`ts-node` saíram.
+  Atualizar o pnpm não bastava: 11.15.0 e 11.21.0 ainda dependiam da ordem.
+- **Teste de determinismo antes de aceitar diff de lock.** Em cópia isolada
+  (manifests + lock, `--lockfile-only`), aplicar a mesma mudança por dois caminhos
+  (`+X` e `+Y +X −Y`) e comparar os locks. Diferentes = o lock grava histórico, e a
+  causa precisa ser achada antes do commit.
+- **Dependência com versão `latest` na árvore se fixa por `overrides`.**
+  `@paulirish/trace_engine` (via `lighthouse`) declara `third-party-web` e
+  `legacy-javascript` como `latest`; toda re-resolução puxava a versão do dia
+  (`legacy-javascript` 0.0.1 → 0.0.3, publicada 4 dias antes). Fixadas em
+  `pnpm-workspace.yaml` com seletor de pai (`"pai>filho": "versão"`).
 - **Declarar a peer dependency que o app usa.** [[E008]] aconteceu porque
   `apps/site` não declarava `vite`, e a resolução dependia da topologia de
   hoisting. Vite 8 é **apenas** das SPAs React; o site Astro é Vite 7 por design
@@ -139,7 +161,7 @@ resolução transitiva. Ver §5.
 
 ## 3. Migration
 
-A maior família: 8 dos 22 incidentes. **Esta seção é autossuficiente** — tudo o
+A maior família: 8 dos 23 incidentes. **Esta seção é autossuficiente** — tudo o
 que é preciso para escrever, validar e aplicar uma migration está aqui, incluindo
 o que antes vivia em `apps/mesas/migrations_guide.md`.
 

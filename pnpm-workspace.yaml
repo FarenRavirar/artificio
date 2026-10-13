@@ -8,6 +8,14 @@ packages:
   # outro. Antes disso nada ali tinha cobertura, e um bug de lógica num script de
   # decisão passava verde no CI (PR #243: falso DESTRAVADO no check do TS 7).
   - "scripts"
+# Versão única por dependência compartilhada (pnpm catalogs). `tsx` é o único
+# executor de TypeScript do monorepo — `dev` dos backends e scripts operacionais.
+# Antes conviviam `nodemon` + `ts-node` em três backends e três faixas de `tsx`;
+# o `nodemon` era o único pacote a trazer `supports-color@5.5.0`, que fazia o
+# pnpm 11.8.0 reescrever o sufixo de peer do `debug` no lock a cada mudança de
+# dependência (spec 105 T3.1).
+catalog:
+  tsx: 4.22.4
 overrides:
   "form-data@<4.0.6": ">=4.0.6"
   # 10 CVEs medidas pelo Snyk em 2026-09-13, a pior CVE-2026-84961 (CWE-295,
@@ -122,6 +130,15 @@ overrides:
   # `mesas`. O 6.16.0 é a correção nomeada pelo Snyk e satisfaz o `^6.14.0` que o
   # express 5 declara, então entra sem quebrar semver.
   "qs@<6.16.0": ">=6.16.0 <7"
+  # NÃO é CVE: é dependência sem versão. `@paulirish/trace_engine` (via
+  # `lighthouse`) declara `third-party-web` e `legacy-javascript` como `latest`,
+  # então toda re-resolução da árvore do lighthouse puxa a versão publicada no
+  # dia — medido em 2026-10-12: `legacy-javascript` 0.0.1 → 0.0.3 (publicada 4
+  # dias antes) e `third-party-web` 0.29.2 → 0.30.0 num lock regenerado só por
+  # tirar o `nodemon`. Fixa as versões que o lock já tinha; subir é decisão
+  # explícita, não efeito colateral (spec 105 T3.1).
+  "@paulirish/trace_engine>legacy-javascript": "0.0.1"
+  "@paulirish/trace_engine>third-party-web": "0.29.2"
 patchedDependencies:
   "@types/express-serve-static-core@5.1.1": patches/@types__express-serve-static-core@5.1.1.patch
 allowBuilds:

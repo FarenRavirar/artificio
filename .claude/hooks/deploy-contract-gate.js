@@ -3,7 +3,7 @@
 // deploy antes de editar arquivo de uma das famílias de incidente recorrente.
 //
 // POR QUE EXISTE
-// Os 22 incidentes de `.specify/memory/errors.md` são 5 famílias de causa raiz,
+// Os 23 incidentes de `.specify/memory/errors.md` são 5 famílias de causa raiz,
 // e TRÊS já tiveram recorrência:
 //   E016 -> E017 -> E021  (a terceira derrubou o SSO por ~5h)
 //   E004 -> E008 -> lockfile podado na spec 100 (2026-09-03)
@@ -55,7 +55,7 @@ const FAMILIAS = [
     casa: (p) => /migration_[\w-]*\.sql$/i.test(p),
     secao: "§3 Migration",
     porque:
-      "A maior família — 8 dos 22 incidentes. Header inválido passa verde no CI e " +
+      "A maior família — 8 dos 23 incidentes. Header inválido passa verde no CI e " +
       "aborta o deploy na VM; migration não idempotente falha na segunda execução.",
   },
   {

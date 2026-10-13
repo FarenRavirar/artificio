@@ -1,11 +1,12 @@
 import { Router, Request, Response } from 'express';
-import { sql, type RawBuilder } from 'kysely';
+import { sql, type RawBuilder, type Transaction } from 'kysely';
 import { db } from '../db/index.js';
 import { authMiddleware, optionalAuth } from '../middleware/auth.js';
 import { logDatabaseError } from '../middleware/requestLogger.js';
 import { sanitizePublicImageUrl } from '../utils/publicImageUrl.js';
 import { serializeContact, serializeContacts } from '../utils/contactSerializer.js';
-import { recordTableMetric } from '../services/tableMetrics.js';
+import { recordTableMetric, type MetricAction } from '../services/tableMetrics.js';
+import { isValidSlugParam, readBodyField } from '../utils/validation.js';
 import {
   classifyTablePublicDisposition,
   importedTableExpiryDate,
@@ -26,7 +27,7 @@ import {
   filterCatalogTree,
   flattenTree,
 } from '../services/catalogClient.js';
-import type { TableModality, TableType, TableAudience, PriceType, ExperienceLevel, TableReportReason } from '../db/types.js';
+import type { Database, TableModality, TableType, TableAudience, PriceType, ExperienceLevel, TableReportReason } from '../db/types.js';
 
 const VALID_REPORT_REASONS: Set<TableReportReason> = new Set(['golpe', 'conteudo_inadequado', 'spam', 'informacao_falsa', 'outro']);
 
@@ -891,7 +892,7 @@ router.get('/:slug', async (req: Request, res: Response) => {
   const { slug } = req.params;
 
   // CORREÇÃO A-HIGH-02: Validar formato do slug antes de usar em query
-  if (!slug || slug.length > 200 || !/^[a-z0-9-]+$/i.test(slug)) {
+  if (!isValidSlugParam(slug)) {
     return res.status(400).json({ error: 'Slug inválido.' });
   }
 
@@ -1120,87 +1121,92 @@ router.get('/:slug', async (req: Request, res: Response) => {
   }
 });
 
+/** Tipos de clique do `click_breakdown` do painel do mestre (`gmPanel.ts`). */
+const CLICK_BREAKDOWN_TYPES = ['refactored_v4', 'cta_entrar', 'link_vtt'] as const;
+
+function isClickBreakdownType(value: unknown): value is (typeof CLICK_BREAKDOWN_TYPES)[number] {
+  return typeof value === 'string' && (CLICK_BREAKDOWN_TYPES as readonly string[]).includes(value);
+}
+
+/**
+ * Mesa pública por slug, para as rotas de métrica (`view`, `click`, `contact`).
+ *
+ * As três repetiam o mesmo `select` + `isPublicTable` (Sonar: 68% de duplicação
+ * nas linhas novas de `tables.ts`, spec 105). O critério de visibilidade tem de
+ * ser o mesmo nas três; cópia é onde ele diverge.
+ */
+async function findPublicTableIdBySlug(slug: string): Promise<string | null> {
+  const table = await db
+    .selectFrom('tables as t')
+    .select(['t.id', 't.status', 't.archived_at', 't.origin', 't.created_at', 't.starts_at'])
+    .where('t.slug', '=', slug)
+    .where('t.status', '=', 'active')
+    .where('t.archived_at', 'is', null)
+    .executeTakeFirst();
+  return table && isPublicTable(table) ? table.id : null;
+}
+
+/**
+ * Handler das rotas de métrica (`view`, `click`, `contact`): valida o slug,
+ * resolve a mesa pública e registra a ação. As três repetiam essa casca inteira
+ * (Sonar, duplicação em código novo na PR #338); só mudam a ação, a mensagem de
+ * erro e, no `click`, a escrita extra na mesma transação.
+ *
+ * Validação de slug igual nas três (spec 105). Antes a `/view` mandava
+ * qualquer string para a query; o resultado era 404, agora é 400.
+ */
+function tableMetricHandler(
+  action: MetricAction,
+  errorMessage: string,
+  buildOnCounted?: (req: Request, tableId: string) => ((trx: Transaction<Database>) => Promise<void>) | undefined,
+) {
+  return async (req: Request, res: Response) => {
+    const { slug } = req.params;
+    if (!isValidSlugParam(slug)) {
+      return res.status(400).json({ error: 'Slug inválido.' });
+    }
+
+    try {
+      const tableId = await findPublicTableIdBySlug(slug);
+      if (!tableId) {
+        return res.status(404).json({ error: 'Mesa não encontrada.' });
+      }
+
+      // Evento + contador, com dedupe por visitante (spec 105 M2).
+      await recordTableMetric(tableId, action, req, buildOnCounted?.(req, tableId));
+      res.json({ success: true });
+    } catch (error) {
+      console.error(`[POST /tables/:slug/${action}]`, error);
+      res.status(500).json({ error: errorMessage });
+    }
+  };
+}
+
+/**
+ * Detalhamento por tipo de clique, lido pelo painel do mestre (`gmPanel.ts`,
+ * `click_breakdown`). Até a spec 105 só entravam `with_metrics`/
+ * `without_metrics`, de um A/B test que nenhum frontend envia; o frontend manda
+ * o tipo (`refactored_v4`, `cta_entrar`, `link_vtt`), que era descartado.
+ * Medido em produção (2026-10-12): `table_click_events` com 0 linhas, painel
+ * sempre zerado. Grava só o clique que contou, na mesma transação do contador,
+ * para o detalhamento somar o mesmo que `clicks_count`.
+ *
+ * `variant` é opcional; requisição sem body também é válida (spec 089 T6B.1:
+ * destructuring de undefined devolvia 500).
+ */
+function clickBreakdownWriter(req: Request, tableId: string) {
+  const variant = readBodyField(req.body, 'variant');
+  if (!isClickBreakdownType(variant)) return undefined;
+  return async (trx: Transaction<Database>) => {
+    await trx.insertInto('table_click_events').values({ table_id: tableId, variant }).execute();
+  };
+}
+
 // POST /api/v1/tables/:slug/view — Registrar visualização
-router.post('/:slug/view', async (req: Request, res: Response) => {
-  const { slug } = req.params;
+router.post('/:slug/view', tableMetricHandler('view', 'Erro ao registrar visualização.'));
 
-  try {
-    // Buscar mesa pelo slug
-    const table = await db
-      .selectFrom('tables as t')
-      .select(['t.id', 't.status', 't.archived_at', 't.origin', 't.created_at', 't.starts_at'])
-      .where('t.slug', '=', slug)
-      .where('t.status', '=', 'active')
-      .where('t.archived_at', 'is', null)
-      .executeTakeFirst();
-
-    if (!table || !isPublicTable(table)) {
-      return res.status(404).json({ error: 'Mesa não encontrada.' });
-    }
-
-    // Evento + contador, com dedupe por visitante (spec 105 M2).
-    await recordTableMetric(table.id, 'view', req);
-
-    res.json({ success: true });
-  } catch (error) {
-    console.error('[POST /tables/:slug/view]', error);
-    res.status(500).json({ error: 'Erro ao registrar visualização.' });
-  }
-});
-
-// POST /api/v1/tables/:slug/click — Registrar clique (para CTR tracking e A/B test)
-router.post('/:slug/click', async (req: Request, res: Response) => {
-  const { slug } = req.params;
-  // `variant` é opcional; requisição sem body também é válida.
-  // Achado durante T6B.1 (spec 089): destructuring de undefined devolvia 500.
-  // `req.body` é `unknown` até ser normalizado (regra pétrea): o `as` anterior
-  // afirmava `variant?: string` sobre payload que pode ser array, número ou
-  // `{variant: {}}` (achado de review, P2). Aqui a afirmação vira verificação.
-  const body: unknown = req.body;
-  const variant =
-    typeof body === 'object' && body !== null && !Array.isArray(body)
-      ? (body as Record<string, unknown>).variant
-      : undefined;
-
-  // CORREÇÃO UX-SENIOR-02: Validar formato do slug
-  if (!slug || slug.length > 200 || !/^[a-z0-9-]+$/i.test(slug)) {
-    return res.status(400).json({ error: 'Slug inválido.' });
-  }
-
-  try {
-    // Buscar mesa pelo slug
-    const table = await db
-      .selectFrom('tables as t')
-      .select(['t.id', 't.status', 't.archived_at', 't.origin', 't.created_at', 't.starts_at'])
-      .where('t.slug', '=', slug)
-      .where('t.status', '=', 'active')
-      .where('t.archived_at', 'is', null)
-      .executeTakeFirst();
-
-    if (!table || !isPublicTable(table)) {
-      return res.status(404).json({ error: 'Mesa não encontrada.' });
-    }
-
-    // Evento + contador, com dedupe por visitante (spec 105 M2).
-    await recordTableMetric(table.id, 'click', req);
-
-    // Registrar evento de clique para A/B test (se variant fornecida)
-    if (variant && (variant === 'with_metrics' || variant === 'without_metrics')) {
-      await db
-        .insertInto('table_click_events')
-        .values({
-          table_id: table.id,
-          variant,
-        })
-        .execute();
-    }
-
-    res.json({ success: true });
-  } catch (error) {
-    console.error('[POST /tables/:slug/click]', error);
-    res.status(500).json({ error: 'Erro ao registrar clique.' });
-  }
-});
+// POST /api/v1/tables/:slug/click — Registrar clique (CTR e detalhamento por tipo)
+router.post('/:slug/click', tableMetricHandler('click', 'Erro ao registrar clique.', clickBreakdownWriter));
 
 // POST /api/v1/tables/:slug/contact — Registrar contato iniciado (spec 105 M1)
 //
@@ -1210,33 +1216,7 @@ router.post('/:slug/click', async (req: Request, res: Response) => {
 // medido em produção (2026-10-12): soma 1 em 206 mesas. O canal não é gravado no
 // banco (a tabela de evento não tem coluna para ele); vai para o GA4 no
 // `contact_click`.
-router.post('/:slug/contact', async (req: Request, res: Response) => {
-  const { slug } = req.params;
-
-  if (!slug || slug.length > 200 || !/^[a-z0-9-]+$/i.test(slug)) {
-    return res.status(400).json({ error: 'Slug inválido.' });
-  }
-
-  try {
-    const table = await db
-      .selectFrom('tables as t')
-      .select(['t.id', 't.status', 't.archived_at', 't.origin', 't.created_at', 't.starts_at'])
-      .where('t.slug', '=', slug)
-      .where('t.status', '=', 'active')
-      .where('t.archived_at', 'is', null)
-      .executeTakeFirst();
-
-    if (!table || !isPublicTable(table)) {
-      return res.status(404).json({ error: 'Mesa não encontrada.' });
-    }
-
-    await recordTableMetric(table.id, 'contact', req);
-    res.json({ success: true });
-  } catch (error) {
-    console.error('[POST /tables/:slug/contact]', error);
-    res.status(500).json({ error: 'Erro ao registrar contato.' });
-  }
-});
+router.post('/:slug/contact', tableMetricHandler('contact', 'Erro ao registrar contato.'));
 
 // GET /api/v1/tables/:slug/favorite — Estado de favorito do usuário logado (401 se não logado)
 router.get('/:slug/favorite', authMiddleware, async (req: Request, res: Response) => {
@@ -1244,22 +1224,15 @@ router.get('/:slug/favorite', authMiddleware, async (req: Request, res: Response
   const userId = req.user!.userId;
 
   try {
-    const table = await db
-      .selectFrom('tables as t')
-      .select(['t.id', 't.status', 't.archived_at', 't.origin', 't.created_at', 't.starts_at'])
-      .where('t.slug', '=', slug)
-      .where('t.status', '=', 'active')
-      .where('t.archived_at', 'is', null)
-      .executeTakeFirst();
-
-    if (!table || !isPublicTable(table)) {
+    const tableId = await findPublicTableIdBySlug(slug);
+    if (!tableId) {
       return res.status(404).json({ error: 'Mesa não encontrada.' });
     }
 
     const favorite = await db
       .selectFrom('table_favorites')
       .select(['id'])
-      .where('table_id', '=', table.id)
+      .where('table_id', '=', tableId)
       .where('user_id', '=', userId)
       .executeTakeFirst();
 
@@ -1276,15 +1249,8 @@ router.post('/:slug/favorite', authMiddleware, async (req: Request, res: Respons
   const userId = req.user!.userId;
 
   try {
-    const table = await db
-      .selectFrom('tables as t')
-      .select(['t.id', 't.status', 't.archived_at', 't.origin', 't.created_at', 't.starts_at'])
-      .where('t.slug', '=', slug)
-      .where('t.status', '=', 'active')
-      .where('t.archived_at', 'is', null)
-      .executeTakeFirst();
-
-    if (!table || !isPublicTable(table)) {
+    const tableId = await findPublicTableIdBySlug(slug);
+    if (!tableId) {
       return res.status(404).json({ error: 'Mesa não encontrada.' });
     }
 
@@ -1295,7 +1261,7 @@ router.post('/:slug/favorite', authMiddleware, async (req: Request, res: Respons
       const existing = await trx
         .selectFrom('table_favorites')
         .select(['id'])
-        .where('table_id', '=', table.id)
+        .where('table_id', '=', tableId)
         .where('user_id', '=', userId)
         .forUpdate()
         .executeTakeFirst();
@@ -1305,18 +1271,18 @@ router.post('/:slug/favorite', authMiddleware, async (req: Request, res: Respons
         await trx
           .updateTable('table_metrics')
           .set({ favorites_count: sql`GREATEST(favorites_count - 1, 0)`, updated_at: sql`NOW()` })
-          .where('table_id', '=', table.id)
+          .where('table_id', '=', tableId)
           .execute();
         return false;
       }
 
       await trx
         .insertInto('table_favorites')
-        .values({ table_id: table.id, user_id: userId })
+        .values({ table_id: tableId, user_id: userId })
         .execute();
       await trx
         .insertInto('table_metrics')
-        .values({ table_id: table.id, favorites_count: 1 })
+        .values({ table_id: tableId, favorites_count: 1 })
         .onConflict((oc) =>
           oc.column('table_id').doUpdateSet({
             favorites_count: sql`table_metrics.favorites_count + 1`,
