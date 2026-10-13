@@ -17,33 +17,48 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { GoogleAuth } from 'google-auth-library';
 import {
+  collectGa4Report,
+  collectGscRows,
   ga4Body,
   gscBody,
   normalizeGa4Rows,
   normalizeGscRows,
+  selectEntries,
   validateManifest,
   validatePeriod,
 } from './coletar-lib.mjs';
 
-const HERE = dirname(fileURLToPath(import.meta.url));
+// Manifesto fixo ao lado do script: caminho vindo de argumento é path traversal.
+const MANIFEST = join(dirname(fileURLToPath(import.meta.url)), 'apps.json');
 const SCOPES = [
   'https://www.googleapis.com/auth/webmasters.readonly',
   'https://www.googleapis.com/auth/analytics.readonly',
 ];
 
-const GA4_REPORTS = {
-  eventos: { dimensions: ['eventName'], metrics: ['eventCount'], orderMetric: 'eventCount' },
-  paginas: {
-    dimensions: ['pagePath'],
-    metrics: ['screenPageViews', 'activeUsers'],
-    orderMetric: 'screenPageViews',
-  },
-  entrada: {
-    dimensions: ['landingPage', 'sessionDefaultChannelGroup'],
-    metrics: ['sessions', 'engagedSessions'],
-    orderMetric: 'sessions',
-  },
-};
+const GSC_REPORTS = [
+  ['paginas', ['page']],
+  ['consultas', ['query', 'page']],
+];
+
+const GA4_REPORTS = [
+  ['eventos', { dimensions: ['eventName'], metrics: ['eventCount'], orderMetric: 'eventCount' }],
+  [
+    'paginas',
+    {
+      dimensions: ['pagePath'],
+      metrics: ['screenPageViews', 'activeUsers'],
+      orderMetric: 'screenPageViews',
+    },
+  ],
+  [
+    'entrada',
+    {
+      dimensions: ['landingPage', 'sessionDefaultChannelGroup'],
+      metrics: ['sessions', 'engagedSessions'],
+      orderMetric: 'sessions',
+    },
+  ],
+];
 
 async function post(url, token, body) {
   const res = await fetch(url, {
@@ -55,23 +70,34 @@ async function post(url, token, body) {
   return res.json();
 }
 
+// Os relatórios de um app e os apps entre si são independentes. `Promise.all` mantém a
+// ordem da entrada, então a saída segue determinística.
 async function collectApp(entry, period, token) {
   const gscUrl = `https://searchconsole.googleapis.com/webmasters/v3/sites/${encodeURIComponent(entry.gscSite)}/searchAnalytics/query`;
-  const gsc = {};
-  for (const [name, dims] of [
-    ['paginas', ['page']],
-    ['consultas', ['query', 'page']],
-  ]) {
-    const json = await post(gscUrl, token, gscBody(entry, period, dims));
-    gsc[name] = normalizeGscRows(json.rows, dims);
-  }
   const ga4Url = `https://analyticsdata.googleapis.com/v1beta/properties/${entry.ga4Property}:runReport`;
-  const ga4 = {};
-  for (const [name, spec] of Object.entries(GA4_REPORTS)) {
-    const json = await post(ga4Url, token, ga4Body(entry, period, spec));
-    ga4[name] = normalizeGa4Rows(json, spec.orderMetric);
-  }
-  return { app: entry.app, host: entry.host, gsc, ga4 };
+
+  const gscReports = await Promise.all(
+    GSC_REPORTS.map(async ([, dims]) => {
+      const rows = await collectGscRows((startRow) =>
+        post(gscUrl, token, gscBody(entry, period, dims, startRow)),
+      );
+      return normalizeGscRows(rows, dims);
+    }),
+  );
+  const ga4Reports = await Promise.all(
+    GA4_REPORTS.map(async ([, spec]) => {
+      const report = await collectGa4Report((offset) =>
+        post(ga4Url, token, ga4Body(entry, period, spec, offset)),
+      );
+      return normalizeGa4Rows(report, spec.orderMetric);
+    }),
+  );
+  return {
+    app: entry.app,
+    host: entry.host,
+    gsc: Object.fromEntries(GSC_REPORTS.map(([name], i) => [name, gscReports[i]])),
+    ga4: Object.fromEntries(GA4_REPORTS.map(([name], i) => [name, ga4Reports[i]])),
+  };
 }
 
 const { values } = parseArgs({
@@ -79,14 +105,12 @@ const { values } = parseArgs({
     start: { type: 'string' },
     end: { type: 'string' },
     app: { type: 'string' },
-    manifest: { type: 'string', default: join(HERE, 'apps.json') },
   },
 });
 
 const period = validatePeriod(values.start, values.end);
-const manifest = validateManifest(JSON.parse(readFileSync(values.manifest, 'utf8')));
-const entries = values.app ? manifest.filter((e) => e.app === values.app) : manifest;
-if (entries.length === 0) throw new Error(`App "${values.app}" não está no manifesto.`);
+const manifest = validateManifest(JSON.parse(readFileSync(MANIFEST, 'utf8')));
+const entries = selectEntries(manifest, values.app);
 
 const keyFile =
   process.env.GOOGLE_APPLICATION_CREDENTIALS ??
@@ -95,6 +119,5 @@ const auth = new GoogleAuth({ keyFilename: keyFile, scopes: SCOPES });
 const token = await auth.getAccessToken();
 if (!token) throw new Error('Sem token de acesso.');
 
-const apps = [];
-for (const entry of entries) apps.push(await collectApp(entry, period, token));
+const apps = await Promise.all(entries.map((entry) => collectApp(entry, period, token)));
 process.stdout.write(`${JSON.stringify({ period, apps }, null, 2)}\n`);

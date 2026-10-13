@@ -153,11 +153,12 @@ export function buildTableJsonLd(vm: TableViewModel): Record<string, unknown> | 
   };
 
   if (vm.coverUrl) product.image = vm.coverUrl;
-  // `Brand`, e não `Person`: o Rich Results Test marcava `Person` em `brand` como
-  // "Invalid object type for field brand" (Merchant listings) nas 16 mesas
-  // inspecionadas do sitemap em 2026-10-13 (spec 105 T2.2). A doc de Product
-  // pede `Brand` ou `Organization` nesse campo.
-  if (vm.masterName) product.brand = { '@type': 'Brand', name: vm.masterName };
+  // Sem `brand`. Com `Person` o Rich Results Test marcava "Invalid object type for
+  // field brand" (Merchant listings) nas 16 mesas inspecionadas do sitemap em
+  // 2026-10-13 (spec 105 T2.2). Trocar por `Brand` só mudaria o tipo: o nome do
+  // mestre é nome de exibição, não marca do produto, e declará-lo como marca é
+  // afirmar o que o dado não diz. `brand` é recomendado, não exigido; a mesa
+  // fica elegível por `name` + `offers`. Achado do CodeRabbit na PR #339.
 
   return { '@context': 'https://schema.org', '@graph': [product] };
 }

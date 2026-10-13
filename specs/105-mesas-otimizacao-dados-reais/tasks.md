@@ -548,8 +548,10 @@ description em cliques é indetectável; a F4 só pode medir impressão, posiç�
   (`foolangel`, `marcio-abreu`, `mesa-video-game`, `mestre-kevin`, `mestre-noir`, `vidal17`).
   Os 14 desconhecidos sustentam a hipótese da T4.1.
 - **Achado:** as 16 mesas indexadas inspecionadas têm o mesmo aviso de *Merchant listings*:
-  `Invalid object type for field "brand"` — o JSON-LD usava `Person`. Corrigido para `Brand`
-  (`tableMeta.ts`, teste novo); falta deploy. Os demais avisos (`review`, `aggregateRating`,
+  `Invalid object type for field "brand"` — o JSON-LD usava `Person`. `brand` saiu
+  do `Product` (`tableMeta.ts`, teste novo): `Brand` com o nome do mestre só trocaria o tipo,
+  porque nome de exibição não é marca do produto (achado do CodeRabbit na PR #339).
+  Falta deploy, e confirmar no Rich Results Test depois dele que o aviso sumiu. Os demais avisos (`review`, `aggregateRating`,
   `shippingDetails`, `hasMerchantReturnPolicy`) são opcionais e não se aplicam a mesa de RPG.
 - Não medi o porquê do canonical diferente nos 6 perfis.
 

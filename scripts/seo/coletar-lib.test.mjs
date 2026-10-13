@@ -1,9 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import {
+  GA4_PAGE_LIMIT,
+  GSC_ROW_LIMIT,
+  collectGa4Report,
+  collectGscRows,
+  escapeRe2,
   ga4Body,
   gscBody,
   normalizeGa4Rows,
   normalizeGscRows,
+  selectEntries,
   validateManifest,
   validatePeriod,
 } from './coletar-lib.mjs';
@@ -59,9 +65,25 @@ describe('corpos das requisições', () => {
     expect(body.startDate).toBe('2026-09-13');
     expect(body.dimensionFilterGroups[0].filters[0]).toEqual({
       dimension: 'page',
-      operator: 'contains',
-      expression: 'https://mesas.artificiorpg.com/',
+      operator: 'includingRegex',
+      expression: String.raw`^https://mesas\.artificiorpg\.com/`,
     });
+  });
+
+  it('GSC: regex ancorado não casa host dentro da query de outra página', () => {
+    const { expression } = gscBody(entry, { start: '2026-09-13', end: '2026-10-10' }, ['page'])
+      .dimensionFilterGroups[0].filters[0];
+    const re = new RegExp(expression);
+
+    expect(re.test('https://mesas.artificiorpg.com/mesas/x')).toBe(true);
+    expect(re.test('https://artificiorpg.com/?u=https://mesas.artificiorpg.com/')).toBe(false);
+    expect(re.test('https://mesasXartificiorpg.com/')).toBe(false);
+  });
+
+  it('escapeRe2 escapa metacaracteres', () => {
+    expect(escapeRe2(String.raw`a.b+c?(d)[e]{f}|g^h$i*j\k`)).toBe(
+      String.raw`a\.b\+c\?\(d\)\[e\]\{f\}\|g\^h\$i\*j\\k`,
+    );
   });
 
   it('GA4: filtra hostName, porque os apps dividem a property', () => {
@@ -103,5 +125,95 @@ describe('normalização estável', () => {
       { eventName: 'b', eventCount: 2 },
     ]);
     expect(normalizeGa4Rows({ ...report, rows: [...report.rows].reverse() }, 'eventCount')).toEqual(out);
+  });
+});
+
+describe('resposta fora do contrato', () => {
+  it('GSC: rows não lista, linha sem keys e métrica não numérica viram erro controlado', () => {
+    expect(() => normalizeGscRows(null, ['page'])).toThrow(/fora do contrato/);
+    expect(() => normalizeGscRows([{ clicks: 1 }], ['page'])).toThrow(/keys/);
+    const ruim = { keys: ['https://a/'], clicks: 1, impressions: 1, ctr: '0', position: 1 };
+    expect(() => normalizeGscRows([ruim], ['page'])).toThrow(/ctr/);
+  });
+
+  it('GSC: rows ausente (consulta sem resultado) é lista vazia', () => {
+    expect(normalizeGscRows(undefined, ['page'])).toEqual([]);
+  });
+
+  it('GA4: cabeçalho ausente, célula faltando e métrica não numérica viram erro controlado', () => {
+    const base = {
+      dimensionHeaders: [{ name: 'eventName' }],
+      metricHeaders: [{ name: 'eventCount' }],
+    };
+    expect(() => normalizeGa4Rows({ rows: [] }, 'eventCount')).toThrow(/dimensionHeaders/);
+    expect(() =>
+      normalizeGa4Rows({ ...base, rows: [{ dimensionValues: [{ value: 'a' }] }] }, 'eventCount'),
+    ).toThrow(/metricValues/);
+    expect(() =>
+      normalizeGa4Rows(
+        { ...base, rows: [{ dimensionValues: [{ value: 'a' }], metricValues: [{ value: 'x' }] }] },
+        'eventCount',
+      ),
+    ).toThrow(/não numérica/);
+    expect(() => normalizeGa4Rows({ ...base, rows: null }, 'eventCount')).toThrow(/rows/);
+  });
+});
+
+describe('paginação', () => {
+  it('GSC: avança startRow até a página vir menor que o limite', async () => {
+    const full = Array.from({ length: GSC_ROW_LIMIT }, () => ({}));
+    const pages = { 0: { rows: full }, [GSC_ROW_LIMIT]: { rows: [{}, {}] } };
+    const seen = [];
+    const rows = await collectGscRows(async (startRow) => {
+      seen.push(startRow);
+      return pages[startRow];
+    });
+
+    expect(seen).toEqual([0, GSC_ROW_LIMIT]);
+    expect(rows).toHaveLength(GSC_ROW_LIMIT + 2);
+  });
+
+  it('GSC: página única curta não pede a seguinte', async () => {
+    let calls = 0;
+    await collectGscRows(async () => {
+      calls += 1;
+      return { rows: [{}] };
+    });
+    expect(calls).toBe(1);
+  });
+
+  it('GA4: avança offset até cobrir rowCount e mantém os cabeçalhos', async () => {
+    const headers = { dimensionHeaders: [{ name: 'a' }], metricHeaders: [{ name: 'm' }] };
+    const total = GA4_PAGE_LIMIT + 3;
+    const seen = [];
+    const report = await collectGa4Report(async (offset) => {
+      seen.push(offset);
+      const n = offset === 0 ? GA4_PAGE_LIMIT : 3;
+      return { ...headers, rowCount: total, rows: Array.from({ length: n }, () => ({})) };
+    });
+
+    expect(seen).toEqual([0, GA4_PAGE_LIMIT]);
+    expect(report.rows).toHaveLength(total);
+    expect(report.dimensionHeaders).toEqual(headers.dimensionHeaders);
+  });
+
+  it('GA4: resposta sem rowCount numérico vira erro controlado', async () => {
+    await expect(collectGa4Report(async () => ({ rowCount: 'x', rows: [{}] }))).rejects.toThrow(
+      /rowCount/,
+    );
+  });
+});
+
+describe('selectEntries', () => {
+  const manifest = [entry, { ...entry, app: 'glossario' }];
+
+  it('sem --app devolve o manifesto inteiro', () => {
+    expect(selectEntries(manifest, undefined)).toEqual(manifest);
+  });
+
+  it('--app válido filtra; vazio ou desconhecido é erro', () => {
+    expect(selectEntries(manifest, 'mesas')).toEqual([entry]);
+    expect(() => selectEntries(manifest, '')).toThrow(/não está no manifesto/);
+    expect(() => selectEntries(manifest, 'x')).toThrow(/não está no manifesto/);
   });
 });
