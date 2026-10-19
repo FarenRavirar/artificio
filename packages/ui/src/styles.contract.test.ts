@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const styles = readFileSync(new URL("./styles.css", import.meta.url), "utf8");
@@ -634,5 +634,115 @@ describe("régua tipográfica", () => {
     expect(sans).toContain("Inter");
     expect(sans).toContain("Segoe UI");
     expect(sans).toContain("Roboto");
+  });
+});
+
+// Spec 103 T6.1 — paridade do nav principal entre módulos. Os 5 apps com header
+// renderizam o mesmo `.artificio-nav-link` do pacote; o que mantém a paridade é
+// (1) a regra do pacote ter peso, cor, gap e padding fixos, e (2) nenhum app
+// sobrescrever o nav. Medido em 2026-09-21 (T5.3): a "divergência de peso" era o
+// link ATIVO (600) de um app comparado com o inativo (500) de outro.
+//
+// Cor e peso se assertam pelo TOKEN, não pelo valor (T5.4): a spec 104 vai trocar
+// o hexadecimal dos tokens de tinta, e um guard de hex congelaria essa mudança.
+describe("paridade do nav principal entre módulos (T6.1)", () => {
+  /**
+   * Declarações EFETIVAS das regras de nível superior do seletor (o seletor abre a
+   * linha, então `.artificio-subnav .artificio-nav-link` não conta). Junta todas as
+   * ocorrências em ordem, a posterior sobrescrevendo a anterior, como a cascata faz
+   * entre regras de mesma especificidade — achado do CodeRabbit na PR #335: ler só a
+   * primeira deixava uma regra duplicada mais abaixo mudar o nav com o teste verde.
+   */
+  function regraTopo(selector: string) {
+    const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const efetivas = new Map<string, string>();
+    for (const [, corpo] of styles.matchAll(new RegExp(`(?:^|\\n)${escaped}\\s*\\{([^}]*)\\}`, "g"))) {
+      const semComentario = corpo.replace(/\/\*[\s\S]*?\*\//g, "");
+      for (const decl of semComentario.split(";")) {
+        const i = decl.indexOf(":");
+        if (i > 0) efetivas.set(decl.slice(0, i).trim(), decl.slice(i + 1).trim());
+      }
+    }
+    return [...efetivas].map(([prop, valor]) => `${prop}: ${valor};`).join("\n");
+  }
+
+  it("fixa o peso do link inativo em --weight-medium, que vale 500 (alvo `mesas`)", () => {
+    expect(regraTopo(".artificio-nav-link")).toMatch(/font-weight:\s*var\(--weight-medium\);/);
+    expect(styles).toMatch(/--weight-medium:\s*500;/);
+  });
+
+  it("marca a página atual com --weight-strong (600), não só com cor — WCAG 1.4.1", () => {
+    expect(regraTopo('.artificio-nav-link[aria-current="page"]')).toMatch(
+      /font-weight:\s*var\(--weight-strong\);/,
+    );
+    expect(styles).toMatch(/--weight-strong:\s*600;/);
+  });
+
+  it("tira a cor do link de token, nunca de hexadecimal", () => {
+    // Âncora no início da linha: `border-bottom-color` não pode passar por `color`.
+    expect(regraTopo(".artificio-nav-link")).toMatch(/(^|\n)color:\s*var\(--artificio-muted\);/);
+    expect(regraTopo('.artificio-nav-link[aria-current="page"]')).toMatch(
+      /(^|\n)color:\s*var\(--artificio-ink\);/,
+    );
+  });
+
+  // Achado do Codex na PR #335: no tema escuro (padrão de `mesas` e `downloads`)
+  // quem vence a cascata são as regras pareadas `data-theme=dark` + `data-variant=dark`,
+  // não as de base. O valor delas é literal (branco sobre navy) e fica livre para a
+  // spec 104 mudar; o que se trava é a regra EXISTIR com cor declarada, e o link
+  // ativo continuar marcado pela borda da marca — apagar a regra faria o nav escuro
+  // herdar o `--artificio-muted` do tema claro num módulo e não nos outros.
+  it("mantém a cor do nav no tema escuro, inativo e página atual", () => {
+    // Os dois seletores do par separados por `,\s*`: o checkout no Windows é CRLF
+    // (`core.autocrlf`), o do CI é LF.
+    const esc = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const escuro = (sufixo: string) =>
+      styles.match(
+        new RegExp(
+          esc(`:root[data-theme="dark"] .artificio-header:not([data-variant="light"]) .artificio-nav-link${sufixo}`) +
+            ",\\s*" +
+            esc(`.artificio-header[data-variant="dark"] .artificio-nav-link${sufixo}`) +
+            "\\s*\\{([^}]*)\\}",
+        ),
+      )?.[1] ?? "";
+    expect(escuro("")).toMatch(/(^|[\s;])color:\s*[^;]+;/);
+    const ativo = escuro('[aria-current="page"]');
+    expect(ativo).toMatch(/(^|[\s;])color:\s*[^;]+;/);
+    expect(ativo).toMatch(/border-bottom-color:\s*var\(--artificio-brand\);/);
+    // Peso não é por tema: nenhuma das duas regras escuras pode redefini-lo.
+    expect(escuro("")).not.toMatch(/font-weight/);
+    expect(ativo).not.toMatch(/font-weight/);
+  });
+
+  it("fixa gap da lista e padding do link", () => {
+    expect(regraTopo(".artificio-nav-list")).toMatch(/gap:\s*4px;/);
+    expect(regraTopo(".artificio-nav-link")).toMatch(/padding:\s*10px 12px;/);
+  });
+
+  it("nenhum app sobrescreve o nav do pacote", () => {
+    // A paridade quebra no app, não no pacote: basta um `.artificio-nav-link { … }`
+    // num CSS de app para um módulo divergir dos outros com o pacote intacto.
+    // Só o código-fonte (`src/` e `frontend/src/`): varrer o app inteiro entra em
+    // `node_modules` e em saída de build (`dist*`), que copia o CSS do pacote.
+    const apps = new URL("../../../apps/", import.meta.url);
+    const seletor = /\.artificio-nav-(link|list)\b[^{};]*\{/;
+    const ofensores: string[] = [];
+    let varridos = 0;
+    for (const app of readdirSync(apps)) {
+      for (const raiz of ["src/", "frontend/src/"]) {
+        const base = new URL(`${app}/${raiz}`, apps);
+        if (!existsSync(base)) continue;
+        for (const rel of readdirSync(base, { recursive: true }) as string[]) {
+          if (!/\.(css|scss|astro)$/.test(rel)) continue;
+          varridos++;
+          if (seletor.test(readFileSync(new URL(rel.replace(/\\/g, "/"), base), "utf8"))) {
+            ofensores.push(`${app}/${raiz}${rel}`);
+          }
+        }
+      }
+    }
+    // Zero arquivo varrido seria o teste passando por não medir nada.
+    expect(varridos).toBeGreaterThan(10);
+    expect(ofensores).toEqual([]);
   });
 });
