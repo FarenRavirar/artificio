@@ -63,7 +63,7 @@ describe('alerta de fila parada', () => {
     h.claimed = [{ id: 'a', title: 'A', kind: 'bug' }, { id: 'b', title: 'B', kind: 'suggestion' }];
     expect(await alertStaleFeedback()).toBe(2);
     expect(h.notified).toHaveLength(2);
-    expect(h.notified[0]).toMatchObject({ type: 'feedback_stale' });
+    expect(h.notified[0]).toMatchObject({ type: 'feedback_stale', action_url: '/gestao/sistema?tab=feedback' });
   });
 
   it('fila vazia não avisa', async () => {

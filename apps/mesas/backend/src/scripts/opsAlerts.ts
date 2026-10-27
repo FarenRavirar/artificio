@@ -8,12 +8,15 @@ import { alertStaleFeedback } from '../services/devFeedbackNotices.js';
  *
  * Uso: `npm run ops:alerts` (dist) ou `ops:alerts:dev`.
  */
-try {
-  const stale = await alertStaleFeedback();
-  const tails = await alertContactTails();
-  console.log(`[ops:alerts] relatos parados avisados: ${stale}; contatos com cauda: ${tails}`);
-  process.exit(0);
-} catch (error: unknown) {
-  console.error('[ops:alerts] Erro:', error);
-  process.exit(1);
+// Varreduras independentes: a falha de uma não impede a outra; qualquer falha dá saída não-zero.
+const [stale, tails] = await Promise.allSettled([alertStaleFeedback(), alertContactTails()]);
+let failed = false;
+for (const [nome, resultado] of [['relatos parados', stale], ['contatos com cauda', tails]] as const) {
+  if (resultado.status === 'fulfilled') {
+    console.log(`[ops:alerts] ${nome}: ${resultado.value}`);
+  } else {
+    failed = true;
+    console.error(`[ops:alerts] Erro em ${nome}:`, resultado.reason);
+  }
 }
+process.exit(failed ? 1 : 0);

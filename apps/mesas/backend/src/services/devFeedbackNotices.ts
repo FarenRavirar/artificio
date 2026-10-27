@@ -98,7 +98,8 @@ export async function alertStaleFeedback(): Promise<number> {
         awaitDelivery: true,
         title: 'Relato parado na fila',
         message: `"${row.title.slice(0, TITLE_MAX)}" está há ${STALE_AFTER_DAYS} dias sem triagem.`,
-        action_url: '/gestao',
+        // `/gestao` redireciona para a visão geral; a fila só aparece nesta aba (mesmo destino de devFeedback.ts).
+        action_url: '/gestao/sistema?tab=feedback',
         metadata: { feedback_id: row.id, kind: row.kind },
       }),
     ),

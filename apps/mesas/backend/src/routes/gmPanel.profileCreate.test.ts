@@ -166,7 +166,8 @@ describe('POST /api/v1/gm/profile — cria perfil COM contact_methods (T4.0p2)',
   it('sem slug nem nickname deriva de display_name e desvia de slug ocupado (void, void-2 → void-3)', async () => {
     const selectChain = mockChain({
       executeTakeFirst: vi.fn()
-        .mockResolvedValueOnce({ username: null })        // users
+        // e-mail presente de propósito: se a derivação voltar a ler `email`, o slug vira `patorico027`
+        .mockResolvedValueOnce({ username: null, email: 'patorico027@gmail.com' }) // users
         .mockResolvedValueOnce({ display_name: 'VOID' }), // profiles
       execute: vi.fn().mockResolvedValue([{ slug: 'void' }, { slug: 'void-2' }]), // já ocupados
     });
