@@ -33,7 +33,6 @@ function makeTableDetail(overrides: Partial<TableDetail> = {}): TableDetail {
     price_type: 'gratuita',
     price_value: null,
     slots_total: 5,
-    slots_filled: 1,
     slots_open: 4,
     language: 'pt-BR',
     experience_level: 'intermediario',
@@ -162,13 +161,13 @@ describe('buildTableJsonLd — preço (regra 1 de T4.3)', () => {
 
 describe('buildTableJsonLd — disponibilidade (regra 2 de T4.3)', () => {
   it('mesa com vaga é InStock', () => {
-    const { offer } = jsonLdOf(makeTableDetail({ slots_total: 5, slots_filled: 1, slots_open: 4 }));
+    const { offer } = jsonLdOf(makeTableDetail({ slots_total: 5, slots_open: 4 }));
 
     expect(offer.availability).toBe('https://schema.org/InStock');
   });
 
   it('mesa lotada é SoldOut — InStock contradiria a página', () => {
-    const { offer } = jsonLdOf(makeTableDetail({ slots_total: 5, slots_filled: 5, slots_open: 0 }));
+    const { offer } = jsonLdOf(makeTableDetail({ slots_total: 5, slots_open: 0 }));
 
     expect(offer.availability).toBe('https://schema.org/SoldOut');
   });
@@ -244,7 +243,6 @@ describe('buildTableDescription — T4.5', () => {
           modality: 'online',
           price_type: 'gratuita',
           slots_total: 5,
-          slots_filled: 1,
           slots_open: 4,
         }),
       ),
@@ -275,7 +273,6 @@ describe('buildTableDescription — T4.5', () => {
           price_type: 'paga',
           price_value: 100,
           slots_total: 12,
-          slots_filled: 0,
           slots_open: 12,
         }),
       ),
@@ -299,7 +296,6 @@ describe('buildTableDescription — T4.5', () => {
           price_type: 'paga',
           price_value: 100,
           slots_total: 12,
-          slots_filled: 0,
           slots_open: 12,
         }),
       ),
@@ -334,7 +330,7 @@ describe('buildTableMeta — espelhamento e páginas sem conteúdo', () => {
     // Este é o teste da regra pétrea. O JSON-LD e o HTML visível não podem
     // divergir porque derivam da MESMA função — `TableActionPanel` renderiza
     // "Gratuita" (:44) e "N de M vagas" (:178) do mesmo `vm`.
-    const table = makeTableDetail({ slots_total: 5, slots_filled: 5, slots_open: 0 });
+    const table = makeTableDetail({ slots_total: 5, slots_open: 0 });
     const vm = mapTableToView(table);
     const { offer } = jsonLdOf(table);
 

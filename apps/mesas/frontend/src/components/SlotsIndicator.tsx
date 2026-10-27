@@ -2,7 +2,7 @@ import { getSlotsVisualState } from '../utils/slots';
 import type { TableCard } from '../types/tables';
 
 interface SlotsIndicatorProps {
-  table: Pick<TableCard, 'slots_total' | 'slots_filled' | 'slots_open'>;
+  table: Pick<TableCard, 'slots_total' | 'slots_open'>;
   variant?: 'default' | 'compact';
   maxDots?: number;
 }

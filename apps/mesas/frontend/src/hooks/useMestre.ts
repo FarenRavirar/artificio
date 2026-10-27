@@ -5,11 +5,11 @@ import type { TableCard } from '../types/tables';
 import { authGet } from '../services/apiClient';
 import { toFiniteNumber } from '@artificio/ui';
 
-/** Vagas abertas = `slots_open` (controlado pelo mestre); `total - filled` só sem ele (spec 106 D11). */
+/** Vagas abertas = `slots_open` (controlado pelo mestre); sem ele, `slots_total` (spec 106 T8.2). */
 export function sumOpenSlots(
-  tables: Array<Pick<TableCard, 'slots_total' | 'slots_filled'> & { slots_open?: number | null }>,
+  tables: Array<Pick<TableCard, 'slots_total'> & { slots_open?: number | null }>,
 ): number {
-  return tables.reduce((acc, t) => acc + (t.slots_open ?? t.slots_total - t.slots_filled), 0);
+  return tables.reduce((acc, t) => acc + (t.slots_open ?? t.slots_total), 0);
 }
 
 export interface ViewerContext {

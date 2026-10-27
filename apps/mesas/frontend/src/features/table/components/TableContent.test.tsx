@@ -17,7 +17,6 @@ function makeVm(overrides: Partial<TableViewModel> = {}): TableViewModel {
     modality: 'online',
     slotsLeft: 2,
     slotsTotal: 5,
-    slotsFilled: 3,
     slotsOpen: 2,
     isFull: false,
     certifications: {},

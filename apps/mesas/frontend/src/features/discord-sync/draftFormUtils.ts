@@ -501,7 +501,7 @@ export function buildUpdatedPayload(base: DiscordDraftPayload, form: DraftForm):
  * candidatos — sem botão de aplicar, o relatório não servia pra nada ("ele ta
  * falando o que eu já poderia saber"). Mapeia candidate.field (nome do campo
  * no payload da table) pra atualização aplicável no DraftForm. Retorna null
- * pra campo que não existe no form (ex.: _notes, end_time, slots_filled) —
+ * pra campo que não existe no form (ex.: _notes, end_time) —
  * a UI mostra o candidato sem botão nesses casos.
  */
 export function mapAuditCandidateToForm(

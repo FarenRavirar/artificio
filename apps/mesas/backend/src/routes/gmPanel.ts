@@ -1,4 +1,3 @@
-import { slotsAvailable } from '../utils/slots.js';
 import { normalizeImageFramePatch } from '@artificio/media/image-kinds';
 import { toJsonbParam, toJsonbParamNotNull } from '../db/jsonb.js';
 import {
@@ -758,7 +757,6 @@ router.get('/tables/:id', authMiddleware, async (req: Request, res: Response) =>
       contacts,
       schedules,
       // D11 (spec 106): vagas são as que o mestre controla (slots_open), não total - filled.
-      slots_available: slotsAvailable(tableData),
     };
 
     return res.json({ data: responseData });
@@ -1060,14 +1058,13 @@ router.put('/tables/:id', authMiddleware, async (req: Request, res: Response) =>
       // Campos de vagas: mesma razão, para validar o ESTADO RESULTANTE do PUT
       // parcial antes de bater no CHECK do Postgres (achado Codex PR #285).
       slots_total: number;
-      slots_filled: number;
       slots_open: number;
     } | undefined;
     let updaterGmProfileId: string | null = null;
     if (userRole === 'admin') {
       existingTable = await db
         .selectFrom('tables')
-        .select(['id', 'gm_id', 'system_id', 'slug', 'banner_url', 'status', 'price_type', 'price_value', 'price_value_monthly', 'accepts_donations', 'suggested_donation_value', 'slots_total', 'slots_filled', 'slots_open'])
+        .select(['id', 'gm_id', 'system_id', 'slug', 'banner_url', 'status', 'price_type', 'price_value', 'price_value_monthly', 'accepts_donations', 'suggested_donation_value', 'slots_total', 'slots_open'])
         .where('id', '=', id)
         .executeTakeFirst();
     } else {
@@ -1084,7 +1081,7 @@ router.put('/tables/:id', authMiddleware, async (req: Request, res: Response) =>
 
       existingTable = await db
         .selectFrom('tables')
-        .select(['id', 'gm_id', 'system_id', 'slug', 'banner_url', 'status', 'price_type', 'price_value', 'price_value_monthly', 'accepts_donations', 'suggested_donation_value', 'slots_total', 'slots_filled', 'slots_open'])
+        .select(['id', 'gm_id', 'system_id', 'slug', 'banner_url', 'status', 'price_type', 'price_value', 'price_value_monthly', 'accepts_donations', 'suggested_donation_value', 'slots_total', 'slots_open'])
         .where('id', '=', id)
         .where('gm_id', '=', gmProfile.id)
         .executeTakeFirst();
@@ -1102,11 +1099,10 @@ router.put('/tables/:id', authMiddleware, async (req: Request, res: Response) =>
     //   - cobrança (achado Codex PR #283): `{ accepts_donations: true }` numa
     //     mesa paga parseava price_type como 'gratuita' (default do schema) e
     //     gravava doação em mesa paga com o preço preservado;
-    //   - vagas (achado Codex PR #285): o refine só compara slots_filled com
-    //     slots_total quando os DOIS vêm no body, então um PUT só com
-    //     `slots_total` reduzido abaixo do slots_filled salvo — o que o form
-    //     de edição envia — passava e batia no CHECK `slots_filled_valid` do
-    //     Postgres, devolvendo 500 em vez de 400 com mensagem.
+    //   - vagas (achado Codex PR #285): um PUT só com `slots_total` reduzido
+    //     abaixo do slots_open salvo — o que o form de edição envia — passava
+    //     e batia no CHECK `check_slots_valid` do Postgres, devolvendo 500 em
+    //     vez de 400 com mensagem.
     const rawBody = req.body as Record<string, unknown>;
     const effectiveStateChecks = [
       pricingConsistencySchema.safeParse(mergePricingState(data, rawBody, existingTable)),
@@ -1186,15 +1182,16 @@ router.put('/tables/:id', authMiddleware, async (req: Request, res: Response) =>
       price_frequency: data.price_frequency,
       // Mesma causa do price_type acima (achado Codex, PR #285): o
       // `.partial()` NAO remove os `.default()` do baseTableSchema, entao
-      // `updateTableSchema.parse({ title })` materializa `slots_total: 4` e
-      // `slots_filled: 0` mesmo sem o cliente ter enviado nada de vagas —
-      // medido. Gravar isso rebaixava a mesa aos defaults num PUT parcial:
-      // 94 das 114 mesas em producao tem `slots_total <> 4 or
-      // slots_filled <> 0` e seriam corrompidas ao editar so o titulo.
+      // `updateTableSchema.parse({ title })` materializa `slots_total: 4` mesmo
+      // sem o cliente ter enviado nada de vagas — medido. Gravar isso rebaixava
+      // a mesa ao default num PUT parcial: a maioria das mesas em producao tem
+      // `slots_total <> 4` e seria corrompida ao editar so o titulo.
       // `hasOwn` no body cru e o unico sinal confiavel de "foi enviado";
       // omitido fica undefined e o Kysely preserva o valor salvo.
       slots_total: Object.hasOwn(req.body, 'slots_total') ? data.slots_total : undefined,
-      slots_filled: Object.hasOwn(req.body, 'slots_filled') ? data.slots_filled : undefined,
+      // Coluna legada, ignorada na leitura: ao mexer no total, zera, senão o CHECK
+      // `slots_filled_valid` (filled <= total) barra reduzir o total de mesa antiga.
+      slots_filled: Object.hasOwn(req.body, 'slots_total') ? 0 : undefined,
       slots_open: Object.hasOwn(req.body, 'slots_open') ? data.slots_open : undefined,
       language: data.language,
       experience_level: data.experience_level,
@@ -1356,7 +1353,6 @@ router.get('/tables', authMiddleware, async (req: Request, res: Response) => {
         't.suggested_donation_value',
         't.price_frequency',
         't.slots_total',
-        't.slots_filled',
         't.slots_open',
         't.language',
         't.experience_level',

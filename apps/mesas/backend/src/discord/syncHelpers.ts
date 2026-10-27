@@ -92,7 +92,6 @@ const draftTableSchema = z.object({
   price_type: z.unknown(),
   price_value: z.unknown(),
   slots_total: z.unknown(),
-  slots_filled: z.unknown(),
   slots_open: z.unknown(),
   day_of_week: z.unknown(),
   start_time: z.unknown(),
@@ -360,20 +359,19 @@ function normalizeAgeRating(value: unknown): string | null {
   return null;
 }
 
-// CHECK check_slots_valid (Postgres): slots_open >= 0 AND slots_filled >= 0
-// AND slots_open <= slots_total. Parser pode extrair valores ambíguos onde
+// CHECK check_slots_valid (Postgres): slots_open >= 0 AND slots_open <= slots_total.
+// `slots_filled` (coluna legada, fora do modelo desde a spec 106 T8.2) fica no default 0.
+// Parser pode extrair valores ambíguos onde
 // slots_open > slots_total (ex.: "vagas 5/3" mal interpretado) — sem clamp
 // o insert quebrava 500 direto do Postgres em vez de dado consistente
 // (achado do mantenedor 2026-07-08, mesma classe do bug age_rating/gm_name).
 function normalizeSlots(
   rawTotal: number | null | undefined,
-  rawFilled: number | null | undefined,
   rawOpen: number | null | undefined,
-): { slots_total: number; slots_filled: number; slots_open: number } {
+): { slots_total: number; slots_open: number } {
   const total = Math.max(0, rawTotal ?? rawOpen ?? 0);
   const open = Math.min(Math.max(0, rawOpen ?? rawTotal ?? 0), total);
-  const filled = Math.min(Math.max(0, rawFilled ?? 0), total);
-  return { slots_total: total, slots_filled: filled, slots_open: open };
+  return { slots_total: total, slots_open: open };
 }
 
 export function buildTableDraftFields(
@@ -413,7 +411,7 @@ export function buildTableDraftFields(
     accepts_donations: t.price_type !== 'paga' ? (t.accepts_donations ?? false) : false,
     suggested_donation_value:
       t.price_type !== 'paga' && t.accepts_donations ? (t.suggested_donation_value ?? null) : null,
-    ...normalizeSlots(t.slots_total, t.slots_filled, t.slots_open),
+    ...normalizeSlots(t.slots_total, t.slots_open),
     experience_level: t.experience_level ?? 'todos',
     table_level: t.table_level ?? null,
     setting_name: t.setting_name ?? null,

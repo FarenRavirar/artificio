@@ -504,7 +504,7 @@ export function TableCardComponent({
           <div className="flex min-w-0 flex-wrap items-end justify-between gap-x-3 gap-y-2">
             {/* Vagas — X/Y preenchidas (T3.2), badge de "N vagas" já sobre a imagem (T3.1).
                 Achado Codex: usar getSlotsVisualState (mesma fonte do SlotsIndicator/badge)
-                em vez de slots_filled/slots_total crus — evita números conflitantes quando
+                em vez de slots_total/slots_open crus — evita números conflitantes quando
                 o mestre fecha recrutamento manualmente (slots_open menor que o cálculo cru). */}
             <div className="flex flex-col gap-1">
               <SlotsIndicator table={table} variant="compact" />

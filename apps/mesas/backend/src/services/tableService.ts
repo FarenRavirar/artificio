@@ -197,7 +197,6 @@ export class TableService {
             suggested_donation_value: data.suggested_donation_value ?? null,
             price_frequency: data.price_frequency ?? null,
             slots_total: data.slots_total,
-            slots_filled: data.slots_filled,
             slots_open: data.slots_open ?? data.slots_total,
             language: data.language,
             experience_level: data.experience_level,

@@ -208,15 +208,12 @@ router.get('/', async (req: Request, res: Response) => {
         't.age_rating',
         't.price_type',
         't.price_value',
-        // CORREÇÃO DT-05: Documentação de campos de vagas
-        // slots_total: Capacidade máxima da mesa (ex: 5 jogadores)
-        // slots_filled: Jogadores já inscritos/confirmados (ex: 3 jogadores)
-        // slots_open: Vagas abertas para recrutamento, controlado pelo mestre (ex: 2 vagas)
-        //   - Pode ser menor que (slots_total - slots_filled) se mestre fechar recrutamento
-        //   - Frontend deve usar slots_open para exibir "vagas disponíveis"
-        //   - Fallback: se NULL, calcular como (slots_total - slots_filled)
+        // Vagas (spec 106 T8.2): só dois números.
+        // slots_total: capacidade máxima da mesa (ex: 5 jogadores), o teto
+        // slots_open: vagas para entrar, controlado pelo mestre, de 0 até slots_total
+        //   - Frontend usa slots_open para exibir "vagas disponíveis"
+        //   - Não existe vaga "preenchida"; `slots_filled` é coluna legada, fora da leitura
         't.slots_total',
-        't.slots_filled',
         't.slots_open', // REQ-02: Vagas abertas para recrutamento
         't.language',
         't.experience_level',
@@ -927,7 +924,6 @@ router.get('/:slug', async (req: Request, res: Response) => {
         't.suggested_donation_value',
         't.price_frequency',
         't.slots_total',
-        't.slots_filled',
         't.slots_open', // REQ-02: Vagas abertas para recrutamento
         't.language',
         't.experience_level',

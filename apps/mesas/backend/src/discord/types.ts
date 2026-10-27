@@ -85,7 +85,6 @@ export interface DiscordTableDraftTable {
   /** Fase 6 (spec 096, T6.3/Falha 7): valor sugerido de doação por sessão. */
   suggested_donation_value: number | null;
   slots_total: number | null;
-  slots_filled: number | null;
   slots_open: number | null;
   day_of_week: string | null;
   start_time: string | null;

@@ -61,7 +61,6 @@ function makeTableDetail(overrides: Partial<TableDetail> = {}): TableDetail {
     price_type: 'gratuita',
     price_value: null,
     slots_total: 5,
-    slots_filled: 1,
     slots_open: 4,
     language: 'pt-BR',
     experience_level: 'intermediario',

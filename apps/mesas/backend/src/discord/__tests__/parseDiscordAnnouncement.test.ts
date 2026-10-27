@@ -3402,7 +3402,6 @@ describe('Fase 6 (spec 096) — fixtures do §Gap 4', () => {
     );
     expect(draft?.table.slots_total).toBe(4);
     expect(draft?.table.slots_open).toBe(2);
-    expect(draft?.table.slots_filled).toBe(2);
   });
 
   it('F3-b: "Vagas: 5 (2 ocupadas)" extrai slots_total=5 e slots_open=3 (parêntese de ocupadas)', () => {

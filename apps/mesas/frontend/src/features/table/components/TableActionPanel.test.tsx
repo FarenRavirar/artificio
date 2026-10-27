@@ -22,7 +22,6 @@ function makeVm(overrides: Partial<TableViewModel> = {}): TableViewModel {
     modality: 'online',
     slotsLeft: 2,
     slotsTotal: 5,
-    slotsFilled: 3,
     slotsOpen: 2,
     isFull: false,
     certifications: {},
@@ -50,7 +49,7 @@ describe('TableActionPanel — Fase 7 (R21/R22/R23/R24)', () => {
   });
 
   it('mostra "Mesa de N jogadores" quando slotsOpen é nulo (T7.5)', () => {
-    render(<TableActionPanel vm={makeVm({ slotsTotal: 5, slotsOpen: undefined, slotsLeft: 5, slotsFilled: 0 })} />);
+    render(<TableActionPanel vm={makeVm({ slotsTotal: 5, slotsOpen: undefined, slotsLeft: 5})} />);
     expect(screen.getByText('Mesa de 5 jogadores')).toBeTruthy();
   });
 

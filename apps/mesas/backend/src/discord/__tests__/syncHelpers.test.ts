@@ -15,7 +15,6 @@ function makeDraftTable(overrides: Partial<DiscordTableDraftTable> = {}): Discor
     accepts_donations: false,
     suggested_donation_value: null,
     slots_total: 4,
-    slots_filled: 0,
     slots_open: 4,
     day_of_week: 'sabado',
     start_time: '19:00',

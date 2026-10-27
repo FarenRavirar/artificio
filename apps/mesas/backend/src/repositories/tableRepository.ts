@@ -4,6 +4,17 @@ import { TablesTable, TableContactsTable, TableSchedulesTable } from '../db/type
 import { sql } from 'kysely';
 import { hydrateTableSystemFields } from '../services/systemCatalogProvider.js';
 
+/**
+ * `slots_filled` é coluna legada (spec 106 T8.2): vagas são `slots_total` e `slots_open`. O
+ * `selectAll('t')` a devolveria ao editor e ao painel admin com valor velho que contradiz
+ * `slots_open`; sai da leitura até o `DROP COLUMN` (T8.9).
+ */
+export function withoutLegacySlots<T extends { slots_filled: number }>(table: T): Omit<T, 'slots_filled'> {
+  const rest: Omit<T, 'slots_filled'> & { slots_filled?: number } = { ...table };
+  delete rest.slots_filled;
+  return rest;
+}
+
 export class TableRepository {
   // Achado Codex (PR #145): system_id agora referencia o catalogo central
   // (migration_144 dropou a FK local systems); leftJoin('systems' LOCAL)
@@ -33,7 +44,7 @@ export class TableRepository {
       .executeTakeFirst();
     if (!table) return table;
     const [hydrated] = await hydrateTableSystemFields([table]);
-    return hydrated;
+    return withoutLegacySlots(hydrated);
   }
 
   /**
@@ -47,7 +58,7 @@ export class TableRepository {
       .executeTakeFirst();
     if (!table) return table;
     const [hydrated] = await hydrateTableSystemFields([table]);
-    return hydrated;
+    return withoutLegacySlots(hydrated);
   }
 
   /**

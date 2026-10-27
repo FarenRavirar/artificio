@@ -777,8 +777,8 @@ describe('updateTableSchema — age_rating e table_level (T3.2, spec 096)', () =
   });
 });
 
-describe('schemas de mesa — slots_filled (T3.2d, spec 096)', () => {
-  it('create aceita slots_filled derivado (total - abertas)', () => {
+describe('schemas de mesa — vagas: só slots_total e slots_open (spec 106 T8.2)', () => {
+  it('create aceita total e abertas', () => {
     const result = createTableSchema.safeParse({
       title: 'Mesa com vagas',
       system_id: '123e4567-e89b-42d3-a456-426614174000',
@@ -787,12 +787,11 @@ describe('schemas de mesa — slots_filled (T3.2d, spec 096)', () => {
       contacts: [{ channel: 'discord', value: 'mestre' }],
       slots_total: 4,
       slots_open: 2,
-      slots_filled: 2,
     });
     expect(result.success).toBe(true);
   });
 
-  it('create rejeita slots_filled > slots_total (espelha o CHECK slots_filled_valid do Postgres)', () => {
+  it('create rejeita slots_open > slots_total (espelha o CHECK check_slots_valid do Postgres)', () => {
     const result = createTableSchema.safeParse({
       title: 'Mesa com vagas',
       system_id: '123e4567-e89b-42d3-a456-426614174000',
@@ -800,17 +799,30 @@ describe('schemas de mesa — slots_filled (T3.2d, spec 096)', () => {
       modality: 'online',
       contacts: [{ channel: 'discord', value: 'mestre' }],
       slots_total: 4,
-      slots_filled: 9,
+      slots_open: 5,
     });
     expect(result.success).toBe(false);
   });
 
-  it('PUT com slots_filled > slots_total passa no parse e é barrado no estado resultante', () => {
+  it('create aceita slots_filled legado e o ignora (aba aberta antes do deploy; o schema é strict)', () => {
+    const result = createTableSchema.safeParse({
+      title: 'Mesa com vagas',
+      system_id: '123e4567-e89b-42d3-a456-426614174000',
+      type: 'campanha',
+      modality: 'online',
+      contacts: [{ channel: 'discord', value: 'mestre' }],
+      slots_total: 4,
+      slots_filled: 1,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('PUT com slots_total abaixo de slots_open salvo passa no parse e é barrado no estado resultante', () => {
     // A relação saiu do updateTableSchema (achado Codex, PR #285): validá-la
     // sobre o payload comparava contra o `.default(4)` de slots_total e
     // rejeitava patch legítimo. O par inválido continua barrado — agora em
     // slotsConsistencySchema, que enxerga a linha salva.
-    const body = { slots_total: 4, slots_filled: 9 };
+    const body = { slots_total: 4 };
     const parsed = updateTableSchema.safeParse(body);
     expect(parsed.success).toBe(true);
 
@@ -818,14 +830,14 @@ describe('schemas de mesa — slots_filled (T3.2d, spec 096)', () => {
       mergeSlotsState(
         updateTableSchema.parse(body),
         body,
-        { slots_total: 6, slots_filled: 2, slots_open: 4 },
+        { slots_total: 6, slots_open: 5 },
       ),
     );
     expect(efetivo.success).toBe(false);
   });
 
-  it('PUT aceita slots_filled válido', () => {
-    const result = updateTableSchema.safeParse({ slots_total: 6, slots_filled: 5 });
+  it('PUT aceita slots_total válido', () => {
+    const result = updateTableSchema.safeParse({ slots_total: 6 });
     expect(result.success).toBe(true);
   });
 });
@@ -893,18 +905,18 @@ describe('mergeSlotsState + slotsConsistencySchema (achado Codex, PR #285)', () 
   // dele so compara quando os DOIS campos vem no body. Estes casos sao os
   // patches parciais que escapavam e batiam no CHECK do Postgres (500 em vez
   // de 400 com mensagem).
-  const salva = { slots_total: 5, slots_filled: 4, slots_open: 1 };
+  const salva = { slots_total: 5, slots_open: 4 };
 
   const efetivo = (body: Record<string, unknown>) => {
     const parsed = updateTableSchemaForSlots.parse(body);
     return slotsConsistencySchema.safeParse(mergeSlotsState(parsed, body, salva));
   };
 
-  it('patch so com slots_total reduzido abaixo do slots_filled salvo e rejeitado', () => {
+  it('patch so com slots_total reduzido abaixo do slots_open salvo e rejeitado', () => {
     const result = efetivo({ slots_total: 2 });
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.issues[0].path).toEqual(['slots_filled']);
+      expect(result.error.issues[0].path).toEqual(['slots_open']);
     }
   });
 
@@ -912,27 +924,23 @@ describe('mergeSlotsState + slotsConsistencySchema (achado Codex, PR #285)', () 
   // `.partial()` mantem o `.default(4)` de slots_total, entao o refine antigo
   // comparava contra esse default em vez da linha salva — e rejeitava patch
   // legitimo em mesa com total > 4 (64 das 114 em producao).
-  it('patch so com slots_filled passa no parse — a relacao e do estado resultante', () => {
-    expect(updateTableSchemaForSlots.safeParse({ slots_filled: 5 }).success).toBe(true);
+  it('patch so com slots_open passa no parse — a relacao e do estado resultante', () => {
+    expect(updateTableSchemaForSlots.safeParse({ slots_open: 5 }).success).toBe(true);
   });
 
-  it('slots_filled=5 em mesa com total 5 salvo e ACEITO (era falso 400 antes)', () => {
-    expect(efetivo({ slots_filled: 5 }).success).toBe(true);
-  });
-
-  it('slots_filled acima do total salvo continua rejeitado no estado resultante', () => {
-    const result = efetivo({ slots_filled: 9 });
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error.issues[0].path).toEqual(['slots_filled']);
-    }
+  it('slots_open=5 em mesa com total 5 salvo e ACEITO (era falso 400 antes)', () => {
+    expect(efetivo({ slots_open: 5 }).success).toBe(true);
   });
 
   it('slots_open acima do total salvo continua rejeitado no estado resultante', () => {
-    expect(efetivo({ slots_open: 9 }).success).toBe(false);
+    const result = efetivo({ slots_open: 9 });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0].path).toEqual(['slots_open']);
+    }
   });
 
-  it('reducao de total que ainda comporta os preenchidos e aceita', () => {
+  it('reducao de total que ainda comporta as vagas abertas e aceita', () => {
     expect(efetivo({ slots_total: 4 }).success).toBe(true);
   });
 
@@ -941,6 +949,6 @@ describe('mergeSlotsState + slotsConsistencySchema (achado Codex, PR #285)', () 
   });
 
   it('reduzir total junto com filled coerente e aceito', () => {
-    expect(efetivo({ slots_total: 3, slots_filled: 3, slots_open: 0 }).success).toBe(true);
+    expect(efetivo({ slots_total: 3, slots_open: 0 }).success).toBe(true);
   });
 });

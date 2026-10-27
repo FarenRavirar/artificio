@@ -90,7 +90,6 @@ const ORPHAN_TABLE = {
   // Colunas de vagas: o handler valida o ESTADO RESULTANTE das vagas antes de
   // gravar (achado Codex, PR #285), entao a linha salva precisa trazer.
   slots_total: 5,
-  slots_filled: 2,
   slots_open: 3,
 };
 

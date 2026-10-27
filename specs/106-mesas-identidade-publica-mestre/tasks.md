@@ -175,18 +175,30 @@ Correção já em produção (`2e38fd1`). Falta o aviso (T8.4 item 2) e ele conf
 gravar (`gm_profiles.updated_at` hoje 2026-09-14). **Não fechar sem o `updated_at` novo ou sem
 nomear o bloqueio "usuário não respondeu".** Reprodução como ele exige a sessão dele: pedir antes.
 
-### [~] T8.2 — Vagas: uma conta só em quatro lugares (R11, R15, D11)
+### [~] T8.2 — Vagas: dois números só, `slots_total` e `slots_open` (R11, R15, D11)
 
-Plan §10. `gm.ts:249` (+ `t.slots_open`), `useMestre.ts:284`, `whatsappAnnouncement.ts:274`,
-`gmPanel.ts:725`. Teste cruzado. `pnpm verify:api`. Aceite: `curl
-/api/v1/gm/perfis/mestre-hermes` devolve `slots_available`; soma da página = soma da home.
+**Descoberta na execução (corrigida aqui):** a spec tratava `total - filled` como fallback de
+`slots_open`. Medido em produção (`tables`, 230 linhas, read-only): `slots_filled = 0` em 190;
+`slots_open <> total - filled` em 70; `slots_open > slots_total` em 0. `slots_filled` não
+representa dado. Direção dele em 2026-10-27: "tem um total de vagas e vagas que dá para entrar;
+vagas totais é o que manda; não existe vagas preenchidas".
 
-Estado: `slots_open` é `NOT NULL` (migration 100), então o `COALESCE` fica só no TypeScript. As
-quatro pontas já usam `slots_open` e caem em `total - filled` só sem ele: `gm.ts:257` (devolve
-`slots_open`), `sumOpenSlots` (`useMestre.ts:8`), `formatSlots` (`whatsappAnnouncement.ts:272`) e
-`gmPanel.ts` via `slotsAvailable` (`utils/slots.ts`, uma cópia). Teste cruzado em
-`whatsappAnnouncement.test.ts` (soma do mestre × texto do WhatsApp): com `sumOpenSlots` revertido
-para `total - filled`, 2 casos falham. Falta o `curl` do aceite (só em beta).
+Modelo: `slots_total` (teto) e `slots_open` (vagas para entrar, entre 0 e o total). `slots_filled`
+e `slots_available` não existem como conceito. Sem `slots_open`, vale `slots_total`. Plan §10.
+
+Estado: `slots_filled` saiu de `tableValidators` (campo legado `optional`, aceito e ignorado: o
+schema é `strict` e uma aba aberta antes do deploy ainda o envia), `tableService`, `gmPanel`
+(`slots_available` removido; `slots_filled` gravado `0` quando `slots_total` é enviado, senão o CHECK
+`slots_filled_valid` barra reduzir o total de mesa antiga), `gm.ts`, `tables.ts`, importador Discord
+(`normalizeSlots`, parser, tipos), `packages/catalog-table` (`slots_filled`/`slotsFilled` fora do
+tipo e do view model; build do pacote refeito, o front lê o `dist`), `getSlotsVisualState`,
+`sumOpenSlots`, `formatSlots` e cartões. `utils/slots.ts` do backend apagado. `tableRepository.findById`/`findByIdAndGm` usam `selectAll('t')` e
+devolveriam `slots_filled` velho ao editor e ao admin: `withoutLegacySlots` o tira da leitura. Testes reescritos;
+teste cruzado soma do mestre × WhatsApp em `whatsappAnnouncement.test.ts`. Não há migration nesta
+PR: a coluna fica com `DEFAULT 0` (expand/contract).
+
+Falta o aceite em beta: `curl /api/v1/gm/perfis/mestre-hermes` devolve `slots_total` e `slots_open` e
+nenhum `slots_filled`; soma da página do mestre = soma da home. O `DROP COLUMN` é a T8.9.
 
 ### [~] T8.3 — Contatos: cauda de Markdown e duplicados de Discord (R12, R20)
 
@@ -282,6 +294,24 @@ Estado: vagas em `whatsappAnnouncement.test.ts` (falha com `sumOpenSlots` revert
 `utils/slots.test.ts`; identidade em `profileServiceNickname.test.ts` (e-mail nem é argumento de
 `deriveGmNickname`; A9 já quebra se `email` voltar). Não cobre a "resposta do editor" nem a home
 (cartão) por teste de componente: a home usa o mesmo `slots_open` do payload, sem conta própria.
+
+### [ ] T8.9 — Migration destrutiva: `DROP COLUMN tables.slots_filled` **(decisão e aut.)**
+
+Decisão dele em 2026-10-27: a migration destrutiva fica **para depois de tudo testado em
+produção**. Não entra na PR de T8.2 (plan §10: o deploy aplica migrations antes do build, e o app
+antigo ainda seleciona `slots_filled`).
+
+Só começa quando: (1) o código da T8.2 está em produção; (2) o aceite da T8.2 rodou em produção; (3)
+as demais tasks desta spec que tocam `tables` passaram no mesmo ambiente. Aí, uma PR própria com a
+próxima `migration_NNN` (conferir `ls apps/mesas/database | grep migration_1`; última medida
+aplicada em prod e beta: 167, com a 168 ainda pendente): `DROP COLUMN IF EXISTS slots_filled` e os
+CHECKs `slots_filled_valid` e `check_slots_valid` (este último é recriado sem `slots_filled`, mantendo
+`slots_open >= 0 AND slots_open <= slots_total`), `DROP INDEX IF EXISTS idx_tables_slots`. Header de
+5 campos e idempotência (`deploy-flow.md` §3), `pg_dump` antes, aprovação nominal.
+
+Remover junto, do código: `slots_filled` em `db/types.ts` e `hydration/config.ts`, e a escrita
+`slots_filled: 0` do `gmPanel.ts` (PUT com `slots_total`). Aceite: `information_schema.columns` sem
+`slots_filled`; `rtk rg "slots_filled" apps packages --glob '!**/database/**'` → 0.
 
 ---
 

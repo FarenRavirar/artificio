@@ -34,7 +34,6 @@ function makeDraft(): ImportTableDraft {
       accepts_donations: false,
       suggested_donation_value: null,
       slots_total: null,
-      slots_filled: null,
       slots_open: null,
       day_of_week: null,
       start_time: null,

@@ -442,7 +442,6 @@ describe('syncImportDraftToTable table creation', () => {
         price_type: 'gratuita',
         slots_total: 5,
         slots_open: 5,
-        slots_filled: 0,
         day_of_week: 'sábado',
         start_time: '19:00',
         contact_url: 'https://forms.gle/test',

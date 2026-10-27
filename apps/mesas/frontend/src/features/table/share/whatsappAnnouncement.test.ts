@@ -27,7 +27,6 @@ function makeTable(overrides: Partial<TableDetail> = {}): TableDetail {
     accepts_donations: false,
     suggested_donation_value: null,
     slots_total: 5,
-    slots_filled: 2,
     slots_open: 3,
     language: 'pt-BR',
     experience_level: 'iniciante',
@@ -432,13 +431,13 @@ describe('copyTextToClipboard', () => {
   });
 });
 
-// Spec 106 T8.8 (R11/R15): a página do mestre (soma), a home/cartão e o texto do
-// WhatsApp contam as vagas da mesma forma. Falha se um dos lados voltar a `total - filled`.
+// Spec 106 T8.8 (R11/R15, T8.2): a página do mestre (soma) e o texto do WhatsApp contam as
+// vagas da mesma forma: `slots_open`, e `slots_total` quando falta. Não existe vaga preenchida.
 describe('vagas: uma conta só', () => {
   it.each([
-    [{ slots_total: 5, slots_filled: 2, slots_open: 1 }, 1],
-    [{ slots_total: 5, slots_filled: 2, slots_open: 0 }, 0],
-    [{ slots_total: 5, slots_filled: 2, slots_open: null }, 3],
+    [{ slots_total: 5, slots_open: 1 }, 1],
+    [{ slots_total: 5, slots_open: 0 }, 0],
+    [{ slots_total: 5, slots_open: null }, 5],
   ])('%j → %i', (slots, expected) => {
     const table = makeTable(slots as Partial<TableDetail>);
     expect(sumOpenSlots([table])).toBe(expected);

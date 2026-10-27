@@ -33,7 +33,6 @@ interface MyTableEnhanced {
   archived?: boolean; // D-MESAS1: fora do catálogo público
   modality: string;
   slots_total: number;
-  slots_filled: number;
   slots_open?: number; // REQ-02: Vagas abertas para recrutamento
   system_name: string | null;
   system_logo_filename?: string | null;
