@@ -163,13 +163,12 @@ describe('POST /api/v1/gm/profile — cria perfil COM contact_methods (T4.0p2)',
 
   // Spec 106 R1/R2: sem slug/nickname no corpo, o backend deriva de
   // profiles.display_name — nunca do e-mail (caso patorico027 / VOID).
-  it('sem slug nem nickname deriva de display_name e desvia de slug ocupado', async () => {
+  it('sem slug nem nickname deriva de display_name e desvia de slug ocupado (void, void-2 → void-3)', async () => {
     const selectChain = mockChain({
       executeTakeFirst: vi.fn()
         .mockResolvedValueOnce({ username: null })        // users
-        .mockResolvedValueOnce({ display_name: 'VOID' })  // profiles
-        .mockResolvedValueOnce({ id: 'ocupado' })         // slug "void" já existe
-        .mockResolvedValueOnce(undefined),                // "void-2" livre
+        .mockResolvedValueOnce({ display_name: 'VOID' }), // profiles
+      execute: vi.fn().mockResolvedValue([{ slug: 'void' }, { slug: 'void-2' }]), // já ocupados
     });
     const insertChain = mockInsertChain();
     (db.selectFrom as Mock).mockReturnValue(selectChain);
@@ -180,7 +179,7 @@ describe('POST /api/v1/gm/profile — cria perfil COM contact_methods (T4.0p2)',
 
     expect(res.status).toBe(201);
     expect(insertChain.values).toHaveBeenCalledWith(
-      expect.objectContaining({ slug: 'void-2', nickname: 'VOID' }),
+      expect.objectContaining({ slug: 'void-3', nickname: 'VOID' }),
     );
   });
 

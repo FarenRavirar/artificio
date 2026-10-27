@@ -345,8 +345,8 @@ describe('ProfileContext.updateUser/updateProfile — fila sem descarte (spec 10
 
     renderProvider();
     const primeira = capturedBox.value!.updateUser({ username: 'void' });
+    await act(async () => { await Promise.resolve(); }); // a 1ª começa e fica em voo
     const segunda = capturedBox.value!.updateUser({ username: 'void_2' });
-
     await act(async () => { await Promise.resolve(); });
     // A segunda NÃO começou enquanto a primeira está em voo...
     expect(mutateUserAsync).toHaveBeenCalledTimes(1);
@@ -381,5 +381,43 @@ describe('ProfileContext.updateUser/updateProfile — fila sem descarte (spec 10
     let resultado: string | null = 'x';
     await act(async () => { resultado = await capturedBox.value!.updateUser({ username: 'void' }); });
     expect(resultado).toContain('Username já está em uso');
+  });
+
+  // Achado do CodeRabbit (PR #341): bio por tecla não pode virar um PATCH por tecla.
+  it('rajada de edições com uma gravação em voo vira no máximo uma pendente, com o último valor', async () => {
+    let soltarPrimeira: () => void = () => {};
+    mutateProfileAsync
+      .mockImplementationOnce(() => new Promise<void>((resolve) => { soltarPrimeira = resolve; }))
+      .mockResolvedValue({});
+
+    renderProvider();
+    const p1 = capturedBox.value!.updateProfile({ bio: 'a' });
+    await act(async () => { await Promise.resolve(); });   // 'a' em voo
+    const resto = ['ab', 'abc', 'abcd', 'abcde'].map((bio) => capturedBox.value!.updateProfile({ bio }));
+
+    soltarPrimeira();
+    await act(async () => { await Promise.all([p1, ...resto]); });
+
+    expect(mutateProfileAsync).toHaveBeenCalledTimes(2);
+    expect(mutateProfileAsync).toHaveBeenNthCalledWith(1, { bio: 'a' });
+    expect(mutateProfileAsync).toHaveBeenNthCalledWith(2, { bio: 'abcde' });
+  });
+
+  it('campos diferentes na pendente se fundem, sem perder nenhum', async () => {
+    let soltarPrimeira: () => void = () => {};
+    mutateProfileAsync
+      .mockImplementationOnce(() => new Promise<void>((resolve) => { soltarPrimeira = resolve; }))
+      .mockResolvedValue({});
+
+    renderProvider();
+    const p1 = capturedBox.value!.updateProfile({ bio: 'a' });
+    await act(async () => { await Promise.resolve(); });
+    const p2 = capturedBox.value!.updateProfile({ bio: 'ab' });
+    const p3 = capturedBox.value!.updateProfile({ display_name: 'VOID' });
+
+    soltarPrimeira();
+    await act(async () => { await Promise.all([p1, p2, p3]); });
+
+    expect(mutateProfileAsync).toHaveBeenLastCalledWith({ bio: 'ab', display_name: 'VOID' });
   });
 });

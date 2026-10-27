@@ -801,6 +801,8 @@ async function buildClosedTablePayload(table: {
   archived_by: string | null;
   closed_reason: string | null;
   updated_at: Date | string | null;
+  gm_user_id?: string | null;
+  master_display_name?: string | null;
 }): Promise<{
   /**
    * T7.8 (spec 090) — `id` entrou no payload do `410` para a conversa da mesa
@@ -872,13 +874,17 @@ async function buildClosedTablePayload(table: {
     const actor = await db
       .selectFrom('users as u')
       .leftJoin('profiles as p', 'p.user_id', 'u.id')
-      // R4 (spec 106): "encerrada pelo mestre X" é texto público; o nome do mestre
-      // é o do perfil de mestre, o mesmo das demais superfícies.
+      // R4 (spec 106): "encerrada pelo mestre X" é texto público; quando quem
+      // encerrou é o mestre da mesa, o nome é o das demais superfícies (sobrescrita
+      // da mesa > nickname). Administração mantém o próprio nome.
       .leftJoin('gm_profiles as gm', 'gm.user_id', 'u.id')
       .select(['gm.nickname', 'p.display_name', 'u.username'])
       .where('u.id', '=', table.archived_by)
       .executeTakeFirst();
-    closedByName = actor?.nickname || actor?.display_name || actor?.username || null;
+    const closedByGm = table.archived_by === table.gm_user_id;
+    closedByName = (closedByGm
+      ? table.master_display_name?.trim() || actor?.nickname
+      : null) || actor?.display_name || actor?.username || null;
   }
 
   return {

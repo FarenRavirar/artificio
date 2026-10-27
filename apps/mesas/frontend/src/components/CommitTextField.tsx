@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Field, TextInput } from '@artificio/ui';
 
 interface CommitTextFieldProps {
@@ -32,6 +32,8 @@ export function CommitTextField({
 }: CommitTextFieldProps) {
   const [value, setValue] = useState(initialValue);
   const [error, setError] = useState<string | null>(null);
+  // Versão da última gravação enviada: a resposta de uma antiga não decide o estado do valor atual.
+  const versionRef = useRef(0);
 
   const commit = async () => {
     const next = value.trim();
@@ -43,9 +45,10 @@ export function CommitTextField({
     const problem = validate(next);
     setError(problem);
     if (problem) return;
+    const version = ++versionRef.current;
     // Recusa do servidor (username em uso etc.) fica no campo, não só no indicador.
     const serverError = await onCommit(next);
-    if (serverError) setError(serverError);
+    if (version === versionRef.current) setError(serverError || null);
   };
 
   return (

@@ -124,6 +124,54 @@ describe('GET /api/v1/tables/:slug — visibilidade pública', () => {
     expect(response.body.data.closed_at).toBe('2026-07-28T01:00:00.000Z');
   });
 
+  // R4 (spec 106): quem encerrou é o mestre da mesa → mesmo nome das demais
+  // superfícies (sobrescrita da mesa > nickname). Administração mantém o próprio nome.
+  it('encerrada pelo mestre da mesa usa a sobrescrita da mesa, depois o nickname', async () => {
+    dbMocks.executeTakeFirst
+      .mockResolvedValueOnce({
+        ...visibleTable,
+        archived_at: new Date('2026-07-28T01:00:00.000Z'),
+        archived_by: 'user-1',
+        closed_reason: 'gm',
+        gm_user_id: 'user-1',
+        master_display_name: ' Jeferson [DADO VICIADO] ',
+      })
+      .mockResolvedValueOnce({ nickname: 'dadoviciadopodcast', display_name: 'x', username: 'y' });
+
+    const comSobrescrita = await request(makeApp()).get('/api/v1/tables/mesa-publica');
+    expect(comSobrescrita.body.data.closed_by_name).toBe('Jeferson [DADO VICIADO]');
+
+    dbMocks.executeTakeFirst
+      .mockResolvedValueOnce({
+        ...visibleTable,
+        archived_at: new Date('2026-07-28T01:00:00.000Z'),
+        archived_by: 'user-1',
+        closed_reason: 'gm',
+        gm_user_id: 'user-1',
+        master_display_name: null,
+      })
+      .mockResolvedValueOnce({ nickname: 'VOID', display_name: 'x', username: 'y' });
+
+    const semSobrescrita = await request(makeApp()).get('/api/v1/tables/mesa-publica');
+    expect(semSobrescrita.body.data.closed_by_name).toBe('VOID');
+  });
+
+  it('encerrada pela administração mantém o nome do admin, sem sobrescrita nem nickname', async () => {
+    dbMocks.executeTakeFirst
+      .mockResolvedValueOnce({
+        ...visibleTable,
+        archived_at: new Date('2026-07-28T01:00:00.000Z'),
+        archived_by: 'admin-1',
+        closed_reason: 'admin',
+        gm_user_id: 'user-1',
+        master_display_name: 'Nome do mestre',
+      })
+      .mockResolvedValueOnce({ nickname: 'adminnick', display_name: 'Admin Silva', username: 'admin' });
+
+    const response = await request(makeApp()).get('/api/v1/tables/mesa-publica');
+    expect(response.body.data.closed_by_name).toBe('Admin Silva');
+  });
+
   // Autor sem perfil: cai no username. O fallback antigo citava `u.name`, coluna
   // que `users` não tem — em produção a consulta devolvia 500 (2026-10-12).
   it('autor sem nome de exibição cai no username', async () => {

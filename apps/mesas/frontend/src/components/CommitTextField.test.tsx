@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { CommitTextField } from './CommitTextField';
 import { validateUsername } from '../utils/profileFieldRules';
@@ -63,5 +63,30 @@ describe('CommitTextField (spec 106 R6)', () => {
     fireEvent.blur(input);
 
     expect(await screen.findByText('Username já está em uso')).toBeTruthy();
+  });
+
+  // Achado do Codex (PR #341): a resposta de uma gravação antiga não pode
+  // determinar o estado do valor atual.
+  it('erro de uma gravação antiga não sobrevive ao sucesso da gravação mais nova', async () => {
+    let falharPrimeira: (msg: string) => void = () => {};
+    const onCommit = vi.fn()
+      .mockImplementationOnce(() => new Promise<string>((resolve) => { falharPrimeira = resolve; }))
+      .mockResolvedValueOnce(null);
+    render(
+      <CommitTextField id="username" label="Username" hint="dica" initialValue=""
+        validate={validateUsername} onCommit={onCommit} />,
+    );
+    const input = screen.getByLabelText('Username');
+
+    fireEvent.change(input, { target: { value: 'ocupado' } });
+    fireEvent.blur(input);                                   // 1ª: ficará em voo
+    fireEvent.change(input, { target: { value: 'livre_1' } });
+    fireEvent.blur(input);                                   // 2ª: ok
+    await act(async () => { await Promise.resolve(); });
+
+    await act(async () => { falharPrimeira('Username já está em uso'); });
+    await act(async () => { await Promise.resolve(); });
+
+    expect(screen.queryByText('Username já está em uso')).toBeNull();
   });
 });

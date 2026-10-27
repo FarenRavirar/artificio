@@ -28,6 +28,11 @@ describe('deriveGmNickname — perfil nunca nasce sem nickname, nunca do e-mail'
     expect(deriveGmNickname({ displayName: '', username: ' ' }, ID)).toBe('user-528baa88');
   });
 
+  it('o placeholder "Usuário" de updateProfile não vira nome público: cai no username', () => {
+    expect(deriveGmNickname({ displayName: ' usuário ', username: 'dadoviciado' }, ID)).toBe('dadoviciado');
+    expect(deriveGmNickname({ displayName: 'Usuário' }, ID)).toBe('user-528baa88');
+  });
+
   it('respeita o piso de 2 caracteres do contrato do backend', () => {
     expect(deriveGmNickname({ displayName: 'x', username: 'y' }, ID)).toBe('user-528baa88');
   });
@@ -57,6 +62,17 @@ describe('slugifyGmName', () => {
 
   it('nome sem letra nem numero devolve vazio (o chamador cai em user-<8 hex>)', () => {
     expect(slugifyGmName('***')).toBe('');
+  });
+
+  it('sem hifen nas pontas, nem depois do corte em 36', () => {
+    expect(slugifyGmName('--Dado  Viciado!!')).toBe('dado-viciado');
+    expect(slugifyGmName(`${'a'.repeat(35)} b`)).toBe('a'.repeat(35));
+  });
+
+  it('entrada hostil de hifens e simbolos roda em tempo linear', () => {
+    const inicio = Date.now();
+    expect(slugifyGmName('-'.repeat(200_000) + 'x' + '-'.repeat(200_000))).toBe('x');
+    expect(Date.now() - inicio).toBeLessThan(500);
   });
 });
 

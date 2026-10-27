@@ -70,21 +70,29 @@ export function deriveGmNickname(
 
   for (const candidato of [names.displayName, names.username]) {
     const nome = candidato?.trim() ?? '';
-    if (nome.length >= 2) return nome.slice(0, 40);
+    // 'Usuário' é o display_name que `updateProfile` grava quando cria a linha sem
+    // nome (ex.: só a foto do Google): placeholder, não nome escolhido.
+    if (nome.length >= 2 && nome.toLowerCase() !== 'usuário') return nome.slice(0, 40);
   }
   return `user-${userId.slice(0, 8)}`;
 }
 
+/** Teto do slug-base: sobra espaço para o sufixo `-N` dentro dos 40 do nickname. */
+const SLUG_BASE_MAX = 36;
+
 /** `Clézio RPG` → `clezio-rpg`. Vazio quando o nome não tem letra nem número. */
 export function slugifyGmName(value: string): string {
-  return value
+  // split/filter/join em vez de `.replace(/^-+|-+$/g, '')`: essa alternância
+  // retrocede em tempo super-linear (Sonar, PR #341) e o nome vem do usuário.
+  const slug = value
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 40)
-    .replace(/-+$/g, '');
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean)
+    .join('-')
+    .slice(0, SLUG_BASE_MAX);
+  return slug.endsWith('-') ? slug.slice(0, -1) : slug; // join só deixa um '-' por vez
 }
 
 /**
@@ -119,16 +127,20 @@ export async function prepareNewGmProfileIdentity(
   );
   const base = slugifyGmName(nickname) || `user-${userId.slice(0, 8)}`;
 
+  // Uma consulta traz `base` e `base-N`; o primeiro N livre sai em memória, sem
+  // `await` em laço. `-` e alfanuméricos não são curingas do LIKE.
+  const ocupados = new Set(
+    (
+      await db
+        .selectFrom('gm_profiles')
+        .select('slug')
+        .where((eb) => eb.or([eb('slug', '=', base), eb('slug', 'like', `${base}-%`)]))
+        .execute()
+    ).map((row) => row.slug),
+  );
   let slug = base;
-  for (let i = 2; await slugTaken(slug); i += 1) {
-    slug = `${base.slice(0, 36)}-${i}`;
-  }
+  for (let n = 2; ocupados.has(slug); n += 1) slug = `${base}-${n}`;
   return { slug, nickname };
-}
-
-async function slugTaken(slug: string): Promise<boolean> {
-  const row = await db.selectFrom('gm_profiles').select('id').where('slug', '=', slug).executeTakeFirst();
-  return row !== undefined;
 }
 
 /**
