@@ -1,0 +1,32 @@
+# cloudflared de produção: único conector do tunnel que atende todos os subdomínios *.artificiorpg.com.
+# Hostnames/ingress ficam no painel Cloudflare Zero Trust (token remoto), não em config.yml.
+# Fora do deploy.yml de propósito: não é módulo (sem build, banco, smoke ou blue-green).
+# Aplicar na VM com aprovação nominal: docker compose -f infra/cloudflared/docker-compose.yml up -d
+#
+# Tag FIXA: `docker restart` reusa a imagem local; com :latest o container ficou em 2026.5.2
+# de 2026-06-04 a 2026-10-27 (certificados eMudhra comprometidos, mínimo seguro 2026.10.2).
+# Subir versão = mudar esta linha em PR + recriar. Ver docs/agents/deploy-flow.md §4.
+services:
+  cloudflared:
+    image: cloudflare/cloudflared:2026.10.3
+    container_name: cloudflared
+    restart: always
+    user: "65532:65532"
+    networks:
+      - artificio_net
+    # TUNNEL_TOKEN vem só do .env da VM (600, fora do git). Nunca `--token` no command:
+    # o argumento aparece em `docker inspect`/`ps` e vazou 3 vezes.
+    env_file:
+      - /opt/artificio/cloudflared/.env
+    command: ["tunnel", "--no-autoupdate", "run"]
+    # Distroless (sem shell/curl): `tunnel ready` consulta o /ready do próprio metrics.
+    healthcheck:
+      test: ["CMD", "cloudflared", "tunnel", "--metrics", "127.0.0.1:20241", "ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+networks:
+  artificio_net:
+    external: true

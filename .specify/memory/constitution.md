@@ -18,7 +18,7 @@ O conteúdo existe para ser encontrado. Slugs e redirects 301 do legado preserva
 Interface obedece as 10 Heurísticas de Nielsen e ao ISO 9241-11 (eficácia, eficiência, satisfação). Estética sóbria e minimalista estilo Google (Docs/Gmail), mantendo cores e logo do Artifício. Consistência entre módulos via design system único.
 
 ## VI. Gratuidade e privacidade
-Gratuito, sem anúncios, sem coleta desnecessária de dados. Analytics mede uso, não vigia pessoa.
+Gratuito, sem anúncios, sem venda nem repasse de dados a terceiros. O veto é a dado coletado para vender, repassar ou vigiar pessoa; coleta técnica necessária para operar (erro, desempenho, segurança, auditoria) é permitida, mínima e guardada só no próprio Artifício. Analytics mede uso, não vigia pessoa.
 
 ## VII. Segurança de dados e operação por gates
 Backup antes de destruir. WordPress e DNS de produção intocáveis até validação. Avanço por gates (A→B→C→D), cada um com aprovação. Segredos nunca versionados. HTML externo é hostil até sanitizado.

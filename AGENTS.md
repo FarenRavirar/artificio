@@ -233,14 +233,14 @@ Contrato completo: `docs/agents/deploy-flow.md` §6.
 - SQL write direto em produção exige aprovação + dry-run + plano de rollback. Operação destrutiva (`DROP`, `TRUNCATE`, `DELETE` massivo, `ALTER`) exige também dump prévio.
 - Acesso ao DB da VM é read-only por padrão. Escrita exige aprovação.
 - Cada app tem schema isolado; SSO/usuários é o único cross-cutting.
-- Credencial hardcoded e segredo versionado são barrados pelo TruffleHog (`secret-scan.yml`). Tunnel `cloudflared` paralelo: procedimento em `deploy-flow.md` §Segredos.
+- Credencial hardcoded e segredo versionado são barrados pelo TruffleHog (`secret-scan.yml`). Tunnel/`cloudflared` (token diferente, tag fixa, token só por `--env-file`): `deploy-flow.md` §4.
 - Migration e Dockerfile são as duas maiores famílias de incidente (13 dos 23 de `errors.md`). Procedimento em `deploy-flow.md` §3 e §1, leitura obrigatória antes de tocar.
 
 ---
 
 ## Produto e SEO
 
-- Inegociável: gratuito, sem anúncios, sem coleta desnecessária de dados.
+- Inegociável: gratuito, sem anúncios, sem venda nem repasse de dados a terceiros. O veto é a dado coletado para vender, repassar ou vigiar pessoa. Coleta técnica necessária para operar (erro, desempenho, segurança, auditoria) é permitida: mínima, guardada só no próprio Artifício e sem identificar além do necessário. Decisão do mantenedor, 2026-10-27.
 - Google OAuth é o único login. Cookie `Domain=.artificiorpg.com`. E-mail/senha só com autorização explícita (exceção: migração legada do glossário, D061).
 - SEO é inegociável no `site`: slugs e 301 preservados, sem regressão de meta/sitemap/canonical.
 - Mudança de interface respeita as 10 Heurísticas de Nielsen e ISO 9241-11 antes do merge. Skills: `nielsen-heuristics-audit`, `wcag-accessibility-audit`, `ui-fidelity-audit`, `ui-design-review`, `ux-audit-rethink`.

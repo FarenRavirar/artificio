@@ -6,19 +6,5 @@
 
 ---
 
-## Sumário
-
-| App | Breaking | Non-breaking | Unclassified |
-|-----|:--------:|:------------:|:------------:|
-| mesas | ❌ 1 | ✅ 0 | ⚪ 0 |
-
----
-
-### mesas
-
-#### ❌ Breaking Changes (1)
-
-| Path | Method | Ação | Código |
-|------|--------|------|--------|
-| `/api/v1/gm/perfis/:slug/contact` |  | remove | `path.remove` |
+✅ **Nenhuma mudança detectada entre a versão atual e dev.**
 

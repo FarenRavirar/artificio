@@ -333,7 +333,21 @@ do glob do runner (no-op até baseline explícita). `accounts` migra in-containe
   loop com `.env` "correto". `psql -h 127.0.0.1` engana (localhost é `trust`) —
   testar sempre pela rede docker. Sintoma: `28P01 password authentication failed`. Fix: DB vazio → recriar volume;
   DB com dado → `ALTER USER <DB_USER> PASSWORD '<senha do .env>'` + `docker restart`.
-- **Nunca criar tunnel/container `cloudflared` paralelo.**
+- **Nunca criar tunnel novo nem container `cloudflared` com token diferente do
+  único tunnel de produção.** Origem: Fase 1 (2026-06-04), o primeiro tunnel foi
+  criado em conta Cloudflare errada e o container teve de ser recriado; módulo
+  novo só adiciona hostname ao tunnel existente (specs 061, 076). Réplica do
+  *mesmo* token é o que a Cloudflare recomenda para HA, mas não foi testada neste
+  host e a HA do `cloudflared` está fora do escopo da spec 095 — só com
+  aprovação nominal.
+- **`cloudflared` roda com tag fixa, nunca `:latest`.** `docker restart` reusa a
+  imagem local: o container ficou em `2026.5.2` de 2026-06-04 a 2026-10-27 e só
+  o e-mail da Cloudflare (certificados eMudhra comprometidos, mínimo `2026.10.2`)
+  expôs isso. Versão e motivo: cabeçalho de `infra/cloudflared/docker-compose.yml`.
+  Troca = mudar a tag em PR e recriar o container na VM (aprovação nominal). Conferir `originService=` no log antes de subir de versão:
+  origem `https://` com cadeia afetada passa a ser rejeitada.
+- **Token do tunnel só por `--env-file`**, nunca `--token` no comando: o argumento
+  aparece em `docker inspect`/`ps` (vazou 3 vezes, [[E007]]).
 - **Contato público precisa ser contactável de fora** ([[E013]]): nome de exibição
   de servidor Discord não é endereço.
 

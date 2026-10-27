@@ -405,10 +405,21 @@
   exatamente isso: passa no `tsc` e produz `export {...}` no `dist-cjs`. Verde no CI,
   `Unexpected token 'export'` quando o container sobe — a classe de falha dos incidentes
   E016/E017. É por isso que T1.5 exige carregar o artefato, não ler configuração.
-- **A migração para o TS 7 continua bloqueada depois desta spec, por UM motivo:**
-  `typescript-eslint` não aceita `7.x`. Fechar esta spec **não** autoriza migrar. **A versão
-  anterior listava dois bloqueadores** e incluía "API estável do TS 7" — condição que caiu: a API
-  existe em `tsc --api`, por IPC. Quem retomar não deve reintroduzir aquele item.
+- **A migração para o TS 7 continua bloqueada depois desta spec, por DOIS motivos** (corrigido em
+  2026-10-13; a redação anterior dizia "um só" e mandava não reintroduzir o segundo):
+  1. `typescript-eslint` não aceita `7.x` (peer `>=4.8.4 <6.1.0` no `latest` 8.71.2 e no `canary`
+     8.71.3-alpha.4).
+  2. **Três scripts do próprio repo usam a API JS do compilador**, que no TS 7 não existe como
+     módulo: `scripts/api/inventory.ts` e `scripts/api/consumers.ts` (base do `pnpm verify:api`,
+     obrigatório pelo `AGENTS.md`) e `scripts/check-test-typecheck-coverage.mjs` (gate do CI).
+     Medido no `typescript@7.0.2`: `lib/version.cjs` exporta só `version` e
+     `versionMajorMinor`; `createSourceFile`, `forEachChild`, `isIdentifier`, `SyntaxKind`,
+     `sys`, `getParsedCommandLineOfConfigFile` e `createProgram` são `undefined`. A API existe
+     por IPC (`tsc --api`) e em `typescript/unstable/*`, mas isso é **reescrita** dos 3 scripts,
+     não troca de versão. Saídas candidatas, **não medidas**: `typescript/unstable/ast`, ou um
+     TS 6 em alias só para esses scripts.
+  Fechar esta spec **não** autoriza migrar. O script `check-typescript-7-readiness.mjs` só mede o
+  item 1: um `DESTRAVADO` dele **não** prova que migrar é seguro.
 - **A Fase 0 mexeu no ambiente local do mantenedor** (marketplace e plugin em `~/.claude/`, fora
   do repositório). Exigiu aprovação nominal antes da escrita (T0.5), e a saída foi escolha do
   mantenedor (T0.4), não do agente.
