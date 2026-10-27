@@ -1,5 +1,13 @@
 [
   {
+    "id": "2026-10-27-vagas-links-e-avisos",
+    "title": "Vagas mais claras, links de contato limpos e aviso do seu relato",
+    "body": "Mais correções para mestres e jogadores:\n\n- **Vagas: total e vagas abertas** - Cada mesa tem um total de vagas e as vagas que ainda dá para entrar. O cartão mostra \"N de Y vagas abertas\" e não fala mais em vagas preenchidas\n- **Endereço antigo da página do mestre continua funcionando** - Se o mestre mudar o endereço da página, quem abrir o link antigo é levado ao novo\n- **Links de contato sem sobras** - Formulário, Instagram e outros links salvos com `)`, `]` ou marcas de formatação sobrando no final são limpos ao salvar\n- **Um erro não derruba a página inteira** - Se uma seção do perfil ou da página do mestre falhar, o resto continua aparecendo, e um canal de contato desconhecido aparece com um ícone padrão\n- **Aviso quando seu relato for tratado** - Quem envia um relato pelo formulário recebe uma notificação no site quando ele é resolvido, marcado como repetido ou encerrado sem correção\n\nObrigado por reportar — continue mandando.",
+    "type": "app",
+    "published": true,
+    "created_at": "2026-10-27T19:30:00-03:00"
+  },
+  {
     "id": "2026-10-27-nome-publico-do-mestre",
     "title": "Nome público do mestre e correções no perfil",
     "body": "O perfil agora deixa claro quais nomes aparecem onde:\n\n- **Nome público do mestre** - Novo campo na aba Mestre do perfil. É o nome que jogadores veem na sua página, nos cards das mesas e nos links compartilhados, e pode ser diferente do nome da sua conta\n- **Perfil novo nunca usa o seu e-mail** - O nome e o endereço da página de mestre novos nascem do nome que você informou no cadastro, não mais do começo do seu e-mail\n- **Campos que gravam ao sair** - Nome e username são salvos quando você sai do campo, com o erro visível no próprio campo, em vez de reclamar a cada letra digitada\n- **Vagas certas na página do mestre** - O total de vagas abertas agora é o que o mestre configurou em cada mesa\n\nO relato que originou estas correções veio do formulário de reporte do site. Obrigado — continue mandando.",

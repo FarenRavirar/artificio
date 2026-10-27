@@ -1,6 +1,6 @@
 # Spec 106 — Identidade pública do mestre (`mesas`): nome, URL e reports abertos do perfil
 
-**Status:** pronta para execução; nenhuma decisão do mantenedor em aberto (§3.1) · **Criada:** 2026-10-27 · **Apps:** `apps/mesas` (e `packages/catalog-table`, só se T8.2 exigir)
+**Status:** em execução; nenhuma decisão do mantenedor em aberto (§3.1). Falta deploy, conferes em beta e produção, dado em produção (aut.), T8.5, T8.6, F9 e T8.9 · **Criada:** 2026-10-27 · **Apps:** `apps/mesas` e `packages/catalog-table` (tocado pela T8.2)
 **Origem:** relato do usuário Victor (`username = void`): ao procurar a mesa dele, o card mostra
 `patorico027`, o prefixo do e-mail dele, em vez de `VOID`. Ele já tinha reportado o problema pelo
 formulário de feedback do próprio site em 2026-10-25 12:27 (`dev_feedback`, kind `bug`, título
@@ -165,7 +165,7 @@ devolve (`rg admin_notes` fora de `devFeedbackAdmin`/painel → só `hydration/c
 |---|---|
 | 10-25 `void` | §2.1 a §2.6 |
 | 09-30 e 10-11 `redfallen` | `/perfil` quebrava com `Minified React error #130`. O nome `VttPlatformsEditor` no stack é o do chunk, não o do componente. A causa está no código (`linkTypes.ts:8-13`): a cópia do mapa de ícones do `LinksManager` não tinha `whatsapp`, o `<Icon/>` recebia `undefined` e o `ErrorBoundary` derrubava a aba Mestre para todo mestre com link `wa.me`. Medido: os 3 links dele (`user_links`) foram criados em 09-30 09:29–09:34 UTC (06:29–06:34 BRT, o "05:30 ou 06hs" do relato), um é `wa.me`; `contact_methods` dele é `[]`. Correção `2e38fd1` (PR #336, mergeada em 2026-10-12 12:04) está no HEAD da VM (`eefc4b6c`) e a imagem de `mesas-app` é de 2026-10-13 20:29. Bloqueado 13 dias sem aviso. `gm_profiles.updated_at` dele segue 09-14: não sabemos se voltou a gravar. Não reproduzi com a sessão dele |
-| 08-28 `mestre_hermes` e 10-21 | `gm.ts:249` seleciona `t.slots_filled` e **não** `t.slots_open`; `useMestre.ts:284` soma `slots_total - slots_filled`. No banco, `mestre-hermes`: `slots_filled` 0 em todas, `slots_open` 2, 4, 4, 0, 5, 6. `utils/slots.ts:39` e `tableViewMapper.ts:194` ("CORREÇÃO DT-09") já usam `slots_open`, e `tables.ts:215` e `TableCard.tsx:507` mandam usar. A conta crua continua em `useMestre.ts:284`, `whatsappAnnouncement.ts:274` e `gmPanel.ts:725` (campo `slots_available` da resposta de `GET /gm/tables/:id`, que nenhum código lê: `rg slots_available` → 1 ocorrência, a que escreve). Os cards da página do mestre caem no fallback porque o payload não traz `slots_open`. 40 de 225 mesas ativas têm `slots_filled > 0` |
+| 08-28 `mestre_hermes` e 10-21 | `gm.ts:249` seleciona `t.slots_filled` e **não** `t.slots_open`; `useMestre.ts:284` soma `slots_total - slots_filled`. No banco, `mestre-hermes`: `slots_filled` 0 em todas, `slots_open` 2, 4, 4, 0, 5, 6. `utils/slots.ts:39` e `tableViewMapper.ts:194` ("CORREÇÃO DT-09") já usam `slots_open`, e `tables.ts:215` e `TableCard.tsx:507` mandam usar. A conta crua continua em `useMestre.ts:284`, `whatsappAnnouncement.ts:274` e `gmPanel.ts:725` (campo `slots_available` da resposta de `GET /gm/tables/:id`, que nenhum código lê: `rg slots_available` → 1 ocorrência, a que escreve). Os cards da página do mestre caem no fallback porque o payload não traz `slots_open`. 40 de 225 mesas ativas têm `slots_filled > 0`. **Superado pela D24 (T8.2):** a conta crua sai, e `slots_filled` deixa de existir como conceito |
 | 07-28 | `table_contacts` de `uma-nova-fabula-se-inicia-ms21l0mk`: `https://forms.gle/mVvUiUTq7Z5yJTWT9)__`; de `techno-jogos-do-anfitriao-mrrxgq10`: `https://forms.gle/b3uwFZeGNLQViQ1U7**`. Ambas `origin = imported`. O parser já limpa (`parseDiscordAnnouncement.ts:1931`, "medido em produção 2026-08-11"), **o dado das 2 linhas não**. O caminho manual também aceita o lixo: `canonicalizeHttpsUrl` (`contactUrls.ts:54`) devolve válido para ambos (`new URL` aceita). Outros 3 contatos `form` (`uwill`, `.zero9899`, `kauarang`; mesas `a-sombra-do-mago-estranho-mrdx6a4m`, `ark-nova-mrdx82bh`, `o-misterio-da-ilha-do-mal-mrdxat4h`) são o handle de Discord duplicado: cada mesa tem `discord` (sort 0) e `form` (sort 1) com o mesmo valor; as 3 são `imported` de 2026-07 e nenhum `form` sem URL nasceu depois |
 | 08-27 Dungeon World | `systems` 1269 linhas; `name ilike '%dungeon world%'` → 0. `Apocalypse World` existe. **Nenhuma sugestão de Dungeon World existe** (a `rejected` com `%dungeon%` é "Dungeons e Dragonsd 5&", D&D 5 com erro de digitação). O jogador reportou pelo feedback, não pelo fluxo de sugestão. **Correção de outra afirmação minha:** as 2 linhas "The Apocalypse" não são duplicata; são `variant` de Werewolf 1e e 2e (`parent_id` diferentes). Não medi a linha `of Darkness … "2.0` |
 | 08-27 `o-trovador` (sistema 500, banner como `player`) | Linha do tempo: conta 22:14, report de banner como `player` 22:25 (`GET /gm/me` → 404, esperado sem perfil), `table.created` 22:40:26 (o `gm_profiles` nasceu aí, spec 096), report `POST /profile/systems` 500 às 22:48:57 e 22:48:58. Hoje tem banner e 1 sistema. Logs de agosto não existem (o log do container começa em 2026-10-13 20:29 e tem 7 chamadas `profile/systems` no total). **Causa não medida**; hipótese E1 não testada |
@@ -289,6 +289,7 @@ execução achar algo de produto fora da §3.2, para e pergunta com opções med
 | D15 | Ordem das fases do `plan.md` §14 ("sim, mas não execute, apenas deixe toda a spec pronta"). **Esta sessão não executa nada da spec** |
 | D21 | O commit e a PR levam todo o diff, inclusive os `tasks.md` das specs 091 e 105 e o `cloudflared` ("todo o all vai no commit e na pr") |
 
+| D24 | Vagas são dois números: `slots_total` (teto) e `slots_open` (vagas para entrar). "Vagas totais é o que manda; não existe vagas preenchidas." `slots_filled` sai do modelo; a coluna cai na T8.9, depois de tudo testado em produção |
 | D23 | Remover o resíduo de vínculo Discord (rotas `/profile/me/connect/discord`, `connectDiscord`), antiga autenticação Discord sem uso ('coloque no final da spec'). Tarefa T10.1 |
 | D22 | **Sem banner de consentimento.** A política informa que a coleta é permanente e o que se coleta ("segue sem informar […] coloque apenas na política que sempre coleta e o que coleta, na página de política"). Razão dele: os cookies servem à manutenção do site e a outros fins técnicos. Recomendação do agente era banner com recusa; o mantenedor decidiu o contrário. Registrado como decisão de **não fazer** o banner (T9.4 encerrada) |
 
@@ -299,7 +300,7 @@ execução achar algo de produto fora da §3.2, para e pergunta com opções med
 | D6 | Uma função de resolução de nome (SQL no backend) para card, OG, busca, lista, perfil e página da mesa |
 | D7 | `cleziorpg` não troca (§2.2) |
 | D10 | Remover os 3 contatos `form` que duplicam o Discord (reversível por `INSERT`; a escrita em si é §3.4) |
-| D11 | Vagas seguem `slots_open`, com `COALESCE(slots_open, slots_total - slots_filled)` calculado no backend e consumido pelo front |
+| D11 | **Substituída pela D24.** Vagas seguiam `slots_open`, com `COALESCE(slots_open, slots_total - slots_filled)`; a medição em produção derrubou o fallback (T8.2) |
 | D16 | Telemetria de erro **própria**: endpoint + tabela no próprio banco do `mesas`, sem serviço de terceiro (plan §9). Motivo: o repasse a terceiros é o que o produto veda (D12); Sentry SaaS levaria stack e `user_id` para fora; GlitchTip self-hosted são ~4 containers (número de um fornecedor, não verificado) e custaria memória da VM que não medi. Se D16 mudar para serviço próprio na VM, vira **custo operacional, decisão sua** |
 | D17 | `ErrorBoundary` por seção, fallback em mapas por string externa, teste de paridade com o backend |
 | D18 | Gravar ao sair do campo (`onBlur`/`Enter`) e validar antes de enviar, no `Username` e no `Nome de Exibição` |
@@ -312,13 +313,15 @@ execução achar algo de produto fora da §3.2, para e pergunta com opções med
 |---|---|
 | `commit` | A cada commit, com a palavra `commite`. **Conteúdo = todo o diff, inclusive os `tasks.md` das specs 091 e 105 e o `cloudflared`** (decisão dele, 2026-10-27: "todo o all vai no commit e na PR") |
 | `push` de branch e abertura de PR | Liberados por ele. `push origin dev`/`main`, merge: não |
-| Aplicar a migration em produção | Ao fim da F2 (168) e da T8.7 (169); vem junto com o deploy (`deploy-flow.md` §3) |
+| Aplicar a migration em produção | A 168, única da spec (tabelas de redirect e de erro de cliente, coluna `stale_alerted_at`); vem junto com o deploy (`deploy-flow.md` §3) |
+| `DROP COLUMN tables.slots_filled` | T8.9, só depois de tudo testado em produção; `pg_dump` antes |
+| `merge`, promote `dev→main`, deploy de beta e de produção do `mesas` | Cada um nominal (T7.1) |
 | Deploy de beta e de produção | Por módulo, nominal. `beta-antes-de-prod` bloqueia produção sem beta com `main` |
 | `UPDATE` em `dev_feedback` (14 linhas) | T8.4. Estrutura do pedido em `tasks.md` T8.4 |
 | `UPDATE` de `gm_profiles.nickname`/`slug` + `gm_slug_redirects` (Victor, Albert, Dado Viciado, Endy) | T6.1, depois de ensaio em beta, `pg_dump` de `gm_profiles` e `profiles` |
 | `UPDATE`/`DELETE` em `table_contacts` (2 + 3 linhas) | T8.3, `pg_dump` de `table_contacts` antes |
 | Lib/pacote novo | Não previsto. Se aparecer, pergunta antes de instalar |
-| Tocar `packages/catalog-table` | Só se T8.2 precisar; blast radius medido: 1 consumidor (`apps/mesas/frontend`) |
+| Tocar `packages/catalog-table` | Tocado pela T8.2 (tipo e view model sem `slots_filled`); blast radius medido: 1 consumidor (`apps/mesas/frontend`) |
 | Usar o Chrome com sessão dele | Nunca sem pedir; o `redfallen` exige a conta dele, não a nossa |
 
 ---
@@ -344,14 +347,14 @@ execução achar algo de produto fora da §3.2, para e pergunta com opções med
 
 - **R10** `/perfil` não cai inteira por um componente. A causa do `redfallen` está corrigida;
   falta o usuário confirmar.
-- **R11** O perfil público do mestre mostra as vagas que ele controla (`slots_open`).
+- **R11** O perfil público do mestre mostra as vagas que ele controla (`slots_open`), de um total (`slots_total`).
 - **R12** Contato de URL não carrega cauda de Markdown: as 2 linhas ativas corrigidas, o editor
   recusa ou limpa a cauda, os 3 `form` duplicados de Discord removidos.
 - **R13** Cada report ganha desfecho (`status`, `admin_notes`, `reviewed_at`), e o `PATCH` avisa o
   autor (D13). Os 14 atuais saem de `new`.
 - **R14** Dungeon World, Monster of the Week e Urban Shadows no catálogo central (T8.5); `Monsterhearts`, `Masks` e `Apocalypse World` já casam no catálogo (conferir o que casou).
-- **R15** Vagas: `gm.ts:249`, `useMestre.ts:284`, `whatsappAnnouncement.ts:274`, `gmPanel.ts:725`
-  usam a mesma conta (D11).
+- **R15** Vagas: página do mestre, home, texto do WhatsApp e resposta do editor usam a mesma conta
+  (D24): `slots_open`, e `slots_total` quando falta. Não há vaga "preenchida".
 - **R16** `/painel` não oferece edição de banner a quem ainda não tem perfil de mestre sem dizer
   que o perfil nasce ao criar a primeira mesa.
 
@@ -386,8 +389,9 @@ Cada item só fecha com o comando rodado.
   `nickname` igual ao prefixo com `display_name` diferente; teste cruzado da R21 verde;
   `activity_log` com a linha de nome depois de um `PUT` de teste em beta, e a recusa de 1 caractere
   com `*_rejected`.
-- Vagas: `GET /api/v1/gm/perfis/mestre-hermes` devolve `slots_open`; a soma da página é igual à da home.
-- Contatos: `table_contacts` sem cauda de Markdown (regex `~ '[)\]_*>]+$'` em URL → 0); `form`
+- Vagas: `GET /api/v1/gm/perfis/mestre-hermes` devolve `slots_total` e `slots_open` e nenhum `slots_filled`;
+  a soma da página é igual à da home.
+- Contatos: `table_contacts` sem cauda de Markdown (regex de `tasks.md` T8.3 em URL → 0); `form`
   duplicado de Discord → 0.
 - Prevenção: um erro forçado em beta cria 1 linha em `client_errors` e 1 aviso ao admin; um canal
   desconhecido em `MestreContactMethods` renderiza com fallback, sem derrubar a página.
