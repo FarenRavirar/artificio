@@ -1,8 +1,10 @@
 import type { CropRect } from '@artificio/media/image-kinds';
+import type { Kysely, Transaction } from 'kysely';
 import { toJsonbParam } from '../db/jsonb.js';
 import { db } from '../db/index.js';
 import { auditIdentityChange } from './identityAudit.js';
 import type {
+  Database,
   PlayerProfile,
   PlayerProfileUpdate,
   GmProfile,
@@ -105,17 +107,23 @@ export function slugifyGmName(value: string): string {
  * Extraido por achado de duplicacao do Sonar (PR #302): duas copias da regra de
  * identidade divergem; foi assim que 7 perfis de producao nasceram fora do
  * contrato. O `user-<8 hex>` e o unico valor que nunca e vazio.
+ *
+ * `executor`: quem chama de DENTRO de uma transacao passa o `trx`. Consultar pelo
+ * `db` global ali pedia uma SEGUNDA conexao enquanto a da transacao ficava presa;
+ * com o pool de 10 (`db/index.ts`), 10 criacoes simultaneas travavam tudo (achado
+ * de review, PR #342).
  */
 export async function prepareNewGmProfileIdentity(
   userId: string,
   patch?: Record<string, unknown>,
+  executor: Kysely<Database> | Transaction<Database> = db,
 ): Promise<{ slug: string; nickname: string }> {
-  const user = await db
+  const user = await executor
     .selectFrom('users')
     .select(['username'])
     .where('id', '=', userId)
     .executeTakeFirst();
-  const profile = await db
+  const profile = await executor
     .selectFrom('profiles')
     .select(['display_name'])
     .where('user_id', '=', userId)
@@ -133,12 +141,12 @@ export async function prepareNewGmProfileIdentity(
   // Slug antigo (`gm_slug_redirects`) tambem esta ocupado: um perfil novo nao pode
   // herdar o 301 de outro mestre (spec 106 R3).
   const [perfis, antigos] = await Promise.all([
-    db
+    executor
       .selectFrom('gm_profiles')
       .select('slug')
       .where((eb) => eb.or([eb('slug', '=', base), eb('slug', 'like', `${base}-%`)]))
       .execute(),
-    db
+    executor
       .selectFrom('gm_slug_redirects')
       .select('old_slug')
       .where((eb) => eb.or([eb('old_slug', '=', base), eb('old_slug', 'like', `${base}-%`)]))
@@ -451,7 +459,7 @@ export async function updateGmProfile(
     }
 
     // Insert (precisa de slug)
-    const { slug, nickname } = await prepareNewGmProfileIdentity(userId, sanitizedData);
+    const { slug, nickname } = await prepareNewGmProfileIdentity(userId, sanitizedData, trx);
 
     // `nickname` DEPOIS do spread (achado de review, PR #301). Na primeira
     // correcao a chave derivada vinha antes de `...sanitizedData`, e o patch

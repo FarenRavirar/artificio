@@ -25,16 +25,17 @@ vi.mock('../db/index.js', () => ({
   db: {
     ...h.trx,
     transaction: () => ({ execute: (cb: (t: unknown) => unknown) => cb(h.trx) }),
-    selectFrom: () => ({
+    selectFrom: vi.fn(() => ({
       select: () => ({ where: () => ({ executeTakeFirst: async () => ({ display_name: 'depois-relido' }) }) }),
-    }),
+    })),
   },
 }));
 vi.mock('./identityAudit.js', () => ({
   auditIdentityChange: vi.fn(async (input: Record<string, unknown>, trx: unknown) => void h.audit.push({ input, trx })),
 }));
 
-import { updateProfile } from './profileService.js';
+import { db } from '../db/index.js';
+import { prepareNewGmProfileIdentity, updateProfile } from './profileService.js';
 
 describe('updateProfile — auditoria de display_name', () => {
   beforeEach(() => {
@@ -57,5 +58,31 @@ describe('updateProfile — auditoria de display_name', () => {
     h.setAnterior({ id: 'p1', display_name: 'Alice' });
     await updateProfile('u1', { bio: 'oi' }, 'teste');
     expect(h.audit).toHaveLength(0);
+  });
+});
+
+describe('prepareNewGmProfileIdentity — executor', () => {
+  it('consulta pelo executor recebido e nao pelo db global (pool de 10 conexoes)', async () => {
+    const consultas: string[] = [];
+    const q = (rows: unknown[]) => {
+      const c: Record<string, unknown> = {};
+      for (const m of ['select', 'where']) c[m] = () => c;
+      c.executeTakeFirst = async () => rows[0];
+      c.execute = async () => rows;
+      return c;
+    };
+    const executor = {
+      selectFrom: (t: string) => {
+        consultas.push(t);
+        return q(t === 'users' ? [{ username: 'void' }] : []);
+      },
+    };
+    vi.mocked(db.selectFrom).mockClear();
+
+    const r = await prepareNewGmProfileIdentity('u1', undefined, executor as never);
+
+    expect(r).toEqual({ slug: 'void', nickname: 'void' });
+    expect(consultas).toEqual(['users', 'profiles', 'gm_profiles', 'gm_slug_redirects']);
+    expect(db.selectFrom).not.toHaveBeenCalled();
   });
 });
