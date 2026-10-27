@@ -193,7 +193,7 @@ schema é `strict` e uma aba aberta antes do deploy ainda o envia), `tableServic
 (`normalizeSlots`, parser, tipos), `packages/catalog-table` (`slots_filled`/`slotsFilled` fora do
 tipo e do view model; build do pacote refeito, o front lê o `dist`), `getSlotsVisualState`,
 `sumOpenSlots`, `formatSlots` e cartões. `utils/slots.ts` do backend apagado. `tableRepository.findById`/`findByIdAndGm` usam `selectAll('t')` e
-devolveriam `slots_filled` velho ao editor e ao admin: `withoutLegacySlots` o tira da leitura. Testes reescritos;
+devolveriam `slots_filled` velho ao editor e ao admin: `withoutLegacySlots` o tira da leitura. O cartão (`TableCard.tsx`) exibia "X/Y preenchidas" calculado como `total - open`, o que afirma ocupação que não existe (o mestre pode só ter fechado o recrutamento): agora "N de Y vagas abertas", e o derivado de `getSlotsVisualState` virou `closed` (vagas sem entrada, não ocupação). Texto novo não visto no navegador. Testes reescritos;
 teste cruzado soma do mestre × WhatsApp em `whatsappAnnouncement.test.ts`. Não há migration nesta
 PR: a coluna fica com `DEFAULT 0` (expand/contract).
 
@@ -309,8 +309,8 @@ CHECKs `slots_filled_valid` e `check_slots_valid` (este último é recriado sem 
 `slots_open >= 0 AND slots_open <= slots_total`), `DROP INDEX IF EXISTS idx_tables_slots`. Header de
 5 campos e idempotência (`deploy-flow.md` §3), `pg_dump` antes, aprovação nominal.
 
-Remover junto, do código: `slots_filled` em `db/types.ts` e `hydration/config.ts`, e a escrita
-`slots_filled: 0` do `gmPanel.ts` (PUT com `slots_total`). Aceite: `information_schema.columns` sem
+Remover junto, do código: `slots_filled` em `db/types.ts` e `hydration/config.ts`, e as escritas
+`slots_filled: 0` do `gmPanel.ts` (PUT com `slots_total`) e do UPDATE de `syncDraftToTable` (`syncHelpers.ts`). Aceite: `information_schema.columns` sem
 `slots_filled`; `rtk rg "slots_filled" apps packages --glob '!**/database/**'` → 0.
 
 ---

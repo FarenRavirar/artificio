@@ -681,6 +681,9 @@ export async function syncDraftToTable(
         .updateTable('tables')
         .set({
           ...buildTableDraftFields(payload, gmName, coverUrl),
+          // Coluna legada: o INSERT usa o DEFAULT 0, mas o UPDATE preservaria um `slots_filled`
+          // antigo acima do novo `slots_total` e o CHECK `slots_filled_valid` barraria o sync.
+          slots_filled: 0,
           status: sql`CASE WHEN status = 'draft' THEN 'draft' ELSE status END`,
           updated_at: new Date(),
         })

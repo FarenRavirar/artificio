@@ -30,7 +30,7 @@ export function SlotsIndicator({
   const {
     open: slotsLeft,
     visibleTotal,
-    visibleFilled,
+    visibleClosed,
     total,
     colorClass,
     isUrgent,
@@ -44,7 +44,7 @@ export function SlotsIndicator({
           {Array.from({ length: visibleTotal }).map((_, i) => (
             <div
               key={i}
-              className={`w-2 h-2 rounded-full transition-colors ${i < visibleFilled ? colorClass : 'bg-white/20'
+              className={`w-2 h-2 rounded-full transition-colors ${i < visibleClosed ? colorClass : 'bg-white/20'
                 }`}
             />
           ))}
@@ -73,7 +73,7 @@ export function SlotsIndicator({
         {Array.from({ length: visibleTotal }).map((_, i) => (
           <div
             key={i}
-            className={`w-2 h-2 rounded-full transition-colors ${i < visibleFilled ? colorClass : 'bg-white/20'
+            className={`w-2 h-2 rounded-full transition-colors ${i < visibleClosed ? colorClass : 'bg-white/20'
               }`}
           />
         ))}

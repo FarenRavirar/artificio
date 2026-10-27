@@ -359,3 +359,18 @@ describe('validateDraftForSync — Fase G (host_discord_id conta como contato v�
     expect(missing).toContain('contact_url/contact_discord');
   });
 });
+
+// Spec 106 T8.2: o UPDATE da ressincronização zera a coluna legada `slots_filled`. O INSERT usa
+// o DEFAULT 0, mas o UPDATE preservaria um valor antigo acima do novo `slots_total` e o CHECK
+// `slots_filled_valid` barraria o sync. Sem harness de banco para `syncDraftToTable`, o teste
+// prende a forma do `.set(...)`.
+describe('syncDraftToTable — UPDATE zera slots_filled legado', () => {
+  it('slots_filled: 0 vem depois do spread de buildTableDraftFields no UPDATE', async () => {
+    const { readFileSync } = await import('node:fs');
+    const source = readFileSync(new URL('../syncHelpers.ts', import.meta.url), 'utf8');
+    const update = source.slice(source.indexOf(".updateTable('tables')"));
+    const spread = update.indexOf('...buildTableDraftFields(');
+    expect(spread).toBeGreaterThanOrEqual(0);
+    expect(update.indexOf('slots_filled: 0')).toBeGreaterThan(spread);
+  });
+});
