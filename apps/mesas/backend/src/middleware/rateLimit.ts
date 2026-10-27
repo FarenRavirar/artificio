@@ -44,6 +44,21 @@ export const strictRateLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+/**
+ * Bucket PROPRIO da telemetria de erro de cliente (spec 106 R19; achado de review,
+ * PR #342). Com `strictRateLimiter`, 10 erros automaticos esgotavam a cota que
+ * `POST /dev-feedback` (widget) divide com a restauracao de foto e a moderacao: a
+ * pessoa nao conseguiria reportar o problema a mao. Os tetos globais de
+ * `clientErrors.ts` protegem o armazenamento; este protege so o IP.
+ */
+export const clientErrorRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 30,
+  message: 'Muitas requisições deste IP. Tente novamente em alguns minutos.',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // ============================================================================
 // Buckets da conversa comunitária (spec 090 T7; achado de review, PR #268)
 //

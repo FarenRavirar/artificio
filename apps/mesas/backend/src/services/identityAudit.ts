@@ -81,6 +81,9 @@ interface RejectedInput {
   attempted: unknown;
   reason: string;
   door: string;
+  /** Perfil/usuario afetado; omitido = o proprio ator, `null` = sem alvo identificado. */
+  entityId?: string | null;
+  targetUserId?: string | null;
 }
 
 /** `attempted` e texto do usuario: guardado como veio (truncado), nunca interpretado. */
@@ -91,8 +94,8 @@ export async function auditIdentityRejected(input: RejectedInput): Promise<void>
     actorId: input.actorId,
     action: meta.rejected,
     entityType: meta.entity,
-    entityId: input.actorId,
-    targetUserId: input.actorId,
+    entityId: input.entityId === undefined ? input.actorId : input.entityId,
+    targetUserId: input.targetUserId === undefined ? input.actorId : input.targetUserId,
     summary: `${meta.label} recusado: ${input.reason}`,
     metadata: { attempted, reason: input.reason, door: input.door },
   });

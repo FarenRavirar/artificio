@@ -134,10 +134,13 @@ describe('renameGmSlug', () => {
     }
     expect(state.writes).toEqual([]);
     expect(state.audit.map((a) => (a as [string, { reason: string }])[1].reason)).toEqual(['taken', 'taken']);
+    // A recusa aponta o perfil afetado (e o dono dele), nao o ator.
+    expect(state.audit[0]).toEqual(['rejected', expect.objectContaining({ entityId: 'gm-1', targetUserId: 'u1' })]);
   });
 
   it('perfil inexistente e slug igual ao atual nao escrevem', async () => {
     await expect(renameGmSlug({ gmId: 'nope', newSlug: 'novo', actorId: 'a', door: 't' })).rejects.toMatchObject({ code: 'not_found' });
+    expect(state.audit[0]).toEqual(['rejected', expect.objectContaining({ entityId: 'nope', targetUserId: null })]);
     await expect(renameGmSlug({ gmId: 'gm-1', newSlug: 'patorico027', actorId: 'a', door: 't' })).rejects.toMatchObject({ code: 'same' });
     expect(state.writes).toEqual([]);
   });

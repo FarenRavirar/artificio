@@ -73,81 +73,99 @@ export function clientErrorFingerprint(input: Pick<ClientErrorInput, 'routePatte
 
 export type RecordOutcome = 'created' | 'incremented' | 'throttled';
 
+/** Chave do `pg_advisory_xact_lock` que serializa os tetos; qualquer inteiro fixo serve. */
+const QUOTA_LOCK_KEY = 106_019;
+
 /**
  * Upsert por fingerprint. `created` so na primeira ocorrencia; so ela avisa o
- * admin. Dentro do teto de avisos por hora (o aviso excedente nao se perde: a
+ * admin, dentro do teto de avisos por hora (o aviso excedente nao se perde: a
  * linha existe e o painel mostra).
+ *
+ * Contagem de teto + INSERT numa transacao sob `pg_advisory_xact_lock`: sem a
+ * trava, requisicoes simultaneas com fingerprints distintos liam a mesma contagem
+ * e passavam juntas do teto (achado de review, PR #342). A trava e curta e o
+ * endpoint tem rate limit; o aviso ao admin sai DEPOIS do commit.
  */
 export async function recordClientError(input: ClientErrorInput, userId: string | null): Promise<RecordOutcome> {
   const fingerprint = clientErrorFingerprint(input);
 
-  const existing = await db.selectFrom('client_errors').select('id').where('fingerprint', '=', fingerprint).executeTakeFirst();
+  const result = await db.transaction().execute(async (trx) => {
+    await trx.selectNoFrom(sql`pg_advisory_xact_lock(${QUOTA_LOCK_KEY})`.as('lock')).execute();
 
-  if (!existing) {
-    const [{ recentes }, { total }] = await Promise.all([
-      db
-        .selectFrom('client_errors')
-        .select(sql<number>`count(*)::int`.as('recentes'))
-        .where('first_seen', '>', sql<Date>`now() - interval '1 hour'`)
-        .executeTakeFirstOrThrow(),
-      db.selectFrom('client_errors').select(sql<number>`count(*)::int`.as('total')).executeTakeFirstOrThrow(),
-    ]);
-    if (recentes >= CEILINGS.newFingerprintsPerHour || total >= CEILINGS.maxRows) return 'throttled';
+    const existing = await trx.selectFrom('client_errors').select('id').where('fingerprint', '=', fingerprint).executeTakeFirst();
+
+    if (!existing) {
+      const [{ recentes }, { total }] = await Promise.all([
+        trx
+          .selectFrom('client_errors')
+          .select(sql<number>`count(*)::int`.as('recentes'))
+          .where('first_seen', '>', sql<Date>`now() - interval '1 hour'`)
+          .executeTakeFirstOrThrow(),
+        trx.selectFrom('client_errors').select(sql<number>`count(*)::int`.as('total')).executeTakeFirstOrThrow(),
+      ]);
+      if (recentes >= CEILINGS.newFingerprintsPerHour || total >= CEILINGS.maxRows) {
+        return { outcome: 'throttled' as const, alertId: null };
+      }
+    }
+
+    const row = await trx
+      .insertInto('client_errors')
+      .values({
+        fingerprint,
+        user_id: userId,
+        route_pattern: input.routePattern,
+        path: input.path,
+        message: input.message,
+        stack: input.stack,
+        component_stack: input.componentStack,
+        user_agent: input.userAgent,
+        build: input.build,
+      })
+      .onConflict((oc) =>
+        oc.column('fingerprint').doUpdateSet({
+          occurrences: sql`client_errors.occurrences + 1`,
+          last_seen: sql`now()`,
+        }),
+      )
+      .returning(['id', sql<boolean>`(xmax = 0)`.as('inserted')])
+      .executeTakeFirstOrThrow();
+
+    if (!row.inserted) return { outcome: 'incremented' as const, alertId: null };
+
+    // Teto de avisos contado e gravado sob a mesma trava: o registro entra na
+    // contagem da proxima requisicao mesmo se a notificacao falhar.
+    const { avisos } = await trx
+      .selectFrom('activity_log')
+      .select(sql<number>`count(*)::int`.as('avisos'))
+      .where('action', '=', 'client_error.first_seen')
+      .where('created_at', '>', sql<Date>`now() - interval '1 hour'`)
+      .executeTakeFirstOrThrow();
+    if (avisos >= CEILINGS.adminAlertsPerHour) return { outcome: 'created' as const, alertId: null };
+
+    await logActivity(
+      {
+        actorId: null,
+        action: 'client_error.first_seen',
+        entityType: 'client_error',
+        entityId: row.id,
+        summary: `Erro de cliente em ${input.routePattern || input.path || '(sem rota)'}: ${input.message.slice(0, 120)}`,
+        metadata: { route_pattern: input.routePattern, build: input.build },
+      },
+      trx,
+    );
+    return { outcome: 'created' as const, alertId: row.id };
+  });
+
+  if (result.alertId) {
+    await notifyAdmins({
+      type: 'client_error',
+      title: 'Erro no navegador de um usuário',
+      message: `${input.message.slice(0, 160)} (${input.routePattern || input.path || 'sem rota'})`,
+      action_url: '/gestao',
+      metadata: { client_error_id: result.alertId },
+    });
   }
-
-  const row = await db
-    .insertInto('client_errors')
-    .values({
-      fingerprint,
-      user_id: userId,
-      route_pattern: input.routePattern,
-      path: input.path,
-      message: input.message,
-      stack: input.stack,
-      component_stack: input.componentStack,
-      user_agent: input.userAgent,
-      build: input.build,
-    })
-    .onConflict((oc) =>
-      oc.column('fingerprint').doUpdateSet({
-        occurrences: sql`client_errors.occurrences + 1`,
-        last_seen: sql`now()`,
-      }),
-    )
-    .returning(['id', sql<boolean>`(xmax = 0)`.as('inserted')])
-    .executeTakeFirstOrThrow();
-
-  if (!row.inserted) return 'incremented';
-
-  await alertAdminFirstSeen(row.id, input);
-  return 'created';
-}
-
-async function alertAdminFirstSeen(id: string, input: ClientErrorInput): Promise<void> {
-  const { avisos } = await db
-    .selectFrom('activity_log')
-    .select(sql<number>`count(*)::int`.as('avisos'))
-    .where('action', '=', 'client_error.first_seen')
-    .where('created_at', '>', sql<Date>`now() - interval '1 hour'`)
-    .executeTakeFirstOrThrow();
-  if (avisos >= CEILINGS.adminAlertsPerHour) return;
-
-  // Grava ANTES de avisar: o contador do teto conta esta linha mesmo se o aviso falhar.
-  await logActivity({
-    actorId: null,
-    action: 'client_error.first_seen',
-    entityType: 'client_error',
-    entityId: id,
-    summary: `Erro de cliente em ${input.routePattern || input.path || '(sem rota)'}: ${input.message.slice(0, 120)}`,
-    metadata: { route_pattern: input.routePattern, build: input.build },
-  });
-  await notifyAdmins({
-    type: 'client_error',
-    title: 'Erro no navegador de um usuário',
-    message: `${input.message.slice(0, 160)} (${input.routePattern || input.path || 'sem rota'})`,
-    action_url: '/gestao',
-    metadata: { client_error_id: id },
-  });
+  return result.outcome;
 }
 
 /** Retencao (cron): apaga o que nao reincide ha `retentionDays`. */

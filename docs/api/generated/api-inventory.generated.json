@@ -2605,7 +2605,7 @@
       "method": "USE",
       "path": "/",
       "sourceFile": "apps/mesas/backend/src/server.ts",
-      "line": 164,
+      "line": 165,
       "confidence": "high",
       "kind": "mount"
     },
@@ -2614,7 +2614,7 @@
       "method": "USE",
       "path": "/api/v1",
       "sourceFile": "apps/mesas/backend/src/server.ts",
-      "line": 162,
+      "line": 163,
       "confidence": "high",
       "kind": "mount"
     },
@@ -2623,16 +2623,7 @@
       "method": "USE",
       "path": "/api/v1/admin",
       "sourceFile": "apps/mesas/backend/src/server.ts",
-      "line": 125,
-      "confidence": "high",
-      "kind": "mount"
-    },
-    {
-      "app": "mesas",
-      "method": "USE",
-      "path": "/api/v1/admin",
-      "sourceFile": "apps/mesas/backend/src/server.ts",
-      "line": 146,
+      "line": 127,
       "confidence": "high",
       "kind": "mount"
     },
@@ -2659,7 +2650,7 @@
       "method": "USE",
       "path": "/api/v1/admin",
       "sourceFile": "apps/mesas/backend/src/server.ts",
-      "line": 151,
+      "line": 149,
       "confidence": "high",
       "kind": "mount"
     },
@@ -2687,6 +2678,15 @@
       "path": "/api/v1/admin",
       "sourceFile": "apps/mesas/backend/src/server.ts",
       "line": 154,
+      "confidence": "high",
+      "kind": "mount"
+    },
+    {
+      "app": "mesas",
+      "method": "USE",
+      "path": "/api/v1/admin",
+      "sourceFile": "apps/mesas/backend/src/server.ts",
+      "line": 155,
       "confidence": "high",
       "kind": "mount"
     },
@@ -2749,7 +2749,7 @@
       "method": "USE",
       "path": "/api/v1/admin/discord",
       "sourceFile": "apps/mesas/backend/src/server.ts",
-      "line": 149,
+      "line": 150,
       "confidence": "high",
       "kind": "mount"
     },
@@ -3334,7 +3334,7 @@
       "method": "USE",
       "path": "/api/v1/admin/import",
       "sourceFile": "apps/mesas/backend/src/server.ts",
-      "line": 150,
+      "line": 151,
       "confidence": "high",
       "kind": "mount"
     },
@@ -3478,7 +3478,7 @@
       "method": "USE",
       "path": "/api/v1/admin/setting-suggestions",
       "sourceFile": "apps/mesas/backend/src/server.ts",
-      "line": 158,
+      "line": 159,
       "confidence": "high",
       "kind": "mount"
     },
@@ -3676,7 +3676,7 @@
       "method": "USE",
       "path": "/api/v1/auth",
       "sourceFile": "apps/mesas/backend/src/server.ts",
-      "line": 119,
+      "line": 121,
       "confidence": "high",
       "kind": "mount"
     },
@@ -3721,7 +3721,7 @@
       "method": "USE",
       "path": "/api/v1/changelog",
       "sourceFile": "apps/mesas/backend/src/server.ts",
-      "line": 161,
+      "line": 162,
       "confidence": "high",
       "kind": "mount"
     },
@@ -3730,7 +3730,7 @@
       "method": "POST",
       "path": "/api/v1/client-errors",
       "sourceFile": "apps/mesas/backend/src/routes/clientErrors.ts",
-      "line": 14,
+      "line": 22,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -3739,7 +3739,7 @@
       "method": "USE",
       "path": "/api/v1/client-errors",
       "sourceFile": "apps/mesas/backend/src/server.ts",
-      "line": 132,
+      "line": 96,
       "confidence": "high",
       "kind": "mount"
     },
@@ -3757,7 +3757,7 @@
       "method": "USE",
       "path": "/api/v1/communication-platforms",
       "sourceFile": "apps/mesas/backend/src/server.ts",
-      "line": 160,
+      "line": 161,
       "confidence": "high",
       "kind": "mount"
     },
@@ -3802,7 +3802,7 @@
       "method": "USE",
       "path": "/api/v1/community",
       "sourceFile": "apps/mesas/backend/src/server.ts",
-      "line": 145,
+      "line": 146,
       "confidence": "high",
       "kind": "mount"
     },
@@ -3847,7 +3847,7 @@
       "method": "USE",
       "path": "/api/v1/community/conversation",
       "sourceFile": "apps/mesas/backend/src/server.ts",
-      "line": 142,
+      "line": 143,
       "confidence": "high",
       "kind": "mount"
     },
@@ -4063,16 +4063,7 @@
       "method": "USE",
       "path": "/api/v1/dev-feedback",
       "sourceFile": "apps/mesas/backend/src/server.ts",
-      "line": 131,
-      "confidence": "high",
-      "kind": "mount"
-    },
-    {
-      "app": "mesas",
-      "method": "USE",
-      "path": "/api/v1/gm",
-      "sourceFile": "apps/mesas/backend/src/server.ts",
-      "line": 155,
+      "line": 133,
       "confidence": "high",
       "kind": "mount"
     },
@@ -4082,6 +4073,15 @@
       "path": "/api/v1/gm",
       "sourceFile": "apps/mesas/backend/src/server.ts",
       "line": 156,
+      "confidence": "high",
+      "kind": "mount"
+    },
+    {
+      "app": "mesas",
+      "method": "USE",
+      "path": "/api/v1/gm",
+      "sourceFile": "apps/mesas/backend/src/server.ts",
+      "line": 157,
       "confidence": "high",
       "kind": "mount"
     },
@@ -4261,7 +4261,7 @@
       "method": "GET",
       "path": "/api/v1/health",
       "sourceFile": "apps/mesas/backend/src/server.ts",
-      "line": 100,
+      "line": 102,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4279,7 +4279,7 @@
       "method": "USE",
       "path": "/api/v1/me",
       "sourceFile": "apps/mesas/backend/src/server.ts",
-      "line": 122,
+      "line": 124,
       "confidence": "high",
       "kind": "mount"
     },
@@ -4306,7 +4306,7 @@
       "method": "USE",
       "path": "/api/v1/profile",
       "sourceFile": "apps/mesas/backend/src/server.ts",
-      "line": 123,
+      "line": 125,
       "confidence": "high",
       "kind": "mount"
     },
@@ -4315,7 +4315,7 @@
       "method": "USE",
       "path": "/api/v1/profile",
       "sourceFile": "apps/mesas/backend/src/server.ts",
-      "line": 124,
+      "line": 126,
       "confidence": "high",
       "kind": "mount"
     },
@@ -4486,7 +4486,7 @@
       "method": "USE",
       "path": "/api/v1/scenario-suggestions",
       "sourceFile": "apps/mesas/backend/src/server.ts",
-      "line": 130,
+      "line": 132,
       "confidence": "high",
       "kind": "mount"
     },
@@ -4513,7 +4513,7 @@
       "method": "USE",
       "path": "/api/v1/scenarios",
       "sourceFile": "apps/mesas/backend/src/server.ts",
-      "line": 128,
+      "line": 130,
       "confidence": "high",
       "kind": "mount"
     },
@@ -4558,7 +4558,7 @@
       "method": "USE",
       "path": "/api/v1/settings",
       "sourceFile": "apps/mesas/backend/src/server.ts",
-      "line": 157,
+      "line": 158,
       "confidence": "high",
       "kind": "mount"
     },
@@ -4585,7 +4585,7 @@
       "method": "USE",
       "path": "/api/v1/system-suggestions",
       "sourceFile": "apps/mesas/backend/src/server.ts",
-      "line": 129,
+      "line": 131,
       "confidence": "high",
       "kind": "mount"
     },
@@ -4612,7 +4612,7 @@
       "method": "USE",
       "path": "/api/v1/systems",
       "sourceFile": "apps/mesas/backend/src/server.ts",
-      "line": 127,
+      "line": 129,
       "confidence": "high",
       "kind": "mount"
     },
@@ -4666,7 +4666,7 @@
       "method": "USE",
       "path": "/api/v1/tables",
       "sourceFile": "apps/mesas/backend/src/server.ts",
-      "line": 126,
+      "line": 128,
       "confidence": "high",
       "kind": "mount"
     },
@@ -4783,7 +4783,7 @@
       "method": "USE",
       "path": "/api/v1/vtt-platforms",
       "sourceFile": "apps/mesas/backend/src/server.ts",
-      "line": 159,
+      "line": 160,
       "confidence": "high",
       "kind": "mount"
     },
@@ -4837,7 +4837,7 @@
       "method": "USE",
       "path": "/auth",
       "sourceFile": "apps/mesas/backend/src/server.ts",
-      "line": 120,
+      "line": 122,
       "confidence": "high",
       "kind": "mount"
     },
@@ -4846,7 +4846,7 @@
       "method": "USE",
       "path": "/auth",
       "sourceFile": "apps/mesas/backend/src/server.ts",
-      "line": 121,
+      "line": 123,
       "confidence": "high",
       "kind": "mount"
     },
@@ -4918,7 +4918,7 @@
       "method": "USE",
       "path": "/og",
       "sourceFile": "apps/mesas/backend/src/server.ts",
-      "line": 163,
+      "line": 164,
       "confidence": "high",
       "kind": "mount"
     },

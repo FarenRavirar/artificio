@@ -61,6 +61,11 @@ export async function logActivity(
       })
       .executeTakeFirst();
   } catch (err) {
+    // Dentro de transacao o INSERT que falha ja deixou a transacao abortada: o
+    // COMMIT vira ROLLBACK sem erro e o chamador reportaria sucesso de algo que nao
+    // gravou (achado de review, PR #342). Com `trx` o erro sobe; sem `trx` segue
+    // best-effort, e a auditoria nao derruba a acao de merito.
+    if (trx) throw err;
     console.error('[activityLogger]', err);
   }
 }

@@ -9,6 +9,12 @@ const h = vi.hoisted(() => ({
   insertCalls: 0,
 }));
 
+vi.mock('../middleware/rateLimit.js', () => ({
+  clientErrorRateLimiter: (_q: unknown, _s: unknown, next: () => void) => next(),
+}));
+vi.mock('../middleware/auth.js', () => ({
+  optionalAuth: (_q: unknown, _s: unknown, next: () => void) => next(),
+}));
 vi.mock('./adminNotifications.js', () => ({
   notifyAdmins: vi.fn(async () => void (h.notified += 1)),
 }));
@@ -56,7 +62,11 @@ vi.mock('../db/index.js', () => {
     });
     return c;
   };
-  return { db: { selectFrom, insertInto } };
+  // `recordClientError` roda sob `pg_advisory_xact_lock` numa transacao; o mock
+  // executa o callback com o proprio `db` e ignora a trava (nao ha concorrencia real).
+  const selectNoFrom = () => ({ execute: async () => [] });
+  const db = { selectFrom, insertInto, selectNoFrom, transaction: () => ({ execute: (cb: (t: unknown) => unknown) => cb(db) }) };
+  return { db };
 });
 
 import express from 'express';
@@ -142,18 +152,13 @@ describe('recordClientError', () => {
 });
 
 describe('POST /api/v1/client-errors', () => {
-  vi.mock('../middleware/rateLimit.js', () => ({
-    strictRateLimiter: (_q: unknown, _s: unknown, next: () => void) => next(),
-  }));
-  vi.mock('../middleware/auth.js', () => ({
-    optionalAuth: (_q: unknown, _s: unknown, next: () => void) => next(),
-  }));
-  const app = express().use(express.json()).use('/api/v1/client-errors', clientErrorsRoutes);
+  // Sem `express.json` global de proposito: o parser de 16 KB e da propria rota.
+  const app = express().use('/api/v1/client-errors', clientErrorsRoutes);
 
   it('204 com corpo valido, 400 sem mensagem, 413 acima do limite', async () => {
     expect((await request(app).post('/api/v1/client-errors').send({ message: 'x' })).status).toBe(204);
     expect((await request(app).post('/api/v1/client-errors').send({})).status).toBe(400);
-    const gigante = await request(app).post('/api/v1/client-errors').send({ message: 'x'.repeat(20000) });
+    const gigante = await request(app).post('/api/v1/client-errors').send({ message: 'x'.repeat(70000) });
     expect(gigante.status).toBe(413);
   });
 });

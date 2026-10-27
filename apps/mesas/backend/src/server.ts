@@ -92,6 +92,8 @@ app.use(cors({
 app.use(parseCookies);
 app.use(globalRateLimiter);
 app.use(csrfProtection(allowedFrontendOrigins));
+// Antes do parser global de 12 MB: o endpoint publico de telemetria tem limite proprio (64 KB).
+app.use('/api/v1/client-errors', clientErrorsRoutes);
 app.use(express.json({ limit: '12mb' }));
 
 // Middleware de logging de todas as requisições
@@ -129,7 +131,6 @@ app.use('/api/v1/scenarios', scenariosRoutes);
 app.use('/api/v1/system-suggestions', systemSuggestionsRoutes);
 app.use('/api/v1/scenario-suggestions', scenarioSuggestionsRoutes);
 app.use('/api/v1/dev-feedback', devFeedbackRoutes);
-app.use('/api/v1/client-errors', clientErrorsRoutes);
 // T7.4b (spec 096): `/api/v1/notifications` SAIU. As 3 rotas de leitura
 // (GET /, PATCH /read-all, PATCH /:id/read) ficaram órfãs quando o
 // `NotificationBell` de `packages/ui` passou a ler do `accounts.` por

@@ -197,14 +197,18 @@ router.put('/preferences', authMiddleware, async (req: Request, res: Response) =
           })
         )
         .execute();
-    });
 
-    await auditIdentityChange({
-      actorId: userId,
-      field: 'display_name',
-      from: displayNameAntes,
-      to: display_name.trim(),
-      door: 'PUT /me/preferences',
+      // Na mesma transacao do perfil: se a auditoria falhar, nada e gravado pela metade.
+      await auditIdentityChange(
+        {
+          actorId: userId,
+          field: 'display_name',
+          from: displayNameAntes,
+          to: display_name.trim(),
+          door: 'PUT /me/preferences',
+        },
+        trx,
+      );
     });
 
     return res.json({

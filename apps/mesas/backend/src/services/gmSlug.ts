@@ -76,6 +76,8 @@ interface RenameInput {
  */
 export async function renameGmSlug(input: RenameInput): Promise<{ from: string; to: string }> {
   const newSlug = input.newSlug.trim();
+  // Preenchido apos a leitura do perfil: a recusa `taken` aponta o perfil afetado.
+  let alvo = null as { id: string; user_id: string } | null;
   try {
     if (newSlug.length < 2 || newSlug.length > GM_SLUG_MAX || !GM_SLUG_PATTERN.test(newSlug)) {
       throw new GmSlugError('format', 'Slug deve ter 2 a 40 caracteres: letras minúsculas, números e hífen.');
@@ -89,6 +91,7 @@ export async function renameGmSlug(input: RenameInput): Promise<{ from: string; 
         .forUpdate()
         .executeTakeFirst();
       if (!atual) throw new GmSlugError('not_found', 'Perfil de mestre não encontrado.');
+      alvo = { id: atual.id, user_id: atual.user_id };
       if (atual.slug === newSlug) throw new GmSlugError('same', 'O slug já é esse.');
       if (await isGmSlugTaken(newSlug, trx, input.gmId)) {
         throw new GmSlugError('taken', 'Slug já está em uso.');
@@ -129,6 +132,9 @@ export async function renameGmSlug(input: RenameInput): Promise<{ from: string; 
         attempted: newSlug,
         reason: error.code,
         door: input.door,
+        // format/not_found: perfil nao confirmado, sem usuario-alvo; taken: o perfil lido.
+        entityId: alvo?.id ?? input.gmId,
+        targetUserId: alvo?.user_id ?? null,
       });
     }
     throw error;

@@ -25,5 +25,8 @@ describe('MestreContactMethods', () => {
     );
     expect(screen.getByText('@alguem@mastodon.social')).toBeTruthy();
     expect(screen.getByText('a@b.com')).toBeTruthy();
+    // So o e-mail tem acao: o canal desconhecido mostra o valor sem botao inoperante.
+    expect(screen.getAllByRole('button')).toHaveLength(1);
+    expect(screen.queryByText('Preencher formulário')).toBeNull();
   });
 });
