@@ -14,7 +14,7 @@
 | ⚠️ CODE_ONLY | 0 | ✅ (se novo) |
 | 📄 CONTRACT_ONLY | 5 | ❌ |
 | 🔍 CONSUMER_ONLY | 10 | ✅ (se new + high) |
-| 🕳️ UNUSED_ROUTE | 171 | ❌ |
+| 🕳️ UNUSED_ROUTE | 168 | ❌ |
 | 👻 ORPHAN_SUSPECT | 69 | ❌ |
 | ❓ UNCERTAIN | 0 | ❌ |
 
@@ -280,7 +280,7 @@
 |--------|------|:-----:|:-------:|:----------:|-----|
 | DELETE | `/api/groups/:param/report` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 🆕 Novo (não bloqueante) |
 
-### mesas (171 rotas no inventário)
+### mesas (168 rotas no inventário)
 
 | Method | Path | Estado | OpenAPI | Consumidor | Obs |
 |--------|------|:-----:|:-------:|:----------:|-----|
@@ -295,7 +295,6 @@
 | DELETE | `/api/v1/communication-platforms/admin/:id` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | DELETE | `/api/v1/gm/tables/:id` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | DELETE | `/api/v1/profile/links/:id` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
-| DELETE | `/api/v1/profile/me/connect/discord` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | DELETE | `/api/v1/profile/systems/:id` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | DELETE | `/api/v1/scenarios/admin/:id` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | DELETE | `/api/v1/systems/admin/:id` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
@@ -343,7 +342,6 @@
 | GET | `/api/v1/me/options` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/profile/links` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/profile/me` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
-| GET | `/api/v1/profile/me/discord` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/scenario-suggestions/mine` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/scenarios` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/scenarios/:id` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
@@ -432,7 +430,6 @@
 | POST | `/api/v1/gm/profile/bio-suggestions` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/gm/tables` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/profile/links` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
-| POST | `/api/v1/profile/me/connect/discord` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/profile/me/google-picture` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/profile/systems` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/scenario-suggestions` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |

@@ -21,18 +21,27 @@ Regra de `specs/README.md`. Só executa quando o mantenedor mandar.
 
 ## F0 — Medir o que a spec ainda não mediu
 
-### [ ] T0.1 — Fechar os não medidos de `spec.md` §2.10 que mudam o desenho
+### [x] T0.1 — Fechar os não medidos de `spec.md` §2.10 que mudam o desenho
 
-1. Qual das 3 portas criou o `gm_profiles` do Victor: `rg` nas 3 portas × `created_at` 11:54,
-   `profile.ts:209/211` e `gmPanel.ts:295` nos logs de aplicação se houver. Não bloqueia F1.
-2. `POST /gm/profile` pode chamar `prepareNewGmProfileIdentity` sem mudar a resposta:
-   `gmPanel.ts:295-340`. **Bloqueia F1.**
-3. Onde mora o job do `mesas-cron` (`docker exec mesas-cron ls`, `rtk rg "cron" apps/mesas/backend/src`).
-   **Bloqueia T8.7 retenção e T8.4 alerta de fila.**
-4. Quem escreve `slots_filled` hoje: `rtk rg "slots_filled" apps/mesas/backend/src --glob '!*.test.*'`
-   e spec 096 T3.2d. **Bloqueia T8.2.**
-5. Versão do `react-router` e assinatura de `onError` no `.d.ts` instalado. **Bloqueia T8.7.**
-6. Se `users.username` entra no `slug` de `/jogador/:username` por outra porta além de `profile.ts:39`.
+1. **Porta do Victor: `POST /gm/profile`.** `docker logs mesas-api --since 2026-10-25T11:53:30Z
+   --until 2026-10-25T11:55:30Z` → `POST /api/v1/gm/profile` às 11:54:26.932Z; `gm_profiles.created_at`
+   11:54:26.945Z (13 ms depois); `discord_connected = f` e `created_at = updated_at` (não foi
+   `connectDiscord`, que atualizaria). `users.username = 'void'` e `display_name = 'VOID'` já
+   existiam, e o nickname gravado foi o prefixo do e-mail (`patorico027`): a derivação do front.
+2. **Feito:** `gmPanel.ts:293` chama `prepareNewGmProfileIdentity(userId, { nickname })`.
+3. **Job: `mesas-cron` roda `npm run og:cron` → `dist/scripts/cronRunner.js`** (`docker inspect
+   mesas-cron`). Cada rotina é um script npm chamado por `setInterval` em
+   `scripts/cronRunner.ts`; a retenção (`client-errors:purge`) e os alertas (`ops:alerts`) seguem o mesmo molde.
+4. **`slots_filled` só é escrito pelo editor da mesa** (`tableValidators.ts:589`, `gmPanel.ts`);
+   nenhum job o recalcula. Por isso `slots_open` (controlado pelo mestre) é a vaga, e `total - filled`
+   só entra sem ele (D11).
+5. **`react-router` 7.18.3; `onError` do `HydratedRouter` é `ClientOnErrorFunction`**
+   (`dom-export.d.ts:93`), recebe `(error, { location, params, pattern, errorInfo })`; usado em
+   `entry.client.tsx:39`.
+6. **`users.username` só tem um escritor HTTP:** `PATCH /profile/me` (`profile.ts:73` →
+   `updateUser`, único chamador). `middleware/auth.ts:116` cria o usuário sem `username`. A
+   hidratação do beta copia a coluna da produção. O valor vem do que a pessoa digitou
+   (`[a-z0-9_]{3,}`), nunca do e-mail.
 
 Aceite: cada item com o comando e a saída em uma linha, neste bloco.
 
@@ -54,8 +63,8 @@ Estado: o `slug` derivado sai de `slugifyGmName(nickname)` com sufixo `-2`, `-3`
 só contra `gm_profiles`; **quando a T2.1 criar `gm_slug_redirects`, `slugTaken` precisa checar
 a tabela também** (plan §3). Falta o teste de contrato das portas `updateGmProfile` e Discord
 (só o `POST` tem teste de rota). A9 medida: `email.split('@')` reintroduzido → 1 teste falha;
-restaurado → 15 passam. `POST /profile/me/connect/discord` (`profile.ts:299`) não tem chamador
-no frontend (`rg connect/discord frontend/src` → 0) e aceita `username`/`id` do corpo sem OAuth.
+restaurado → 15 passam. A porta do Discord (`connectDiscord`) saiu na T10.1: sobram duas
+portas, `POST /gm/profile` e `updateGmProfile`.
 
 ---
 
@@ -65,7 +74,7 @@ no frontend (`rg connect/discord frontend/src` → 0) e aceita `username`/`id` d
 
 Plan §3. Ler `deploy-flow.md` §3 e os cabeçalhos das migrations vizinhas. Número: conferir
 `ls apps/mesas/database | grep migration_16` (última medida: 167). Idempotente; guard
-`MAX_AUTO_PENDING` ([[E012]]) lido antes de empilhar com a 169.
+`MAX_AUTO_PENDING` ([[E012]]) lido antes de aplicar (a 168 é a única migration da spec).
 
 ### [ ] T2.2 — `GET /gm/perfis/:slug` com `redirect_to`; `loader` com 301
 
@@ -166,18 +175,20 @@ Correção já em produção (`2e38fd1`). Falta o aviso (T8.4 item 2) e ele conf
 gravar (`gm_profiles.updated_at` hoje 2026-09-14). **Não fechar sem o `updated_at` novo ou sem
 nomear o bloqueio "usuário não respondeu".** Reprodução como ele exige a sessão dele: pedir antes.
 
-### [ ] T8.2 — Vagas: uma conta só em quatro lugares (R11, R15, D11)
+### [~] T8.2 — Vagas: uma conta só em quatro lugares (R11, R15, D11)
 
 Plan §10. `gm.ts:249` (+ `t.slots_open`), `useMestre.ts:284`, `whatsappAnnouncement.ts:274`,
 `gmPanel.ts:725`. Teste cruzado. `pnpm verify:api`. Aceite: `curl
 /api/v1/gm/perfis/mestre-hermes` devolve `slots_available`; soma da página = soma da home.
 
-Medido na execução: `slots_open` é `NOT NULL` (migration 100), então o `COALESCE` do plan §10
-fica só no TypeScript. `whatsappAnnouncement.ts:274` já prefere `slots_open` (só cai na conta
-crua se faltar): sem mudança. `verify:api` rodou verde. Falta: `curl` do aceite (só em beta),
-teste cruzado (T8.8).
+Estado: `slots_open` é `NOT NULL` (migration 100), então o `COALESCE` fica só no TypeScript. As
+quatro pontas já usam `slots_open` e caem em `total - filled` só sem ele: `gm.ts:257` (devolve
+`slots_open`), `sumOpenSlots` (`useMestre.ts:8`), `formatSlots` (`whatsappAnnouncement.ts:272`) e
+`gmPanel.ts` via `slotsAvailable` (`utils/slots.ts`, uma cópia). Teste cruzado em
+`whatsappAnnouncement.test.ts` (soma do mestre × texto do WhatsApp): com `sumOpenSlots` revertido
+para `total - filled`, 2 casos falham. Falta o `curl` do aceite (só em beta).
 
-### [ ] T8.3 — Contatos: cauda de Markdown e duplicados de Discord (R12, R20)
+### [~] T8.3 — Contatos: cauda de Markdown e duplicados de Discord (R12, R20)
 
 Plan §12. Código sem autorização: limpeza no `canonicalizeHttpsUrl` (uma função compartilhada com
 o parser) e a varredura. **Dado (aut.):** `pg_dump` de `table_contacts`; 2 `UPDATE`
@@ -186,7 +197,13 @@ o parser) e a varredura. **Dado (aut.):** `pg_dump` de `table_contacts`; 2 `UPDA
 `form` (`uwill`, `.zero9899`, `kauarang`; `channel='form'` e `value` igual ao `discord` da mesma
 mesa). Aceite: regex `~ '[)\]_*>]+$'` em URL → 0; `form` duplicado de Discord → 0.
 
-### [ ] T8.4 — Fila de feedback: status dos 14 e aviso ao autor (R13, D13, D19, D20)
+Estado do código: `trimTrailingUrlWrappers` mora em `utils/contactUrls.ts` (uma cópia; o parser
+importa) e `canonicalizeHttpsUrl` a aplica; 273 testes do parser seguem verdes. Varredura:
+`services/contactTailSweep.ts`, chamada por `ops:alerts` no cron diário, dedupe de 24 h por
+`activity_log` (`contact.tail_detected`) e `notifyAdmins('contact_tail')`. Varre só
+`table_contacts`; contato de perfil (`gm_profiles.contact_methods`) não é varrido. Dado (aut.) pendente.
+
+### [~] T8.4 — Fila de feedback: status dos 14 e aviso ao autor (R13, D13, D19, D20)
 
 **(aut.) 14 `UPDATE`** em `dev_feedback`, uma transação, `reviewed_by =
 '15f19890-625d-4b4c-8761-dc5f30e1cec9'` (único `admin`, `farenravirar`), `reviewed_at = now()`,
@@ -218,6 +235,12 @@ dev_feedback WHERE status='new'` antes (a lista pode ter crescido).
 D13 decidida: sim (só in-app). Aceite: fechar um report de teste em beta cria a notificação
 do autor; um `new` com 7 dias aciona `notifyAdmins` uma vez.
 
+Estado do código: `services/devFeedbackNotices.ts`. O `PATCH` trava a linha, compara com o status
+anterior e enfileira `mesas.system.notice` na mesma transação só na transição para `resolved`,
+`wont_fix` ou `duplicate` (sem `user_id` ou sem mudança, não avisa); entrega pós-commit. O alerta
+(`alertStaleFeedback`, em `ops:alerts`) marca `stale_alerted_at` num `UPDATE ... RETURNING`
+antes de avisar: 1 aviso por relato, no máximo 20 por execução. Falta o aceite em beta.
+
 ### [ ] T8.5 — Dungeon World, Monster of the Week, Urban Shadows no catálogo (R14, D9) **(aut.)**
 
 Plan §16. Catálogo central: `POST /api/admin/v1/catalog/nodes` ou a tela de catálogo do `/gestao`;
@@ -235,7 +258,7 @@ e a task fecha com esse nome, não como resolvida.
 
 ### [ ] T8.7 — Telemetria de erro de cliente e contenção (R17, R18, R19, R20, D16, D17)
 
-Plan §9 e §13. Migration `169_client_errors` **(aut.: aplicar)**. Itens:
+Plan §9 e §13. Tabela `client_errors`, na `migration_168` **(aut.: aplicar)**. Itens:
 1. `reportClientError()` + `HydratedRouter onError` + `ErrorBoundary.componentDidCatch`.
 2. `POST /api/v1/client-errors` (rate limit estrito, limites de tamanho, sem IP/header/query).
 3. Upsert por `fingerprint`, aviso ao admin na 1ª ocorrência, retenção de 90 dias, e os tetos
@@ -247,10 +270,15 @@ Plan §9 e §13. Migration `169_client_errors` **(aut.: aplicar)**. Itens:
 Aceite: erro forçado em beta → 1 linha em `client_errors` + 1 aviso; 2ª ocorrência incrementa sem
 novo aviso; canal desconhecido renderiza com fallback; `pnpm verify:api`.
 
-### [ ] T8.8 — Testes cruzados (R21)
+### [~] T8.8 — Testes cruzados (R21)
 
 Vagas (perfil × home × WhatsApp × resposta do editor) e identidade (`nickname`/`slug` ≠ prefixo do
 e-mail). Entram nas fases F1 e T8.2; esta task confere que ambos existem e falham sem a correção.
+
+Estado: vagas em `whatsappAnnouncement.test.ts` (falha com `sumOpenSlots` revertido, medido) e
+`utils/slots.test.ts`; identidade em `profileServiceNickname.test.ts` (e-mail nem é argumento de
+`deriveGmNickname`; A9 já quebra se `email` voltar). Não cobre a "resposta do editor" nem a home
+(cartão) por teste de componente: a home usa o mesmo `slots_open` do payload, sem conta própria.
 
 ---
 
@@ -315,3 +343,11 @@ contrato público em `docs/api/openapi/`. Linhas com valor em produção: parar 
 sobre o dado. Zero: remover funções, rotas e testes. A coluna e a migration (`DROP COLUMN`) ficam
 fora até ele mandar (T1 de migration). `pnpm verify:api`. Aceite: `rtk rg "connectDiscord|disconnectDiscord"
 apps/mesas` → 0; `GET /api/v1/profile/me/discord` → 404.
+
+Estado: medido em produção (read-only, `mesas-db`): `gm_profiles` 66 linhas, `discord_connected`,
+`discord_username` e `discord_id` preenchidos em 0; `auth_providers` só `google|1`, 0 `discord`.
+Funções, rotas e a classificação em `scripts/api/generate-openapi.ts` removidas; artefatos de
+`docs/api` regenerados (`api:inventory`, `api:generate-openapi`, `api:bundle`). Não existiam testes
+dessas rotas. Outros leitores das colunas, deixados: `gm.ts:195` (resposta pública do mestre,
+sempre `false`/`null`), `hydration/config.ts`, `adminEnrichment.ts:120`, tipos do front; saem
+com o `DROP COLUMN`, que fica para ele mandar. Resta um comentário em `ProfileEditPage.tsx:610`.

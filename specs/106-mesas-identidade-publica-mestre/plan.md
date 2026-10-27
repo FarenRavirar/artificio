@@ -133,8 +133,14 @@ produção: autorização nominal (`spec.md` §3.4).
 
 ## 8. Entrega
 
-Branch `fix/106-identidade-mestre` de `dev`, PR para `dev`, beta antes de produção, migration
-conforme `deploy-flow.md` §3 com o backup exigido. Depois da PR aberta o agente para: sem polling.
+Branch de `dev`, PR para `dev`, beta antes de produção, migration conforme `deploy-flow.md` §3
+com o backup exigido. Depois da PR aberta o agente para: sem polling.
+
+**Ordem de deploy (nova):** a `migration_168_spec106_slug_redirects_client_errors.sql` é a única da
+spec (cria `gm_slug_redirects`, `client_errors` e `dev_feedback.stale_alerted_at`); não existe 169.
+Ela vai ANTES do app: o `PATCH` de feedback e o `ops:alerts` do `mesas-cron` leem
+`stale_alerted_at`, e o cron roda `ops:alerts` no boot, então app novo sobre banco sem a 168 faz o
+cron falhar. Depois: app e cron do `mesas`, beta antes de produção; por último o dado (F6).
 
 ---
 
@@ -148,24 +154,30 @@ https://reactrouter.com/how-to/error-reporting . Conferir a assinatura na versã
 
 **Desenho (próprio, no banco do `mesas`):**
 
-- `migration_169_client_errors.sql`: `client_errors(id uuid, fingerprint text, first_seen timestamptz,
+- Tabela na `migration_168` (a mesma dos redirects): `client_errors(id uuid, fingerprint text, first_seen timestamptz,
   last_seen timestamptz, occurrences int, user_id uuid null, route_pattern text, path text,
   message text, stack text, component_stack text, user_agent text, build text)`, `UNIQUE
   (fingerprint)`. Upsert: mesmo fingerprint incrementa `occurrences` e atualiza `last_seen`.
-- `POST /api/v1/client-errors` com `strictRateLimiter` e `optionalAuth` (o padrão de
-  `devFeedback.ts:22`). Limites: `message` ≤ 500, `stack` ≤ 4000, `component_stack` ≤ 4000,
+- `POST /api/v1/client-errors` com bucket próprio `clientErrorRateLimiter` (30 por 15 min por IP;
+  o `strictRateLimiter` dividia a cota com o widget de feedback) e `optionalAuth`; corpo de
+  **64 KB** (`express.json({ limit: '64kb' })` na própria rota, montada antes do parser global de
+  12 MB). Limites: `message` ≤ 500, `stack` ≤ 4000, `component_stack` ≤ 4000,
   `user_agent` ≤ 200. Sem corpo de requisição, sem header, sem IP, sem query string (`path` sem `?`),
   sem cookie. `user_id` só se logado, porque é o que permite avisar quem teve o problema (o caso
   `redfallen`).
 - `fingerprint` = hash de `route_pattern + message + 1ª linha do component_stack`.
+- Tipos de evento do outbox: `mesas.admin.client_error`, `mesas.admin.feedback_stale` e
+  `mesas.admin.contact_tail` (avisos ao admin); `mesas.system.notice` para o aviso ao autor.
 - Primeira ocorrência de um fingerprint: `notifyAdmins` (já existe) e `logActivity` com
   `entityType: 'client_error'`. Reincidência não notifica; limite de 1 aviso por fingerprint por hora.
 - Cliente: `reportClientError()` em `lib/` chamado por `HydratedRouter onError`
   (`entry.client.tsx`) e por `ErrorBoundary.componentDidCatch` (substitui o `TODO: Sentry` de
   `ErrorBoundary.tsx:36-40`). `navigator.sendBeacon` com fallback `fetch keepalive`; falha de envio
   é silenciosa; nunca lança. Não reporta o mesmo fingerprint mais de 1 vez por sessão.
-- Retenção: apagar `last_seen < now() - 90 dias`. Medir onde mora o job do `mesas-cron` antes de
-  escolher o lugar; se não houver job, `DELETE` num `setInterval` do cron existente.
+- Retenção: apagar `last_seen < now() - 90 dias`. O `mesas-cron` roda `npm run og:cron`
+  (`scripts/cronRunner.ts`), e cada rotina é um script npm em `setInterval`: `client-errors:purge`
+  (retenção) e `ops:alerts` (fila parada e contato com cauda, §11.3 e §12) seguem esse molde, com
+  execução no boot.
 - **Contra abuso** (o endpoint é público e o `fingerprint` sai de texto do cliente): teto global de
   fingerprints novos por hora (excedente só soma num contador, sem linha nova), teto de avisos ao
   admin por hora, teto de linhas na tabela (a limpeza dos 90 dias também corta o excedente), e
@@ -203,9 +215,13 @@ texto do WhatsApp e na resposta do editor dá o mesmo número.
    `eventType: 'mesas.system.notice'`, `body` curto ("Seu relato '<título>' foi analisado: …"),
    `canonicalPath` do `route_path` (validado por `isValidCanonicalPath`) e `recipients: [user_id]`.
    Não toca `apps/accounts` (`notificationFormatter.ts:98-101` lê o `legacy_body`). O texto
-   enviado é separado de `admin_notes`.
+   enviado é separado de `admin_notes`. Só na **transição** de status (o `PATCH` trava a linha,
+   lê o status anterior e enfileira na mesma transação); `route_path` inválido cai em `/`.
+   Código: `services/devFeedbackNotices.ts`.
 3. **Alerta de fila parada:** `notifyAdmins` quando um `new` completa 7 dias sem `reviewed_at`
-   (job do cron; 1 aviso por report).
+   (`ops:alerts` no cron; 1 aviso por report). `alertStaleFeedback` marca `stale_alerted_at` num
+   `UPDATE ... RETURNING` antes de avisar, então execuções simultâneas não duplicam; no máximo 20
+   por execução.
 
 ## 12. Contatos (R12, R20)
 
@@ -214,8 +230,9 @@ texto do WhatsApp e na resposta do editor dá o mesmo número.
   `trimTrailingUrlWrappers` (`parseDiscordAnnouncement.ts:1939`). Mover a função para
   `utils/contactUrls.ts` e importar nos dois lados: uma cópia só. Conferir no parser que a
   semântica de `(`/`)` balanceados continua igual (testes do parser rodam).
-- Varredura: query de acusação no cron (`value ~ '[)\]_*>]+$'` em canal de URL) que chama
-  `notifyAdmins` se achar linha. Reaproveita o job de §9/§11.3.
+- Varredura: `services/contactTailSweep.ts` (`value ~ '[)\]_*>]+$'` em canal de URL de
+  `table_contacts`) chama `notifyAdmins('contact_tail')`, com dedupe de 24 h por `activity_log`
+  (`contact.tail_detected`). Roda em `ops:alerts` (§11.3). Não varre `gm_profiles.contact_methods`.
 
 ## 13. Contenção e mapas (R10, R17, R18, D17)
 
@@ -234,7 +251,7 @@ texto do WhatsApp e na resposta do editor dá o mesmo número.
 2. **F1 regra de nascimento** + **F3 nome único** (código, sem migration; interrompe a
    reincidência para mestres novos).
 3. **F5 UI** (campo, formulário, onboarding, `/painel`).
-4. **F2 redirect** + **F4 auditoria** + **F8.7 telemetria** (migrations 168 e 169: um deploy só).
+4. **F2 redirect** + **F4 auditoria** + **F8.7 telemetria** (migration 168 única: um deploy só).
 5. **F8.4 fila** (aviso ao autor; status dos 14).
 6. **F8.3 contatos**.
 7. **F6 dado em produção** (por último: depende de F1, F2, F4 em produção).

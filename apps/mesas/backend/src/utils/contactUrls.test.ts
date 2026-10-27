@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canonicalizeContactValue, canonicalizeSocialProfileUrl, isResolvableUrl } from './contactUrls.js';
+import { canonicalizeContactValue, canonicalizeHttpsUrl, canonicalizeSocialProfileUrl, isResolvableUrl, trimTrailingUrlWrappers } from './contactUrls.js';
 
 describe('canonicalizeSocialProfileUrl', () => {
   it('aceita host da própria rede', () => {
@@ -85,5 +85,20 @@ describe('canonicalizeContactValue', () => {
     expect(canonicalizeContactValue('email', 'mestre@example.com')).toBeNull();
     expect(canonicalizeContactValue('discord', 'uwill')).toBeNull();
     expect(canonicalizeContactValue('phone', '(11) 99999-9999')).toBeNull();
+  });
+});
+
+// Spec 106 R12: o editor manual e o dado legado não gravam a cauda de Markdown
+// que o parser do Discord já removia (medido em produção: `)__` e `**`).
+describe('cauda de Markdown na URL de contato', () => {
+  it.each([
+    ['https://forms.gle/mVvUiUTq7Z5yJTWT9)__', 'https://forms.gle/mVvUiUTq7Z5yJTWT9'],
+    ['https://forms.gle/b3uwFZeGNLQViQ1U7**', 'https://forms.gle/b3uwFZeGNLQViQ1U7'],
+  ])('canonicalizeHttpsUrl(%s)', (input, expected) => {
+    expect(canonicalizeHttpsUrl(input)).toEqual({ ok: true, value: expected });
+  });
+
+  it('mantém parênteses balanceados no caminho', () => {
+    expect(trimTrailingUrlWrappers('https://pt.wikipedia.org/wiki/Foo_(bar)')).toBe('https://pt.wikipedia.org/wiki/Foo_(bar)');
   });
 });

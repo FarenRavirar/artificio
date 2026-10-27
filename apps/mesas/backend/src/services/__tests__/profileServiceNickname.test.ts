@@ -119,12 +119,13 @@ describe('updateGmProfile — o nickname derivado vence o patch invalido', () =>
  * a escrever a derivacao inline num deles, as copias divergem de novo.
  */
 describe('prepareNewGmProfileIdentity — um caminho so para criar perfil', () => {
-  it('e usado pelos dois inserts de gm_profiles, sem derivacao inline', () => {
+  it('e usado pelo insert de gm_profiles do service, sem derivacao inline', () => {
     const source = readFileSync(new URL('../profileService.ts', import.meta.url), 'utf8');
 
     const chamadas = source.match(/prepareNewGmProfileIdentity\(/g) ?? [];
-    // 2 chamadas + a declaracao da funcao.
-    expect(chamadas).toHaveLength(3);
+    // 1 chamada (`updateGmProfile`) + a declaracao. A 2a era `connectDiscord`,
+    // removida na spec 106 T10.1; `POST /gm/profile` chama de `gmPanel.ts`.
+    expect(chamadas).toHaveLength(2);
 
     // A unica derivacao legitima vive DENTRO de `prepareNewGmProfileIdentity`;
     // procurar a partir do inicio dela acusaria a propria funcao. O corte e o
@@ -134,5 +135,21 @@ describe('prepareNewGmProfileIdentity — um caminho so para criar perfil', () =
       source.indexOf('async function promoteUserToGm'),
     );
     expect(depoisDaDeclaracao.match(/nickname: deriveGmNickname\(/g)).toBeNull();
+  });
+});
+
+// Spec 106 T8.8 (R21): para qualquer prefixo de e-mail, nickname e slug nascem do
+// nome escolhido, nunca do prefixo. O e-mail nem é argumento da derivação; o caso
+// `patorico027` / `VOID` é o medido em produção.
+describe('identidade cruzada — nickname e slug ≠ prefixo do e-mail', () => {
+  it.each([
+    ['patorico027@gmail.com', 'VOID'],
+    ['dadoviciado@gmail.com', 'Dado Viciado'],
+  ])('%s com display_name %s', (email, displayName) => {
+    const prefixo = email.split('@')[0];
+    const nickname = deriveGmNickname({ displayName, username: null }, ID);
+    expect(nickname).toBe(displayName);
+    expect(nickname.toLowerCase()).not.toBe(prefixo);
+    expect(slugifyGmName(nickname)).not.toBe(prefixo);
   });
 });

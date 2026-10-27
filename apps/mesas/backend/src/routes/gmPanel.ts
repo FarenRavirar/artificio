@@ -1,3 +1,4 @@
+import { slotsAvailable } from '../utils/slots.js';
 import { normalizeImageFramePatch } from '@artificio/media/image-kinds';
 import { toJsonbParam, toJsonbParamNotNull } from '../db/jsonb.js';
 import {
@@ -757,7 +758,7 @@ router.get('/tables/:id', authMiddleware, async (req: Request, res: Response) =>
       contacts,
       schedules,
       // D11 (spec 106): vagas são as que o mestre controla (slots_open), não total - filled.
-      slots_available: tableData.slots_open ?? (tableData.slots_total ?? 0) - (tableData.slots_filled ?? 0),
+      slots_available: slotsAvailable(tableData),
     };
 
     return res.json({ data: responseData });

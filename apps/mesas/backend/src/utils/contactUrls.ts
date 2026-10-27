@@ -51,10 +51,61 @@ export type ContactUrlResult =
   | { ok: true; value: string }
   | { ok: false; message: string };
 
+function countChar(value: string, char: string): number {
+  let count = 0;
+  for (const current of value) {
+    if (current === char) count += 1;
+  }
+  return count;
+}
+
+/**
+ * Ênfase markdown grudada no fim da URL (`**`, `__`, `*`, `_`, `~~`, `` ` ``).
+ *
+ * Removida **dentro** do laço, e não antes dele, porque os resíduos se
+ * intercalam: em `[Form](https://forms.gle/XXX)__` o `)` desbalanceado só fica
+ * exposto depois que `__` sai, e o `__` só fica no fim depois que o `)` sai,
+ * dependendo de como o anúncio foi escrito. Uma passada única em qualquer
+ * ordem deixa resto — o laço converge porque cada volta remove ao menos um
+ * caractere ou termina.
+ *
+ * Não usa `EDGE_EMPHASIS_MARKDOWN_RE` (limpeza de texto corrido, que precisa
+ * casar ênfase pareada no meio da frase): aqui o alvo é só a cauda da URL, e
+ * ênfase não pareada — `**` sem fechamento — também precisa sair.
+ */
+const URL_TRAILING_EMPHASIS_RE = /[*_~`]+$/;
+
+/**
+ * Remove pontuação e marcação que o Discord cola no fim de uma URL quando o
+ * anúncio usa markdown. Bug real medido em produção (2026-08-11): duas mesas
+ * importadas gravaram `contact_url` inválida — `https://forms.gle/XXX)__` e
+ * `https://forms.gle/YYY**` —, e o botão de inscrição não chegava ao Google
+ * Forms. `)`/`]` já eram tratados; ênfase (`*`/`_`/`~`/`` ` ``) não era, então
+ * `**` sobrevivia inteiro e `__` sobrevivia depois da queda do `)`.
+ */
+export function trimTrailingUrlWrappers(url: string): string {
+  let trimmed = url.replace(/[.,;:]+$/g, '');
+  let previous = '';
+  while (previous !== trimmed) {
+    previous = trimmed;
+    trimmed = trimmed.replace(URL_TRAILING_EMPHASIS_RE, '');
+    if (trimmed.endsWith(')') && countChar(trimmed, '(') < countChar(trimmed, ')')) {
+      trimmed = trimmed.slice(0, -1);
+    }
+    if (trimmed.endsWith(']') && countChar(trimmed, '[') < countChar(trimmed, ']')) {
+      trimmed = trimmed.slice(0, -1);
+    }
+    trimmed = trimmed.replace(/[.,;:]+$/g, '');
+  }
+  return trimmed;
+}
+
 export function canonicalizeHttpsUrl(value: unknown): ContactUrlResult {
   if (typeof value !== 'string') return { ok: false, message: INVALID_URL_MESSAGE };
 
-  const trimmed = value.trim();
+  // Cauda de Markdown (`)__`, `**`): mesma limpeza do parser do Discord, para o
+  // editor manual e o dado legado não gravarem o que o importador já não grava (spec 106 R12).
+  const trimmed = trimTrailingUrlWrappers(value.trim());
   if (!trimmed) return { ok: false, message: INVALID_URL_MESSAGE };
 
   const hasExplicitScheme = EXPLICIT_SCHEME.test(trimmed);

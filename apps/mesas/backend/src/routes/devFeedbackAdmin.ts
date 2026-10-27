@@ -3,6 +3,8 @@ import { authMiddleware, requireRole } from '../middleware/auth.js';
 import { db } from '../db/index.js';
 import { logActivity } from '../services/activityLogger.js';
 import { deleteFromCloudinary } from '../services/cloudinary.js';
+import { enqueueAuthorNotice, isAuthorNoticeStatus } from '../services/devFeedbackNotices.js';
+import { deliverPendingNotifications } from '../services/notificationOutboxDelivery.js';
 import { buildMerge, MAX_MERGE_SOURCES, type MergeableFeedback } from '../services/devFeedbackMerge.js';
 import type { DevFeedbackStatus } from '../db/types.js';
 import { sanitizeNullableUserMarkdown, sanitizeUserMarkdown } from '../utils/userMarkdown.js';
@@ -166,15 +168,43 @@ router.patch('/dev-feedback/:id', async (req: Request, res: Response) => {
       update.archived_at = body.archived ? new Date() : null;
     }
 
-    const updated = await db
-      .updateTable('dev_feedback')
-      .set(update)
-      .where('id', '=', id)
-      .returning(['id', 'kind', 'title', 'status', 'admin_notes', 'updated_at', 'archived_at'])
-      .executeTakeFirst();
+    // Status anterior e UPDATE na mesma transação, com a linha travada: o aviso ao
+    // autor sai só na TRANSIÇÃO para um estado final (reenviar o mesmo status, ou
+    // editar só a nota, não avisa de novo) e entra no outbox junto com o UPDATE.
+    const result = await db.transaction().execute(async (trx) => {
+      const before = await trx
+        .selectFrom('dev_feedback')
+        .select(['status', 'user_id', 'route_path'])
+        .where('id', '=', id)
+        .forUpdate()
+        .executeTakeFirst();
+      if (!before) return null;
 
-    if (!updated) {
+      const row = await trx
+        .updateTable('dev_feedback')
+        .set(update)
+        .where('id', '=', id)
+        .returning(['id', 'kind', 'title', 'status', 'admin_notes', 'updated_at', 'archived_at'])
+        .executeTakeFirstOrThrow();
+
+      const noticed = Boolean(
+        nextStatus && nextStatus !== before.status && isAuthorNoticeStatus(nextStatus) && before.user_id,
+      );
+      if (noticed && nextStatus) {
+        await enqueueAuthorNotice(trx, { ...row, user_id: before.user_id, route_path: before.route_path }, nextStatus);
+      }
+      return { row, noticed };
+    });
+
+    if (!result) {
       return res.status(404).json({ error: 'Feedback nao encontrado.' });
+    }
+    const updated = result.row;
+    // Entrega imediata fora da transação; o sweep periódico cobre falha aqui.
+    if (result.noticed) {
+      void deliverPendingNotifications().catch((error: unknown) => {
+        console.error('[PATCH /admin/dev-feedback/:id] Falha na entrega pós-commit do outbox:', error);
+      });
     }
 
     void logActivity({
