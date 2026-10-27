@@ -244,7 +244,13 @@ export function useMestre(slug?: string, seeded?: MestrePublicData | null) {
 
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-        const json = (await res.json()) as GmProfilePayload;
+        const json = (await res.json()) as GmProfilePayload & { redirect_to?: string };
+        // Slug antigo (spec 106 R3): o `loader` ja trata no SSR; aqui cobre a
+        // navegacao no cliente, que chega ao hook sem passar por ele.
+        if (typeof json.redirect_to === 'string' && /^[a-z0-9-]+$/.test(json.redirect_to)) {
+          window.location.replace(`/mestre/${json.redirect_to}`);
+          return;
+        }
         setProfile(normalizeMestreProfile(json.data));
       } catch (err: unknown) {
         if (err instanceof DOMException && err.name === 'AbortError') return;

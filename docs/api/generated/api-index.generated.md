@@ -4,7 +4,7 @@
 > Bundle machine-readable: `docs/api/generated/artificio-api.bundle.json`.
 > Não editar à mão. Regenerar com `pnpm api:bundle` (faz parte de `pnpm verify:api`).
 
-Total: **498 operações**.
+Total: **500 operações**.
 
 ## accounts (53)
 
@@ -259,11 +259,12 @@ Total: **498 operações**.
 | GET | `/grupo/{slug}` | public-page | none | active | — | Consulta grupo slug |
 | GET | `/healthz` | internal | none | active | — | Consulta healthz |
 
-## mesas (207)
+## mesas (209)
 
 | Método | Path | Scope | Auth | Status | Consumidores | Resumo |
 |--------|------|-------|------|--------|--------------|--------|
 | GET | `/api/v1/admin/activity` | admin | admin | active | — | Consulta api v1 admin activity |
+| GET | `/api/v1/admin/client-errors` | admin | admin | active | — | Consulta api v1 admin client-errors |
 | GET | `/api/v1/admin/dev-feedback` | admin | admin | active | — | Consulta api v1 admin dev-feedback |
 | DELETE | `/api/v1/admin/dev-feedback/{id}` | admin | admin | active | — | Remove api v1 admin dev-feedback id |
 | PATCH | `/api/v1/admin/dev-feedback/{id}` | admin | admin | active | — | Atualiza api v1 admin dev-feedback id |
@@ -356,6 +357,7 @@ Total: **498 operações**.
 | GET | `/api/v1/auth/google/callback` | external | none | active | — | Consulta api v1 auth google callback |
 | POST | `/api/v1/auth/logout` | self-service | user | active | — | Cria ou executa api v1 auth logout |
 | GET | `/api/v1/changelog` | public | none | active | — | Consulta api v1 changelog |
+| POST | `/api/v1/client-errors` | public | user | active | — | Cria ou executa api v1 client-errors |
 | GET | `/api/v1/communication-platforms` | public | user | active | — | Consulta api v1 communication-platforms |
 | GET | `/api/v1/communication-platforms/admin` | admin | admin | active | — | Consulta api v1 communication-platforms admin |
 | POST | `/api/v1/communication-platforms/admin` | admin | admin | active | — | Cria ou executa api v1 communication-platforms admin |

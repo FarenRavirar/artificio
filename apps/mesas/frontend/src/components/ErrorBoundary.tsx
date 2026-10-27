@@ -1,6 +1,7 @@
 import React, { Component } from 'react';
 import type { ReactNode } from 'react';
 import { ErrorState } from './ui/ErrorState';
+import { reportClientError } from '../lib/reportClientError';
 
 interface Props {
   children: ReactNode;
@@ -29,14 +30,14 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error('[ErrorBoundary] Erro capturado:', error, errorInfo);
-    
-    // Callback opcional para logging externo
+
+    // Spec 106 R19: o erro chega ao proprio servidor (`/api/v1/client-errors`). Sentry
+    // SaaS foi descartado de proposito (leva stack e `user_id` a terceiro, o que o
+    // veto de dados D12 impede; plan §9).
+    reportClientError(error, { errorInfo });
+
+    // Callback opcional para quem quiser reagir alem do relato
     this.props.onError?.(error, errorInfo);
-    
-    // TODO: Integrar com Sentry quando configurado
-    // Sentry.captureException(error, {
-    //   contexts: { react: errorInfo }
-    // });
   }
 
   handleReset = () => {

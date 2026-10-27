@@ -1,6 +1,7 @@
 import type { CropRect } from '@artificio/media/image-kinds';
 import { toJsonbParam } from '../db/jsonb.js';
 import { db } from '../db/index.js';
+import { auditIdentityChange } from './identityAudit.js';
 import type {
   PlayerProfile,
   PlayerProfileUpdate,
@@ -129,15 +130,21 @@ export async function prepareNewGmProfileIdentity(
 
   // Uma consulta traz `base` e `base-N`; o primeiro N livre sai em memória, sem
   // `await` em laço. `-` e alfanuméricos não são curingas do LIKE.
-  const ocupados = new Set(
-    (
-      await db
-        .selectFrom('gm_profiles')
-        .select('slug')
-        .where((eb) => eb.or([eb('slug', '=', base), eb('slug', 'like', `${base}-%`)]))
-        .execute()
-    ).map((row) => row.slug),
-  );
+  // Slug antigo (`gm_slug_redirects`) tambem esta ocupado: um perfil novo nao pode
+  // herdar o 301 de outro mestre (spec 106 R3).
+  const [perfis, antigos] = await Promise.all([
+    db
+      .selectFrom('gm_profiles')
+      .select('slug')
+      .where((eb) => eb.or([eb('slug', '=', base), eb('slug', 'like', `${base}-%`)]))
+      .execute(),
+    db
+      .selectFrom('gm_slug_redirects')
+      .select('old_slug')
+      .where((eb) => eb.or([eb('old_slug', '=', base), eb('old_slug', 'like', `${base}-%`)]))
+      .execute(),
+  ]);
+  const ocupados = new Set([...perfis.map((row) => row.slug), ...antigos.map((row) => row.old_slug)]);
   let n = 1;
   let slug = base;
   while (ocupados.has(slug)) {
@@ -227,7 +234,11 @@ export async function getUserById(userId: string) {
 // UPDATE USER (dados gerais)
 // =============================================================================
 
-export async function updateUser(userId: string, data: UserUpdate) {
+export async function updateUser(userId: string, data: UserUpdate, door = 'profileService.updateUser') {
+  const antes =
+    data.username === undefined
+      ? undefined
+      : await db.selectFrom('users').select('username').where('id', '=', userId).executeTakeFirst();
   await db
     .updateTable('users')
     .set({
@@ -236,6 +247,16 @@ export async function updateUser(userId: string, data: UserUpdate) {
     })
     .where('id', '=', userId)
     .execute();
+
+  if (antes) {
+    await auditIdentityChange({
+      actorId: userId,
+      field: 'username',
+      from: antes.username ?? null,
+      to: data.username ?? null,
+      door,
+    });
+  }
 
   return db
     .selectFrom('users')
@@ -276,8 +297,13 @@ export async function updateProfile(
     avatar_width?: number | null;
     avatar_height?: number | null;
     languages?: string[];
-  }
+  },
+  door = 'profileService.updateProfile',
 ) {
+  const antes =
+    data.display_name === undefined
+      ? undefined
+      : await db.selectFrom('profiles').select('display_name').where('user_id', '=', userId).executeTakeFirst();
   const sanitizedBio = sanitizeOptionalUserMarkdown(data.bio);
   // `avatar_crop_data` é JSONB: sai do spread para ser serializado (ver
   // `db/jsonb.ts`). Sem isto o driver `pg` mandava `[object Object]` e o
@@ -323,6 +349,16 @@ export async function updateProfile(
     .where('user_id', '=', userId)
     .executeTakeFirst();
 
+  if (data.display_name !== undefined) {
+    await auditIdentityChange({
+      actorId: userId,
+      field: 'display_name',
+      from: antes?.display_name ?? null,
+      to: result?.display_name ?? null,
+      door,
+    });
+  }
+
   return result ? { ...result, bio: sanitizeNullableUserMarkdown(result.bio) } : result;
 }
 
@@ -366,7 +402,11 @@ export async function updatePlayerProfile(
 // UPDATE GM PROFILE
 // =============================================================================
 
-export async function updateGmProfile(userId: string, data: GmProfileUpdate): Promise<GmProfile> {
+export async function updateGmProfile(
+  userId: string,
+  data: GmProfileUpdate,
+  door = 'profileService.updateGmProfile',
+): Promise<GmProfile> {
   const sanitizedData: GmProfileUpdate = {
     ...data,
     bio_long: sanitizeOptionalUserMarkdown(data.bio_long),
@@ -375,7 +415,7 @@ export async function updateGmProfile(userId: string, data: GmProfileUpdate): Pr
   // Verificar se já existe
   const exists = await db
     .selectFrom('gm_profiles')
-    .select('id')
+    .select(['id', 'nickname'])
     .where('user_id', '=', userId)
     .executeTakeFirst();
 
@@ -422,6 +462,19 @@ export async function updateGmProfile(userId: string, data: GmProfileUpdate): Pr
 
   if (!result) {
     throw new Error('Erro ao atualizar perfil de mestre');
+  }
+
+  // Perfil novo: `from` nulo, o nome nasceu aqui. Perfil existente: so quando o
+  // patch trouxe `nickname` (o PATCH reenvia o campo a cada salvamento).
+  if (!exists || data.nickname !== undefined) {
+    await auditIdentityChange({
+      actorId: userId,
+      field: 'nickname',
+      from: exists?.nickname ?? null,
+      to: result.nickname ?? null,
+      door,
+      entityId: result.id,
+    });
   }
 
   return {

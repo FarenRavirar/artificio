@@ -3,12 +3,14 @@ import { AdminUsersPanel } from './AdminUsersPanel';
 import { PageHeader, SectionCard, tabButtonClass } from './ui';
 import { DevFeedbackPanel } from '../dev-feedback/DevFeedbackPanel';
 import { RoleMappingsPanel } from './RoleMappingsPanel';
+import { ClientErrorsPanel } from '../client-errors/ClientErrorsPanel';
 
-type SystemTab = 'users' | 'feedback' | 'role-mappings';
+type SystemTab = 'users' | 'feedback' | 'client-errors' | 'role-mappings';
 
 const TAB_LABEL: Record<SystemTab, string> = {
   users: 'Usuários',
   feedback: 'Erros reportados',
+  'client-errors': 'Erros do navegador',
   'role-mappings': 'Tags do Discord',
 };
 
@@ -58,6 +60,7 @@ export function SistemaSection() {
       <SectionCard title={TAB_LABEL[tab]} bodyClassName="p-5">
         {tab === 'users' && <AdminUsersPanel />}
         {tab === 'feedback' && <DevFeedbackPanel />}
+        {tab === 'client-errors' && <ClientErrorsPanel />}
         {tab === 'role-mappings' && <RoleMappingsPanel />}
       </SectionCard>
     </div>

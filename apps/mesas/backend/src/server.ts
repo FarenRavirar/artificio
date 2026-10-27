@@ -13,6 +13,7 @@ import scenarioSuggestionsRoutes from './routes/scenarioSuggestions.js';
 import systemSuggestionsAdminRoutes from './routes/systemSuggestionsAdmin.js';
 import scenarioSuggestionsAdminRoutes from './routes/scenarioSuggestionsAdmin.js';
 import devFeedbackRoutes from './routes/devFeedback.js';
+import clientErrorsRoutes from './routes/clientErrors.js';
 import devFeedbackAdminRoutes from './routes/devFeedbackAdmin.js';
 import communityCommentsRoutes from './routes/communityComments.js';
 import communityModerationRoutes from './routes/communityModeration.js';
@@ -128,6 +129,7 @@ app.use('/api/v1/scenarios', scenariosRoutes);
 app.use('/api/v1/system-suggestions', systemSuggestionsRoutes);
 app.use('/api/v1/scenario-suggestions', scenarioSuggestionsRoutes);
 app.use('/api/v1/dev-feedback', devFeedbackRoutes);
+app.use('/api/v1/client-errors', clientErrorsRoutes);
 // T7.4b (spec 096): `/api/v1/notifications` SAIU. As 3 rotas de leitura
 // (GET /, PATCH /read-all, PATCH /:id/read) ficaram órfãs quando o
 // `NotificationBell` de `packages/ui` passou a ler do `accounts.` por

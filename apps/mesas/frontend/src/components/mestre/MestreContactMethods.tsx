@@ -10,7 +10,7 @@ import {
   toSafeSocialProfileUrl,
   toWhatsAppUrl,
 } from '../../utils/safeExternalUrl';
-import { CONTACT_CHANNEL_META } from './channelMeta';
+import { CONTACT_CHANNEL_META, FALLBACK_CHANNEL_META } from './channelMeta';
 
 /**
  * Contato público do mestre (T4.0r): os MESMOS 7 canais do editor e do
@@ -96,8 +96,11 @@ const CHANNEL_CONFIG: Record<TableContactChannel, ChannelDisplayConfig> = {
 function ContactCard({ contact, gmSlug }: { contact: ContactMethod; gmSlug: string }) {
   const [copied, setCopied] = useState(false);
   const { trackGmContactClick } = useTracking();
-  const config = CHANNEL_CONFIG[contact.channel];
-  const meta = CONTACT_CHANNEL_META[contact.channel];
+  // Canal vem do servidor: um valor fora dos 7 conhecidos (canal novo no backend,
+  // dado antigo) nao pode derrubar a pagina inteira (spec 106 R17; mesmo defeito do
+  // `redfallen`, onde `<Icon/>` recebia `undefined`).
+  const config = CHANNEL_CONFIG[contact.channel] ?? CHANNEL_CONFIG.form;
+  const meta = CONTACT_CHANNEL_META[contact.channel] ?? FALLBACK_CHANNEL_META;
   const Icon = meta.icon;
   const safeDiscordServerUrl = toSafeDiscordInviteUrl(contact.discord_server_url);
 

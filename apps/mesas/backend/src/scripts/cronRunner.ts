@@ -28,9 +28,13 @@ setInterval(() => runCommand('npm run discord:cleanup-orphan-images'), 24 * 60 *
 // mantém a linha da série temporal (Roda 1 vez por dia)
 setInterval(() => runCommand('npm run metrics:anonymize'), 24 * 60 * 60 * 1000);
 
+// Spec 106 R19: retenção de 90 dias da telemetria de erro de cliente (1 vez por dia)
+setInterval(() => runCommand('npm run client-errors:purge'), 24 * 60 * 60 * 1000);
+
 // Execução imediata no BOOT
 runCommand('npm run og:worker');
 runCommand('npm run og:cleanup');
 runCommand('npm run discord:retry-image-uploads');
 runCommand('npm run discord:cleanup-orphan-images');
 runCommand('npm run metrics:anonymize');
+runCommand('npm run client-errors:purge');

@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "total": 295,
-    "uniqueEndpoints": 270,
+    "total": 297,
+    "uniqueEndpoints": 272,
     "byApp": {
       "accounts-frontend": {
         "total": 8,
@@ -38,16 +38,16 @@
         }
       },
       "mesas-frontend": {
-        "total": 177,
+        "total": 179,
         "byConfidence": {
           "medium": 75,
-          "high": 102
+          "high": 104
         },
         "byPattern": {
           "unknown": 4,
           "template-literal": 69,
           "service-wrapper": 45,
-          "literal": 59
+          "literal": 61
         }
       },
       "packages/auth": {
@@ -1000,6 +1000,16 @@
     },
     {
       "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/features/admin/client-errors/ClientErrorsPanel.tsx",
+      "method": "GET",
+      "endpoint": "/api/v1/admin/client-errors",
+      "confidence": "high",
+      "pattern": "literal",
+      "wrapper": "api.get",
+      "line": 33
+    },
+    {
+      "app": "mesas-frontend",
       "consumerFile": "apps/mesas/frontend/src/features/dev-feedback/devFeedbackApi.ts",
       "method": "GET",
       "endpoint": "/api/v1/admin/dev-feedback",
@@ -1690,6 +1700,16 @@
     },
     {
       "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/lib/reportClientError.ts",
+      "method": "POST",
+      "endpoint": "/api/v1/client-errors",
+      "confidence": "high",
+      "pattern": "literal",
+      "wrapper": "fetch",
+      "line": 51
+    },
+    {
+      "app": "mesas-frontend",
       "consumerFile": "apps/mesas/frontend/src/hooks/useCommunicationPlatforms.ts",
       "method": "GET",
       "endpoint": "/api/v1/communication-platforms",
@@ -2106,7 +2126,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authPost",
-      "line": 327
+      "line": 328
     },
     {
       "app": "mesas-frontend",

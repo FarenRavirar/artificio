@@ -1,3 +1,4 @@
+import { SectionBoundary } from '../components/SectionBoundary';
 import { CommitTextField } from '../components/CommitTextField';
 import { validateDisplayName, validateUsername } from '../utils/profileFieldRules';
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -276,7 +277,7 @@ export default function ProfileEditPage() {
             role="tabpanel"
             aria-labelledby="tab-geral"
           >
-            <TabGeral />
+            <SectionBoundary name="esta aba"><TabGeral /></SectionBoundary>
           </div>
         )}
         {activeTab === 'jogador' && (
@@ -285,7 +286,7 @@ export default function ProfileEditPage() {
             role="tabpanel"
             aria-labelledby="tab-jogador"
           >
-            <TabJogador />
+            <SectionBoundary name="esta aba"><TabJogador /></SectionBoundary>
           </div>
         )}
         {activeTab === 'mestre' && (
@@ -294,7 +295,7 @@ export default function ProfileEditPage() {
             role="tabpanel"
             aria-labelledby="tab-mestre"
           >
-            <TabMestre />
+            <SectionBoundary name="esta aba"><TabMestre /></SectionBoundary>
           </div>
         )}
       </div>

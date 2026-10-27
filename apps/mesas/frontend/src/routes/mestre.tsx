@@ -1,4 +1,4 @@
-import { data } from 'react-router';
+import { data, redirect } from 'react-router';
 import type { LoaderFunctionArgs, MetaArgs } from 'react-router';
 // `export … from`, e não `import` + `export default`: o re-export direto não cria
 // binding local que só existe para ser reexportado. Achado do Sonar na PR #316.
@@ -46,7 +46,16 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
     );
   }
 
-  const json = (await res.json()) as { data?: MestrePublicData | null };
+  const json = (await res.json()) as { data?: MestrePublicData | null; redirect_to?: string };
+
+  // Spec 106 R3: slug antigo. A API responde 200 com o slug atual (um 301 seria
+  // seguido pelo `fetch` do SSR e o destino se perderia); aqui vira 301 de verdade
+  // para o navegador e o Googlebot. Slug validado: vem do banco, mas o `Location`
+  // nunca recebe valor que nao seja um segmento simples.
+  if (typeof json.redirect_to === 'string' && /^[a-z0-9-]+$/.test(json.redirect_to)) {
+    throw redirect(`/mestre/${json.redirect_to}`, 301);
+  }
+
   const profile = normalizeMestreProfile(json.data);
 
   if (!profile) {

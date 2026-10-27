@@ -4,6 +4,7 @@ import { HydratedRouter } from 'react-router/dom';
 import { installDiagnostics } from './lib/diagnostics';
 import { applyFavicon } from '@artificio/ui';
 import { initGtag } from '@artificio/analytics';
+import { reportClientError } from './lib/reportClientError';
 
 // Só-browser, e por isso vive no entry do CLIENTE (spec 102 T4.2). Estava em
 // `main.tsx`, no corpo do módulo: rodava na importação e quebraria no servidor,
@@ -32,7 +33,11 @@ startTransition(() => {
   hydrateRoot(
     document,
     <StrictMode>
-      <HydratedRouter />
+      {/* Erro de loader/action/render: assinatura de `ClientOnErrorFunction` em react-router
+          7.18.3 (`error, { location, params, pattern, errorInfo }`). Spec 106 R19. */}
+      <HydratedRouter
+        onError={(error, info) => reportClientError(error, { routePattern: info.pattern, errorInfo: info.errorInfo })}
+      />
     </StrictMode>,
   );
 });
