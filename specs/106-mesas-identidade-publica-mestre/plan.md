@@ -140,7 +140,9 @@ com o backup exigido. Depois da PR aberta o agente para: sem polling.
 spec (cria `gm_slug_redirects`, `client_errors` e `dev_feedback.stale_alerted_at`); não existe 169.
 Ela vai ANTES do app: o `PATCH` de feedback e o `ops:alerts` do `mesas-cron` leem
 `stale_alerted_at`, e o cron roda `ops:alerts` no boot, então app novo sobre banco sem a 168 faz o
-cron falhar. Depois: app e cron do `mesas`, beta antes de produção; por último o dado (F6).
+cron falhar. Depois: app e cron do `mesas`, beta antes de produção; depois o dado (F6, T8.3, T8.4) e, por último, a
+T8.9 (`DROP COLUMN slots_filled`). O cron novo roda `ops:alerts` no boot: aplicar os 14 `UPDATE` da T8.4
+antes dele, senão 12 relatos `new` com mais de 7 dias geram 12 avisos de uma vez.
 
 ---
 

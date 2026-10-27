@@ -32,9 +32,8 @@ Regra de `specs/README.md`. Só executa quando o mantenedor mandar.
 3. **Job: `mesas-cron` roda `npm run og:cron` → `dist/scripts/cronRunner.js`** (`docker inspect
    mesas-cron`). Cada rotina é um script npm chamado por `setInterval` em
    `scripts/cronRunner.ts`; a retenção (`client-errors:purge`) e os alertas (`ops:alerts`) seguem o mesmo molde.
-4. **`slots_filled` só é escrito pelo editor da mesa** (`tableValidators.ts:589`, `gmPanel.ts`);
-   nenhum job o recalcula. Por isso `slots_open` (controlado pelo mestre) é a vaga, e `total - filled`
-   só entra sem ele (D11).
+4. **`slots_filled` só é escrito pelo editor da mesa** (`tableValidators.ts`, `gmPanel.ts`); nenhum
+   job o recalcula. Superado pela D24: a vaga é `slots_open`, e `slots_filled` sai do modelo (T8.2).
 5. **`react-router` 7.18.3; `onError` do `HydratedRouter` é `ClientOnErrorFunction`**
    (`dom-export.d.ts:93`), recebe `(error, { location, params, pattern, errorInfo })`; usado em
    `entry.client.tsx:39`.
@@ -59,12 +58,10 @@ Aceite: `rtk rg "split\('@'\)" apps/mesas` → 0 fora de testes e de `actorNameR
 `devFeedbackAdmin` (que só exibem); `pnpm --filter @artificio/mesas test` dirigido verde;
 `pnpm verify:api`.
 
-Estado: o `slug` derivado sai de `slugifyGmName(nickname)` com sufixo `-2`, `-3` em colisão
-só contra `gm_profiles`; **quando a T2.1 criar `gm_slug_redirects`, `slugTaken` precisa checar
-a tabela também** (plan §3). Falta o teste de contrato das portas `updateGmProfile` e Discord
-(só o `POST` tem teste de rota). A9 medida: `email.split('@')` reintroduzido → 1 teste falha;
-restaurado → 15 passam. A porta do Discord (`connectDiscord`) saiu na T10.1: sobram duas
-portas, `POST /gm/profile` e `updateGmProfile`.
+Estado: faltam o teste de contrato da porta `updateGmProfile` (só `POST /gm/profile` tem teste de
+rota; para o `updateGmProfile` há `profileServiceNickname.test.ts`, que lê o código-fonte e não
+executa a rota) e a conferência em beta. A A9 foi medida: `email.split('@')` reintroduzido → 1 teste
+falha; restaurado → 15 passam. Sobram duas portas de criação, `POST /gm/profile` e `updateGmProfile`.
 
 ---
 
@@ -171,52 +168,52 @@ primeira rodada mudou em cinco deles (`spec.md` §2.8).
 
 ### [ ] T8.1 — `redfallen`: aviso e confirmação (R10)
 
-Correção já em produção (`2e38fd1`). Falta o aviso (T8.4 item 2) e ele confirmar que volta a
-gravar (`gm_profiles.updated_at` hoje 2026-09-14). **Não fechar sem o `updated_at` novo ou sem
-nomear o bloqueio "usuário não respondeu".** Reprodução como ele exige a sessão dele: pedir antes.
+Correção já em produção (`2e38fd1`). Falta o aviso ao autor e ele confirmar que volta a gravar
+(`gm_profiles.updated_at` hoje 2026-09-14). **Não fechar sem o `updated_at` novo ou sem nomear o
+bloqueio "usuário não respondeu".** Reprodução como ele exige a sessão dele: pedir antes.
 
-### [~] T8.2 — Vagas: dois números só, `slots_total` e `slots_open` (R11, R15, D11)
+**Conflito a resolver (T8.4):** o aviso sai só pelo `PATCH`, e os 14 `UPDATE` da T8.4 são SQL direto
+(plan §11.1), então o `redfallen` não recebe aviso por eles. Para ele receber, fechar `fa0efabf…` pelo
+`PATCH` (`status = resolved`) em vez do `UPDATE`. Inferência a confirmar com ele.
 
-**Descoberta na execução (corrigida aqui):** a spec tratava `total - filled` como fallback de
-`slots_open`. Medido em produção (`tables`, 230 linhas, read-only): `slots_filled = 0` em 190;
-`slots_open <> total - filled` em 70; `slots_open > slots_total` em 0. `slots_filled` não
-representa dado. Direção dele em 2026-10-27: "tem um total de vagas e vagas que dá para entrar;
-vagas totais é o que manda; não existe vagas preenchidas".
+### [~] T8.2 — Vagas: dois números só, `slots_total` e `slots_open` (R11, R15, D11, D24)
 
-Modelo: `slots_total` (teto) e `slots_open` (vagas para entrar, entre 0 e o total). `slots_filled`
-e `slots_available` não existem como conceito. Sem `slots_open`, vale `slots_total`. Plan §10.
+Decisão dele (2026-10-27, D24): "tem um total de vagas e vagas que dá para entrar; vagas totais é o
+que manda; não existe vagas preenchidas". Modelo: `slots_total` (teto) e `slots_open` (vagas para
+entrar, de 0 até o total); sem `slots_open`, vale `slots_total`. `slots_filled` e `slots_available`
+não existem como conceito. Plan §10.
 
-Estado: `slots_filled` saiu de `tableValidators` (campo legado `optional`, aceito e ignorado: o
-schema é `strict` e uma aba aberta antes do deploy ainda o envia), `tableService`, `gmPanel`
-(`slots_available` removido; `slots_filled` gravado `0` quando `slots_total` é enviado, senão o CHECK
-`slots_filled_valid` barra reduzir o total de mesa antiga), `gm.ts`, `tables.ts`, importador Discord
-(`normalizeSlots`, parser, tipos), `packages/catalog-table` (`slots_filled`/`slotsFilled` fora do
-tipo e do view model; build do pacote refeito, o front lê o `dist`), `getSlotsVisualState`,
-`sumOpenSlots`, `formatSlots` e cartões. `utils/slots.ts` do backend apagado. `tableRepository.findById`/`findByIdAndGm` usam `selectAll('t')` e
-devolveriam `slots_filled` velho ao editor e ao admin: `withoutLegacySlots` o tira da leitura. O cartão (`TableCard.tsx`) exibia "X/Y preenchidas" calculado como `total - open`, o que afirma ocupação que não existe (o mestre pode só ter fechado o recrutamento): agora "N de Y vagas abertas", e o derivado de `getSlotsVisualState` virou `closed` (vagas sem entrada, não ocupação). Texto novo não visto no navegador. Testes reescritos;
-teste cruzado soma do mestre × WhatsApp em `whatsappAnnouncement.test.ts`. Não há migration nesta
-PR: a coluna fica com `DEFAULT 0` (expand/contract).
+Medido em produção (2026-10-27, `tables`, 230 linhas): `slots_filled = 0` em 190; `slots_open <>
+total - filled` em 70; `slots_open > slots_total` em 0. Por isso o fallback `total - filled` do D11
+original caiu.
 
-Falta o aceite em beta: `curl /api/v1/gm/perfis/mestre-hermes` devolve `slots_total` e `slots_open` e
-nenhum `slots_filled`; soma da página do mestre = soma da home. O `DROP COLUMN` é a T8.9.
+Decisões de execução, o porquê que o código não mostra: a coluna `slots_filled` continua no banco com
+`DEFAULT 0` até a T8.9 (o deploy aplica migration antes do build, e o app antigo ainda a seleciona);
+o schema aceita e ignora `slots_filled` vindo de aba aberta antes do deploy (`strict`); o `PUT` que
+envia `slots_total` e o `UPDATE` de `syncDraftToTable` gravam `slots_filled = 0`, porque o CHECK
+`slots_filled_valid` (filled <= total) barraria reduzir o total de mesa antiga; `tableRepository`
+tira `slots_filled` da leitura (o `selectAll` devolveria valor velho); o cartão diz "N de Y vagas
+abertas", não "preenchidas".
+
+Falta, em beta: `curl /api/v1/gm/perfis/mestre-hermes` devolve `slots_total` e `slots_open` e nenhum
+`slots_filled`; soma da página do mestre = soma da home; cartão da home mostra "N de Y vagas
+abertas" (texto novo não visto no navegador). O `DROP COLUMN` é a T8.9.
 
 ### [~] T8.3 — Contatos: cauda de Markdown e duplicados de Discord (R12, R20)
 
-Plan §12. Código sem autorização: limpeza no `canonicalizeHttpsUrl` (uma função compartilhada com
-o parser) e a varredura. **Dado (aut.):** `pg_dump` de `table_contacts`; 2 `UPDATE`
+Plan §12. **Dado (aut.):** `pg_dump` de `table_contacts`; 2 `UPDATE`
 (`uma-nova-fabula-se-inicia-ms21l0mk` → `https://forms.gle/mVvUiUTq7Z5yJTWT9`,
 `techno-jogos-do-anfitriao-mrrxgq10` → `https://forms.gle/b3uwFZeGNLQViQ1U7`) e 3 `DELETE` de
 `form` (`uwill`, `.zero9899`, `kauarang`; `channel='form'` e `value` igual ao `discord` da mesma
-mesa). Aceite: regex `~ '[)\]_*>]+$'` em URL → 0; `form` duplicado de Discord → 0.
+mesa). Aceite: a regex `MARKDOWN_URL_TAIL_SQL` de `utils/contactUrls.ts` (`)` ou `]` no fim, ou `**`, `__`,
+`~~`, crase dupla) em `form`/`facebook`/`instagram` → 0 (medido em 2026-10-27: 2 linhas); `form` duplicado de Discord → 0.
 
-Estado do código: `trimTrailingUrlWrappers` mora em `utils/contactUrls.ts` (uma cópia; o parser
-importa). `canonicalizeHttpsUrl` só a aplica quando a cauda é inequívoca (`hasMarkdownUrlTail`: `)`,
-`]` ou ênfase repetida `**`, `__`, `~~`); `_`, `*`, `~` isolados são válidos no caminho e ficam
-(medido: `instagram.com/mestre_` virava `…/mestre` com a limpeza incondicional). Varredura:
-`services/contactTailSweep.ts`, mesma regra em SQL mais `>`, chamada por `ops:alerts` no cron diário,
-dedupe de 24 h por `activity_log` (`contact.tail_detected`) e `notifyAdmins('contact_tail')`.
-Varre só `table_contacts`. O aceite `~ '[)\]_*>]+$'` abaixo acusa `_` isolado válido: usar a regex do
-código. Dado (aut.) pendente.
+Decisões de execução: `canonicalizeHttpsUrl` só limpa cauda inequívoca (`)`, `]` ou ênfase repetida
+`**`, `__`, `~~`); `_`, `*`, `~` isolados são válidos no caminho e ficam (medido: `instagram.com/mestre_`
+virava `…/mestre` com a limpeza incondicional). A varredura (`ops:alerts`, cron diário) usa a mesma
+regra em SQL mais `>`, dedupe de 24 h por `activity_log` (`contact.tail_detected`) e
+`notifyAdmins('contact_tail')`; varre só `table_contacts`, não `gm_profiles.contact_methods`. O
+primeiro `ops:alerts` depois do deploy avisa 1 vez se as 2 linhas ainda estiverem sujas.
 
 ### [~] T8.4 — Fila de feedback: status dos 14 e aviso ao autor (R13, D13, D19, D20)
 
@@ -247,14 +244,15 @@ Resultado: 5 `resolved`, 2 `duplicate`, 7 `triaged`. Remedir os ids com `SELECT 
 dev_feedback WHERE status='new'` antes (a lista pode ter crescido).
 
 **Código (sem aut.):** aviso ao autor no `PATCH` (plan §11.2) e alerta de fila parada (plan §11.3).
-D13 decidida: sim (só in-app). Aceite: fechar um report de teste em beta cria a notificação
-do autor; um `new` com 7 dias aciona `notifyAdmins` uma vez.
+D13 decidida: sim (só in-app). Aceite em beta: fechar um report de teste cria a notificação do autor
+(só na transição para `resolved`, `wont_fix` ou `duplicate`; reenviar o mesmo status não duplica); um
+`new` com 7 dias aciona `notifyAdmins` uma vez (`npm run ops:alerts` duas vezes: a 2ª não avisa).
 
-Estado do código: `services/devFeedbackNotices.ts`. O `PATCH` trava a linha, compara com o status
-anterior e enfileira `mesas.system.notice` na mesma transação só na transição para `resolved`,
-`wont_fix` ou `duplicate` (sem `user_id` ou sem mudança, não avisa); entrega pós-commit. O alerta
-(`alertStaleFeedback`, em `ops:alerts`) marca `stale_alerted_at` num `UPDATE ... RETURNING`
-antes de avisar: 1 aviso por relato, no máximo 20 por execução. Falta o aceite em beta.
+**Risco de deploy medido (2026-10-27):** `dev_feedback` tem 14 `new`, 12 com mais de 7 dias e 0
+revisados. O primeiro `ops:alerts` do cron novo (roda no boot) avisaria os 12 de uma vez (teto de 20
+por execução) e marcaria `stale_alerted_at`. Para evitar o ruído, aplicar os 14 `UPDATE` (aut.) ANTES
+de o cron novo subir, ou aceitar os 12 avisos. O alerta usa `/gestao/sistema?tab=feedback`, não
+`/gestao` (que redireciona para a visão geral).
 
 ### [ ] T8.5 — Dungeon World, Monster of the Week, Urban Shadows no catálogo (R14, D9) **(aut.)**
 
@@ -271,11 +269,12 @@ Percorrer em beta o caminho de quem não tem perfil (spec 096) e reproduzir `POS
 de agosto não existem: a prova tem que ser nova. Sem reprodução, a causa permanece "não medida"
 e a task fecha com esse nome, não como resolvida.
 
-### [ ] T8.7 — Telemetria de erro de cliente e contenção (R17, R18, R19, R20, D16, D17)
+### [~] T8.7 — Telemetria de erro de cliente e contenção (R17, R18, R19, R20, D16, D17)
 
 Plan §9 e §13. Tabela `client_errors`, na `migration_168` **(aut.: aplicar)**. Itens:
 1. `reportClientError()` + `HydratedRouter onError` + `ErrorBoundary.componentDidCatch`.
-2. `POST /api/v1/client-errors` (rate limit estrito, limites de tamanho, sem IP/header/query).
+2. `POST /api/v1/client-errors` (bucket próprio `clientErrorRateLimiter`, 30 por 15 min por IP; corpo de
+   64 KB; limites de tamanho; sem IP/header/query).
 3. Upsert por `fingerprint`, aviso ao admin na 1ª ocorrência, retenção de 90 dias, e os tetos
    contra abuso do plan §9 (fingerprints novos/h, avisos/h, linhas).  Teste: 1000 mensagens
    distintas em sequência criam no máximo o teto de linhas e de avisos.
@@ -290,10 +289,11 @@ novo aviso; canal desconhecido renderiza com fallback; `pnpm verify:api`.
 Vagas (perfil × home × WhatsApp × resposta do editor) e identidade (`nickname`/`slug` ≠ prefixo do
 e-mail). Entram nas fases F1 e T8.2; esta task confere que ambos existem e falham sem a correção.
 
-Estado: vagas em `whatsappAnnouncement.test.ts` (falha com `sumOpenSlots` revertido, medido) e
-`utils/slots.test.ts`; identidade em `profileServiceNickname.test.ts` (e-mail nem é argumento de
-`deriveGmNickname`; A9 já quebra se `email` voltar). Não cobre a "resposta do editor" nem a home
-(cartão) por teste de componente: a home usa o mesmo `slots_open` do payload, sem conta própria.
+Estado: vagas em `whatsappAnnouncement.test.ts` (soma do mestre × texto do WhatsApp); identidade em
+`profileServiceNickname.test.ts` (o e-mail nem é argumento de `deriveGmNickname`; a A9 quebra se
+`email` voltar). Não cobre a "resposta do editor" nem a home (cartão) por teste de componente. A
+falha sem a correção foi medida só para a soma do mestre (revertendo `sumOpenSlots`); a de identidade
+não foi remedida depois da mudança de vagas.
 
 ### [ ] T8.9 — Migration destrutiva: `DROP COLUMN tables.slots_filled` **(decisão e aut.)**
 
@@ -304,13 +304,14 @@ antigo ainda seleciona `slots_filled`).
 Só começa quando: (1) o código da T8.2 está em produção; (2) o aceite da T8.2 rodou em produção; (3)
 as demais tasks desta spec que tocam `tables` passaram no mesmo ambiente. Aí, uma PR própria com a
 próxima `migration_NNN` (conferir `ls apps/mesas/database | grep migration_1`; última medida
-aplicada em prod e beta: 167, com a 168 ainda pendente): `DROP COLUMN IF EXISTS slots_filled` e os
+em 2026-10-27, aplicada em prod e beta: 167, com a 168 ainda pendente): `DROP COLUMN IF EXISTS slots_filled` e os
 CHECKs `slots_filled_valid` e `check_slots_valid` (este último é recriado sem `slots_filled`, mantendo
 `slots_open >= 0 AND slots_open <= slots_total`), `DROP INDEX IF EXISTS idx_tables_slots`. Header de
 5 campos e idempotência (`deploy-flow.md` §3), `pg_dump` antes, aprovação nominal.
 
 Remover junto, do código: `slots_filled` em `db/types.ts` e `hydration/config.ts`, e as escritas
-`slots_filled: 0` do `gmPanel.ts` (PUT com `slots_total`) e do UPDATE de `syncDraftToTable` (`syncHelpers.ts`). Aceite: `information_schema.columns` sem
+`slots_filled: 0` do `gmPanel.ts` (PUT com `slots_total`) e do UPDATE de `syncDraftToTable`
+(`syncHelpers.ts`), e o campo legado `slots_filled` do schema de `tableValidators.ts`. Aceite: `information_schema.columns` sem
 `slots_filled`; `rtk rg "slots_filled" apps packages --glob '!**/database/**'` → 0.
 
 ---
@@ -347,40 +348,49 @@ fazer e o motivo dele (cookies para manutenção do site e outros fins técnicos
 
 ## F7 — Fechamento
 
-### [ ] T7.1 — Remedir a §2 e o aceite da §6 após o deploy
+### [ ] T7.1 — Deploy do `mesas`, conferes e remedição da §2
 
-Reexecutar cada comando da `spec.md` §2 e §6. O `COUNT` da §2.2 deve devolver 0 para `nickname`
-igual ao prefixo com `display_name` diferente; sitemap sem os slugs antigos; `dev_feedback` sem
-`new`; `client_errors` recebendo. Atualizar o que o comando não mede (decisão, bloqueio) e apagar
-o resto; trabalho mergeado encolhe (T0). Registrar em `.specify/memory/errors.md` só o que o
-protocolo manda (forma que não funciona, medição que contradiz a spec).
+**Ordem** (plan §8; cada passo é autorização nominal): deploy de beta; conferes de beta; promote
+`dev→main`; deploy de produção; conferes de produção; dado em produção (T6.1, T6.2, T8.3, T8.4);
+T8.9 por último. A `migration_168` aplica antes do app e é a única pendente (prod e beta na 167,
+medido em 2026-10-27). O promote só move o ponteiro Git: produção só atualiza com o dispatch de
+`deploy.yml` (`deploy-flow.md` §6).
+
+**Conferes de beta e de produção:**
+- Migration: `schema_migrations` tem `migration_168_spec106_slug_redirects_client_errors.sql`;
+  `to_regclass('gm_slug_redirects')` e `to_regclass('client_errors')` não nulos; coluna
+  `dev_feedback.stale_alerted_at` existe.
+- Cron: `docker logs mesas-cron` mostra `[ops:alerts]` e `[client-errors:purge]` sem erro. Atenção ao
+  risco dos 12 avisos na T8.4.
+- T8.2: `curl /api/v1/gm/perfis/mestre-hermes`; soma da página = soma da home.
+- T8.4: fechar um relato de teste pelo `PATCH`; notificação do autor; `ops:alerts` não repete.
+- T8.7: erro forçado → 1 linha em `client_errors` e 1 aviso; 2ª ocorrência só incrementa.
+- T10.1: `GET /api/v1/profile/me/discord` → 404.
+- T2.2, T3.1, T4.1, T5.1 a T5.3: o aceite de cada bloco, em beta.
+
+**Remedição da §2:** reexecutar cada comando da `spec.md` §2 e §6. O `COUNT` da §2.2 deve devolver 0
+para `nickname` igual ao prefixo com `display_name` diferente; sitemap sem os slugs antigos;
+`dev_feedback` sem `new`; `client_errors` recebendo. Atualizar o que o comando não mede (decisão,
+bloqueio) e apagar o resto; trabalho mergeado encolhe (T0). Registrar em `.specify/memory/errors.md`
+só o que o protocolo manda (forma que não funciona, medição que contradiz a spec).
 
 ---
 
 ## F10 — Resíduo de autenticação Discord
 
-### [ ] T10.1 — Remover o vínculo Discord sem uso (D23)
+### [~] T10.1 — Remover o vínculo Discord sem uso (D23)
 
 Decisão dele em 2026-10-27: era uma autenticação Discord antiga, para algumas finalidades; o
 resíduo sai. Hoje o Discord no produto é só importação de mesas (JSON) e canal de contato.
 
-Medido: `connectDiscord` (`profileService.ts:522`), `disconnectDiscord`, `getDiscordStatus` e as
-rotas `GET/POST/DELETE /profile/me/connect/discord` e `GET /profile/me/discord` (`profile.ts:279-325`).
-A rota `POST` grava `discord_connected = true` com `username` e `id` do corpo, sem OAuth.
-`rg "connect/discord|me/discord" apps/mesas/frontend/src` → 0 chamadores.
+Medido antes de apagar (produção, read-only, `mesas-db`): `gm_profiles` 66 linhas, com
+`discord_connected`, `discord_username` e `discord_id` preenchidos em 0; `auth_providers` só
+`google|1`, 0 `discord`. A rota `POST /profile/me/connect/discord` gravava `discord_connected = true`
+com `username` e `id` do corpo, sem OAuth; o front não a chamava. A coluna e o `DROP COLUMN` ficam
+fora até ele mandar. Outros leitores das colunas, deixados: resposta pública do mestre (`gm.ts`,
+sempre `false`/`null`), `hydration/config.ts`, `adminEnrichment.ts` e tipos do front; saem com o
+`DROP COLUMN`.
 
-Antes de apagar, medir (read-only, sem escrita na VM): linhas com `gm_profiles.discord_connected`
-verdadeiro e `auth_providers` com `provider = 'discord'`; outros leitores de `discord_id`,
-`discord_username` e `discord_connected` (`rtk rg`, inclusive `packages/` e `apps/accounts`);
-contrato público em `docs/api/openapi/`. Linhas com valor em produção: parar e pedir decisão
-sobre o dado. Zero: remover funções, rotas e testes. A coluna e a migration (`DROP COLUMN`) ficam
-fora até ele mandar (T1 de migration). `pnpm verify:api`. Aceite: `rtk rg "connectDiscord|disconnectDiscord"
-apps/mesas` → 0; `GET /api/v1/profile/me/discord` → 404.
-
-Estado: medido em produção (read-only, `mesas-db`): `gm_profiles` 66 linhas, `discord_connected`,
-`discord_username` e `discord_id` preenchidos em 0; `auth_providers` só `google|1`, 0 `discord`.
-Funções, rotas e a classificação em `scripts/api/generate-openapi.ts` removidas; artefatos de
-`docs/api` regenerados (`api:inventory`, `api:generate-openapi`, `api:bundle`). Não existiam testes
-dessas rotas. Outros leitores das colunas, deixados: `gm.ts:195` (resposta pública do mestre,
-sempre `false`/`null`), `hydration/config.ts`, `adminEnrichment.ts:120`, tipos do front; saem
-com o `DROP COLUMN`, que fica para ele mandar. Resta um comentário em `ProfileEditPage.tsx:610`.
+Falta, em produção: `GET /api/v1/profile/me/discord` → 404; `rtk rg "connectDiscord|disconnectDiscord"
+apps/mesas` só em comentário (há dois: `ProfileEditPage.tsx` e um teste). `pnpm verify:api` aponta
+`breaking=2`, as duas rotas removidas, esperado.
