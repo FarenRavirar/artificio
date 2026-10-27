@@ -28,6 +28,47 @@ const AUTOSAVE_DEBOUNCE_MS = 500;
 const toErrorMessage = (error: unknown): string =>
   error instanceof Error && error.message ? error.message : 'Erro ao salvar alterações.';
 
+
+type UserPatch = Parameters<ProfileContextValue['updateUser']>[0];
+type ProfilePatch = Parameters<ProfileContextValue['updateProfile']>[0];
+
+/**
+ * Fila das escritas de `updateUser`/`updateProfile` (spec 106 R6): uma por vez, em
+ * ordem. O guard antigo (`if (isPending) return`) engolia em silêncio o valor
+ * digitado durante a requisição anterior.
+ *
+ * Achado do CodeRabbit (PR #341): bio e localização gravam por tecla, e a fila
+ * transformaria cada tecla num PATCH em série. Escrita feita enquanto outra do
+ * mesmo recurso espera na fila é FUNDIDA nela (último valor vence por campo): no
+ * máximo uma em voo e uma pendente. Estado em closure, não em ref, porque a
+ * regra `react-hooks/refs` proíbe passar ref durante o render.
+ */
+function createWriteQueue() {
+  let chain: Promise<unknown> = Promise.resolve();
+  const enqueue = <T,>(run: () => Promise<T>): Promise<T> => {
+    const next = chain.then(run);
+    chain = next;
+    return next;
+  };
+  const coalesced = <P extends object>() => {
+    let pending: { patch: P; promise: Promise<string | null> } | null = null;
+    return (patch: P, send: (patch: P) => Promise<string | null>): Promise<string | null> => {
+      if (pending) {
+        pending.patch = { ...pending.patch, ...patch };
+        return pending.promise;
+      }
+      const slot = { patch, promise: Promise.resolve<string | null>(null) };
+      pending = slot;
+      slot.promise = enqueue(() => {
+        pending = null; // a partir daqui, escrita nova abre outra pendente
+        return send(slot.patch);
+      });
+      return slot.promise;
+    };
+  };
+  return { user: coalesced<UserPatch>(), profile: coalesced<ProfilePatch>() };
+}
+
 export function ProfileProvider({ children }: ProfileProviderProps) {
   // Query principal
   const { data: profile, isLoading, error, refetch } = useProfileQuery();
@@ -71,6 +112,9 @@ export function ProfileProvider({ children }: ProfileProviderProps) {
   // durante o flush real; os refs não disparam re-render no intervalo de
   // debounce (deliberado: a UI não pisca por tecla).
   // ---------------------------------------------------------------------------
+
+  // Fila das escritas de `updateUser`/`updateProfile` (spec 106 R6): ver `createWriteQueue`.
+  const [writes] = React.useState(createWriteQueue);
 
   // Patch pendente (acumulado por campo, último valor vence).
   const gmBufferRef = React.useRef<Partial<GmProfile> | null>(null);
@@ -164,24 +208,34 @@ export function ProfileProvider({ children }: ProfileProviderProps) {
       saving,
       saveError,
       refetch,
-      updateUser: async (data) => {
-        if (updateUserMutation.isPending) return;
-        try {
-          await updateUserMutation.mutateAsync(data);
-          setSaveError(null);
-        } catch (mutationError) {
-          setSaveError(toErrorMessage(mutationError));
-        }
-      },
-      updateProfile: async (data) => {
-        if (updateProfileMutation.isPending) return;
-        try {
-          await updateProfileMutation.mutateAsync(data);
-          setSaveError(null);
-        } catch (mutationError) {
-          setSaveError(toErrorMessage(mutationError));
-        }
-      },
+      // Spec 106 R6: escrita em voo NÃO descarta a seguinte. O guard antigo
+      // (`if (isPending) return`) engolia em silêncio o valor digitado durante a
+      // requisição anterior; agora cada escrita espera a anterior terminar, em
+      // ordem, e a última vence.
+      updateUser: (patch) =>
+        writes.user(patch, async (data) => {
+          try {
+            await updateUserMutation.mutateAsync(data);
+            setSaveError(null);
+            return null;
+          } catch (mutationError) {
+            const message = toErrorMessage(mutationError);
+            setSaveError(message);
+            return message;
+          }
+        }),
+      updateProfile: (patch) =>
+        writes.profile(patch, async (data) => {
+          try {
+            await updateProfileMutation.mutateAsync(data);
+            setSaveError(null);
+            return null;
+          } catch (mutationError) {
+            const message = toErrorMessage(mutationError);
+            setSaveError(message);
+            return message;
+          }
+        }),
       updatePlayer: async (data) => {
         if (updatePlayerMutation.isPending) return;
         try {
@@ -281,6 +335,7 @@ export function ProfileProvider({ children }: ProfileProviderProps) {
     updateGmMutation,
     addSystemMutation,
     removeSystemMutation,
+    writes,
   ]);
 
   return <ProfileContext.Provider value={value}>{children}</ProfileContext.Provider>;

@@ -20,6 +20,7 @@ import { logDatabaseError } from '../middleware/requestLogger.js';
 import { GM_REVIEW_TAGS } from '../db/types.js';
 import type { GmReviewTag } from '../db/types.js';
 import { importedTableIsCurrentSql } from '../utils/tableVisibility.js';
+import { gmProfileDisplayNameSql } from '../utils/gmDisplayName.js';
 
 const router = Router();
 
@@ -142,7 +143,7 @@ router.get('/perfis/:slug', publicRateLimiter, optionalAuth, async (req: Request
         // podia devolver NULL enquanto o tipo promete `string`. Nenhum dos 22
         // perfis sem `profiles` está nesse estado hoje (medido), mas o schema
         // permite — o slug é público e sempre presente (UNIQUE NOT NULL).
-        sql<string>`COALESCE(gm.nickname, p.display_name, gm.slug)`.as('display_name'),
+        gmProfileDisplayNameSql().as('display_name'),
         'gm.bio_long',
         'gm.tagline',
         sql<string>`COALESCE(gm.avatar_url, p.avatar_url)`.as('avatar_url'),
@@ -247,6 +248,8 @@ router.get('/perfis/:slug', publicRateLimiter, optionalAuth, async (req: Request
         't.price_value',
         't.slots_total',
         't.slots_filled',
+        't.slots_open',
+        't.master_display_name', // R4 (spec 106): sobrescrita do nome por mesa
         't.language',
         't.experience_level',
         't.publisher_role',

@@ -8,6 +8,7 @@ import { classifyTablePublicDisposition } from '../utils/tableVisibility.js';
 import { sanitizePublicImageUrl } from '../utils/publicImageUrl.js';
 import { hydrateTableSystemFields } from '../services/systemCatalogProvider.js';
 import { buildTableDescription, buildGmDescription } from '../utils/ogDescription.js';
+import { gmProfileDisplayNameSql, tableGmDisplayNameSql } from '../utils/gmDisplayName.js';
 
 const router = Router();
 
@@ -165,7 +166,7 @@ router.get('/:type/:slug', async (req: Request, res: Response) => {
           // navegação normal. Medido em produção 2026-08-27.
           .leftJoin('profiles as p', 'p.user_id', 'u.id')
           .select([
-            sql<string>`COALESCE(gm.nickname, p.display_name, gm.slug)`.as('display_name'),
+            gmProfileDisplayNameSql().as('display_name'),
             'gm.bio_long',
             'gm.tagline',
             sql<string>`COALESCE(gm.avatar_url, p.avatar_url)`.as('avatar_url'),
@@ -239,7 +240,7 @@ router.get('/:type/:slug', async (req: Request, res: Response) => {
           't.synopsis',
           't.synopsis_narrative',
           't.system_id',
-          sql<string>`COALESCE(gm.nickname, p.display_name)`.as('gm_display_name'),
+          tableGmDisplayNameSql().as('gm_display_name'),
         ])
         .where('t.slug', '=', slug)
         .executeTakeFirst();

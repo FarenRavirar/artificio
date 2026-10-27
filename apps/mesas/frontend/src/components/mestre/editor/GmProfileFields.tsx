@@ -106,6 +106,55 @@ export function TaglineField({ value, error }: TaglineFieldProps) {
   );
 }
 
+// ── NicknameField ──
+
+interface NicknameFieldProps {
+  readonly value: string;
+}
+
+/**
+ * "Nome público do mestre" (spec 106 R5, D5): grava `gm_profiles.nickname`, o
+ * nome que jogadores veem na página do mestre, nos cards, no OG e na busca.
+ * Antes não havia campo para ele: o único caminho era um botão escondido no
+ * editor de mesa, e o valor inicial vinha do prefixo do e-mail (caso Victor).
+ *
+ * Mesmo padrão dos vizinhos (linha + modal, Salvar explícito). Validação antes
+ * de enviar com o contrato do backend (`gmPanel.ts`: 2 a 40 caracteres).
+ */
+export function NicknameField({ value }: NicknameFieldProps) {
+  return (
+    <ProfileFieldRow<string>
+      label="Nome público do mestre"
+      displayValue={value.trim() || null}
+      value={value}
+      toPatch={(draft) => {
+        const nome = draft.trim();
+        if (nome.length < 2 || nome.length > 40) {
+          return { erro: 'Use entre 2 e 40 caracteres.' };
+        }
+        return { nickname: nome };
+      }}
+    >
+      {(draft, setDraft) => (
+        <Field
+          id="gm-nickname"
+          label="Nome público do mestre"
+          hint={`É o nome que jogadores veem na sua página e nos cards. Pode ser diferente do nome da sua conta. (${draft.trim().length}/40)`}
+        >
+          <TextInput
+            id="gm-nickname"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            maxLength={40}
+            placeholder="Ex: Mestre Jeff"
+            aria-describedby="gm-nickname-description"
+          />
+        </Field>
+      )}
+    </ProfileFieldRow>
+  );
+}
+
 // ── PromoBadgeField ──
 
 interface PromoBadgeFieldProps {

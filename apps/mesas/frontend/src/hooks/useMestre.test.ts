@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   normalizeSellingPoints,
   normalizeMestreProfile,
+  sumOpenSlots,
   type SellingPoint,
 } from './useMestre';
 import { makeMestreProfile } from '../test/mestreFixtures';
@@ -128,5 +129,16 @@ describe('normalizeMestreProfile — selling_points na fronteira', () => {
     expect(out?.banner_crop_data).toBeNull();
     expect(out?.avg_rating).toBe(4.5);
     expect(out?.selling_points).toEqual([]);
+  });
+});
+
+describe('sumOpenSlots', () => {
+  it('usa slots_open, não total - filled (caso mestre-hermes: filled 0, open 2/4/4/0/5/6)', () => {
+    const tables = [2, 4, 4, 0, 5, 6].map((slots_open) => ({ slots_total: 6, slots_filled: 0, slots_open }));
+    expect(sumOpenSlots(tables)).toBe(21);
+  });
+
+  it('cai em total - filled só quando slots_open falta', () => {
+    expect(sumOpenSlots([{ slots_total: 5, slots_filled: 2 }])).toBe(3);
   });
 });

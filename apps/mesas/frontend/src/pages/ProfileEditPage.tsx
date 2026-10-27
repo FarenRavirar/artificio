@@ -1,3 +1,5 @@
+import { CommitTextField } from '../components/CommitTextField';
+import { validateDisplayName, validateUsername } from '../utils/profileFieldRules';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams } from 'react-router';
 import { Button, LoadingState, TextInput } from '@artificio/ui';
@@ -18,6 +20,7 @@ import { MarkdownEditor } from '../components/MarkdownEditor';
 // ExperienceYearsField) — mesmo markup, visual preservado — para o teste
 // cruzado alcançar o `data-ob` deles.
 import {
+  NicknameField,
   TaglineField,
   ClosedGroupSection,
   ProfileTagsSection,
@@ -369,34 +372,27 @@ function TabGeral() {
           onError={showError}
         />
 
-        <div className="form-group">
-          <label htmlFor="display_name">Nome de Exibição</label>
-          {/* Fase G/G5: os 3 inputs crus da aba Geral passam ao primitivo do
-              pacote. Enquanto a regra legada `.form-group input[...]` declarava
-              padding/font-size/min-height, eles herdavam a escala dela por
-              acidente de cascata; com a regra corrigida (§13.7) cairiam para o
-              tamanho default do navegador. Achado do Codex na PR #304. */}
-          <TextInput
-            type="text"
-            id="display_name"
-            defaultValue={profile.profile?.display_name || ''}
-            onChange={(e) => updateProfile({ display_name: e.target.value })}
-            placeholder="Como você quer ser chamado?"
-          />
-        </div>
+        {/* Spec 106 R6/D18: grava ao sair do campo, com validação antes de
+            enviar. Rótulos dizem o que cada campo é (T5.3). */}
+        <CommitTextField
+          id="display_name"
+          label="Seu nome na comunidade (conta)"
+          hint="Aparece nos seus comentários, avaliações e no cabeçalho. O nome da sua página de mestre é outro, na aba Mestre."
+          initialValue={profile.profile?.display_name || ''}
+          placeholder="Como você quer ser chamado?"
+          validate={validateDisplayName}
+          onCommit={(display_name) => updateProfile({ display_name })}
+        />
 
-        <div className="form-group">
-          <label htmlFor="username">Username (URL pública)</label>
-          <TextInput
-            type="text"
-            id="username"
-            defaultValue={profile.user.username || ''}
-            onChange={(e) => updateUser({ username: e.target.value })}
-            placeholder="seu-username"
-            pattern="[a-zA-Z0-9_]+"
-          />
-          <small>Apenas letras, números e underscore. Será usado na URL do seu perfil.</small>
-        </div>
+        <CommitTextField
+          id="username"
+          label="Username (endereço do perfil de jogador)"
+          hint="Letras, números e underscore, no mínimo 3. Vira o endereço /jogador/seu-username."
+          initialValue={profile.user.username || ''}
+          placeholder="seu-username"
+          validate={validateUsername}
+          onCommit={(username) => updateUser({ username })}
+        />
 
         <div className="form-group">
           <label>Bio</label>
@@ -724,6 +720,15 @@ function TabMestre() {
           agrupadas pela PERGUNTA DO JOGADOR que respondem (§0), não por tipo de
           campo. Nenhum campo foi reescrito — todos foram redistribuídos. */}
       <div className="tab-mestre" ref={partsContainerRef}>
+        {/* Spec 106 R16: `GET /gm/me` responde 404 a quem ainda não tem perfil de
+            mestre (esperado). O relato de 08-27 era justamente a tela oferecer
+            edição sem dizer isso. */}
+        {!profile.gm && (
+          <p className="section-description" data-testid="gm-profile-pending">
+            Você ainda não tem perfil de mestre. Ele é criado quando você salva o primeiro campo
+            abaixo ou publica sua primeira mesa.
+          </p>
+        )}
         <ProfilePart id="quem">
           {/* As duas imagens JUNTAS (achado do mantenedor, 2026-09-01): avatar e
               banner são a mesma decisão visual — o mestre escolhe os dois
@@ -800,6 +805,13 @@ function TabMestre() {
               e "anos de experiência". O subtítulo diz onde ele aparece, que é o
               que faltava para o mestre entender o peso do que digita ali; a
               queixa era de forma, não de falta de legenda explicativa. */}
+          {/* Spec 106 R5: nome público do mestre (gm_profiles.nickname). */}
+          <h3 className="profile-part-subtitle">Nome público do mestre</h3>
+          <p className="section-description">
+            É o nome que aparece na sua página, nos cards das mesas e nos links compartilhados
+          </p>
+          <NicknameField value={gmProfile.nickname ?? ''} />
+
           <h3 className="profile-part-subtitle">Seu slogan</h3>
           <p className="section-description">
             É o título grande do seu perfil e o que aparece no Google e nos links compartilhados

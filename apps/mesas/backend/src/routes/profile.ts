@@ -87,6 +87,12 @@ router.patch('/me/profile', authMiddleware, async (req: Request, res: Response) 
 
   const { display_name, bio, avatar_url, languages } = req.body;
 
+  // Spec 106 R6: o PUT /me/preferences já exigia 2+ caracteres; este PATCH gravava
+  // qualquer valor, inclusive vazio, que apagava o nome da conta.
+  if (display_name !== undefined && (typeof display_name !== 'string' || display_name.trim().length < 2)) {
+    return res.status(400).json({ error: 'Nome de exibição deve ter no mínimo 2 caracteres' });
+  }
+
   // Enquadramento vem de JSON externo: `unknown` ate ser normalizado.
   // `isCropRect` recusa retangulo incompleto/negativo; `null` explicito zera o
   // recorte (imagem trocada), enquanto ausencia do campo preserva o salvo.

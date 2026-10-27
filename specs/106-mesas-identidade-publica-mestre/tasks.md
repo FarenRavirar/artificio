@@ -50,6 +50,13 @@ Aceite: `rtk rg "split\('@'\)" apps/mesas` → 0 fora de testes e de `actorNameR
 `devFeedbackAdmin` (que só exibem); `pnpm --filter @artificio/mesas test` dirigido verde;
 `pnpm verify:api`.
 
+Estado: o `slug` derivado sai de `slugifyGmName(nickname)` com sufixo `-2`, `-3` em colisão
+só contra `gm_profiles`; **quando a T2.1 criar `gm_slug_redirects`, `slugTaken` precisa checar
+a tabela também** (plan §3). Falta o teste de contrato das portas `updateGmProfile` e Discord
+(só o `POST` tem teste de rota). A9 medida: `email.split('@')` reintroduzido → 1 teste falha;
+restaurado → 15 passam. `POST /profile/me/connect/discord` (`profile.ts:299`) não tem chamador
+no frontend (`rg connect/discord frontend/src` → 0) e aceita `username`/`id` do corpo sem OAuth.
+
 ---
 
 ## F2 — Redirecionamento de slug (R3)
@@ -78,6 +85,16 @@ Testes de colisão contra `gm_profiles` e `gm_slug_redirects`; formato; reversã
 Plan §4. Aceite: para as 6 mesas com sobrescrita divergente (spec §2.5), card, OG, busca, lista e
 página devolvem o mesmo nome; o `SELECT` da §2.5 remedido.
 
+Estado: `utils/gmDisplayName.ts` aplicado em `tables.ts` (lista, busca, detalhe), `og.ts` (perfil e
+mesa) e `gm.ts` (perfil). A página do mestre ganhou `t.master_display_name` no payload e
+`useMestre.ts` o prefere ao nome do perfil. Medido em produção (`SELECT` read-only, 2026-10-27):
+as 6 mesas com sobrescrita divergente devolvem o nome da sobrescrita na expressão nova.
+Revisados os outros usos de `display_name` da §2.5: autor de avaliação (`gm.ts:689`), `AuthContext`,
+`actorNameResolver` e `activityLog` são identidade de pessoa/ator, não nome de mestre; ficam. Única
+superfície pública achada: "encerrada pelo mestre X" (`tables.ts:874`, resposta 410), que usava
+`display_name`/`username`; passou a preferir `gm.nickname`. Falta
+conferir em beta, com HTTP real, card, OG e página de uma dessas mesas.
+
 ---
 
 ## F4 — Auditoria (R8)
@@ -91,18 +108,31 @@ grava `*_rejected` com `{ attempted, reason }`.
 
 ## F5 — UI e onboarding (R5, R6, R7, R16)
 
-### [ ] T5.1 — Campo "Nome público do mestre" na aba Mestre (D5 decidida: sim)
+### [~] T5.1 — Campo "Nome público do mestre" na aba Mestre (D5 decidida: sim)
 
-### [ ] T5.2 — Aba Geral: gravar ao sair do campo, validar antes, sem tecla descartada
+Estado: `NicknameField` em `GmProfileFields.tsx`, montado em `ProfileEditPage.tsx` (parte "Quem"),
+no padrão linha + modal dos vizinhos (Salvar explícito, 2–40 validado antes de enviar). Desvio do
+plan §5: o plan dizia "salvamento ao sair"; o campo segue o primitivo dos vizinhos (modal), que
+já descarta sem gravar. Falta validação visual em beta.
 
-`ProfileEditPage.tsx:383/394`, `ProfileContext.tsx:168/177`. Teste: digitar `void` tecla a tecla
-não dispara requisição até o `blur`; 2 caracteres mostram o erro no campo.
+### [~] T5.2 — Aba Geral: gravar ao sair do campo, validar antes, sem tecla descartada
 
-### [ ] T5.3 — Rótulos, onboarding e aviso do `/painel` sem perfil
+Estado: `CommitTextField` + `utils/profileFieldRules.ts` (espelho das regras do servidor);
+`ProfileContext.tsx` ganhou fila: `updateUser`/`updateProfile` esperam a escrita anterior em vez de
+descartá-la, e devolvem a mensagem de erro, que o campo mostra (antes só um tooltip do indicador
+de autosave sabia que o username estava em uso). Fila, erro devolvido e campo têm teste; a fila
+foi provada removendo-a (1 teste falha). `PATCH /profile/me/profile` não validava `display_name`
+(gravava vazio); passou a recusar < 2 caracteres (`profile.displayName.test.ts`). Falta beta.
 
-Skills `design:ux-copy`, `nielsen-heuristics-audit`, `wcag-accessibility-audit`.
-`database/changelogs.json` antes do deploy. Validação funcional real = beta + janela anônima
-do mantenedor (`context-capsule.md` do mesas).
+### [~] T5.3 — Rótulos, onboarding e aviso do `/painel` sem perfil
+
+Estado: rótulos da aba Geral trocados, texto sob o campo do onboarding, entrada em
+`changelogs.json`, aviso de perfil pendente com teste. Medido: o `/painel` não oferece banner
+(`rg banner PainelMestrePage.tsx` só acha tipo e comentário); quem oferece é a aba Mestre de
+`/perfil` com `profile.gm` nulo, e o aviso foi para lá. Revisão de copy e auditoria feitas por
+leitura do código contra os critérios WCAG 3.3.1, 3.3.2, 4.1.3 e as heurísticas H1 e H9, não pelo
+roteiro completo das skills `wcag-accessibility-audit` e `nielsen-heuristics-audit`; contraste
+não medido. Falta a validação funcional em beta com a janela anônima do mantenedor.
 
 ---
 
@@ -142,6 +172,11 @@ Plan §10. `gm.ts:249` (+ `t.slots_open`), `useMestre.ts:284`, `whatsappAnnounce
 `gmPanel.ts:725`. Teste cruzado. `pnpm verify:api`. Aceite: `curl
 /api/v1/gm/perfis/mestre-hermes` devolve `slots_available`; soma da página = soma da home.
 
+Medido na execução: `slots_open` é `NOT NULL` (migration 100), então o `COALESCE` do plan §10
+fica só no TypeScript. `whatsappAnnouncement.ts:274` já prefere `slots_open` (só cai na conta
+crua se faltar): sem mudança. `verify:api` rodou verde. Falta: `curl` do aceite (só em beta),
+teste cruzado (T8.8).
+
 ### [ ] T8.3 — Contatos: cauda de Markdown e duplicados de Discord (R12, R20)
 
 Plan §12. Código sem autorização: limpeza no `canonicalizeHttpsUrl` (uma função compartilhada com
@@ -164,7 +199,7 @@ mesa). Aceite: regex `~ '[)\]_*>]+$'` em URL → 0; `form` duplicado de Discord 
 | `98077e25-7fac-482d-9961-796d08f36cb8` | 07-22 Sumiram as informações | `resolved` | Mesa encerrada responde 410 "Mesa encerrada" por desenho (`tables.ts:1020`, spec 090/102). |
 | `1ea146a7-a129-437b-a741-d986d400ce4c` | 07-28 Formulário | `triaged` | Contato `form` gravado na importação com `)__` no fim. Parser corrigido em 2026-08-11; dado e editor manual não (spec 106 T8.3). |
 | `93817982-7e1b-42b5-b309-13c86b63b0a8` | 08-24 Link | `resolved` | Causa `db.fn.count` (backlog D-QA-ROTAS-ESCRITA-SEM-TESTE). 21 links de 11 usuários criados depois de 2026-08-24. |
-| `57a70eca-aca2-44ed-b97f-57315236fd64` | 08-27 Banner (player) | `triaged` | `/painel` oferece banner sem perfil de mestre; `GET /gm/me` 404 esperado (spec 106 T5.3). |
+| `57a70eca-aca2-44ed-b97f-57315236fd64` | 08-27 Banner (player) | `triaged` | A aba Mestre de `/perfil` oferece banner sem perfil de mestre; `GET /gm/me` 404 esperado (spec 106 T5.3). |
 | `1f4c0f2d-69ed-48d2-ae41-86d1d88e40a0` | 08-27 Adicionar sistema | `triaged` | `POST /profile/systems` 500 sem causa medida; logs de agosto não existem. Hipótese E1 não testada (spec 106 T8.6). |
 | `1e0c54c0-07ea-4750-a819-1f883fd36d46` | 08-27 Lista de sistemas | `triaged` | Dungeon World ausente do catálogo; decisão de conteúdo (spec 106 T8.5, D9). |
 | `7bf0ffcf-ff66-4f2e-b9d8-491bb23df5bb` | 08-28 Vagas | `triaged` | `gm.ts:249` sem `slots_open`; conta crua em 3 outros lugares (spec 106 T8.2). |
@@ -258,3 +293,25 @@ igual ao prefixo com `display_name` diferente; sitemap sem os slugs antigos; `de
 `new`; `client_errors` recebendo. Atualizar o que o comando não mede (decisão, bloqueio) e apagar
 o resto; trabalho mergeado encolhe (T0). Registrar em `.specify/memory/errors.md` só o que o
 protocolo manda (forma que não funciona, medição que contradiz a spec).
+
+---
+
+## F10 — Resíduo de autenticação Discord
+
+### [ ] T10.1 — Remover o vínculo Discord sem uso (D23)
+
+Decisão dele em 2026-10-27: era uma autenticação Discord antiga, para algumas finalidades; o
+resíduo sai. Hoje o Discord no produto é só importação de mesas (JSON) e canal de contato.
+
+Medido: `connectDiscord` (`profileService.ts:522`), `disconnectDiscord`, `getDiscordStatus` e as
+rotas `GET/POST/DELETE /profile/me/connect/discord` e `GET /profile/me/discord` (`profile.ts:279-325`).
+A rota `POST` grava `discord_connected = true` com `username` e `id` do corpo, sem OAuth.
+`rg "connect/discord|me/discord" apps/mesas/frontend/src` → 0 chamadores.
+
+Antes de apagar, medir (read-only, sem escrita na VM): linhas com `gm_profiles.discord_connected`
+verdadeiro e `auth_providers` com `provider = 'discord'`; outros leitores de `discord_id`,
+`discord_username` e `discord_connected` (`rtk rg`, inclusive `packages/` e `apps/accounts`);
+contrato público em `docs/api/openapi/`. Linhas com valor em produção: parar e pedir decisão
+sobre o dado. Zero: remover funções, rotas e testes. A coluna e a migration (`DROP COLUMN`) ficam
+fora até ele mandar (T1 de migration). `pnpm verify:api`. Aceite: `rtk rg "connectDiscord|disconnectDiscord"
+apps/mesas` → 0; `GET /api/v1/profile/me/discord` → 404.

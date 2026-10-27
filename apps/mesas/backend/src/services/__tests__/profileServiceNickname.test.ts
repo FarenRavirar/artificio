@@ -1,77 +1,92 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { deriveGmNickname } from '../profileService.js';
+import { deriveGmNickname, slugifyGmName } from '../profileService.js';
+
+const ID = '528baa88-0000-0000-0000-000000000000';
 
 /**
- * Relato do mantenedor (2026-09-01, mestre `dadoviciadopodcast`): perfil nascia
- * com `nickname` NULL, e o `POST /gm/profile` exige 2-40 caracteres. Medido em
- * producao: 7 de 49 perfis sem nickname, mestre travado sem publicar mesa.
+ * Spec 106 R1/D4 (substitui a ordem da 099 E1): `patch → profiles.display_name →
+ * username → user-<8 hex>`. O e-mail não entra. Caso medido: `patorico027` era o
+ * prefixo do e-mail do mestre `VOID` (`display_name` = `VOID`).
  */
-describe('deriveGmNickname — perfil nunca nasce sem nickname', () => {
+describe('deriveGmNickname — perfil nunca nasce sem nickname, nunca do e-mail', () => {
   it('usa o nickname do patch quando ele ja e valido', () => {
-    expect(deriveGmNickname({ username: 'fulano', email: 'a@b.com' }, 'slug-x', { nickname: 'Mestre Jeff' }))
+    expect(deriveGmNickname({ displayName: 'VOID', username: 'void' }, ID, { nickname: 'Mestre Jeff' }))
       .toBe('Mestre Jeff');
   });
 
-  it('cai no username quando o patch nao traz nickname', () => {
-    expect(deriveGmNickname({ username: 'dadoviciado', email: 'a@b.com' }, 'slug-x'))
-      .toBe('dadoviciado');
+  it('sem patch, display_name vence o username', () => {
+    expect(deriveGmNickname({ displayName: 'VOID', username: 'dadoviciado' }, ID)).toBe('VOID');
   });
 
-  it('cai no local do e-mail quando nao ha username', () => {
-    expect(deriveGmNickname({ username: null, email: 'jeferson@exemplo.com' }, 'slug-x'))
-      .toBe('jeferson');
+  it('cai no username quando nao ha display_name', () => {
+    expect(deriveGmNickname({ displayName: null, username: 'dadoviciado' }, ID)).toBe('dadoviciado');
   });
 
-  it('cai no slug quando username e e-mail nao servem — nunca devolve vazio', () => {
-    expect(deriveGmNickname({ username: '', email: 'a@b.com' }, 'dadoviciadopodcast'))
-      .toBe('dadoviciadopodcast');
-    expect(deriveGmNickname(undefined, 'user-528baa88')).toBe('user-528baa88');
+  it('sem nada, user-<8 hex do id> — nunca vazio', () => {
+    expect(deriveGmNickname({}, ID)).toBe('user-528baa88');
+    expect(deriveGmNickname({ displayName: '', username: ' ' }, ID)).toBe('user-528baa88');
+  });
+
+  it('o placeholder "Usuário" de updateProfile não vira nome público: cai no username', () => {
+    expect(deriveGmNickname({ displayName: ' usuário ', username: 'dadoviciado' }, ID)).toBe('dadoviciado');
+    expect(deriveGmNickname({ displayName: 'Usuário' }, ID)).toBe('user-528baa88');
   });
 
   it('respeita o piso de 2 caracteres do contrato do backend', () => {
-    // username de 1 char seria recusado pelo POST com 400.
-    expect(deriveGmNickname({ username: 'x', email: 'a@b.com' }, 'slug-valido'))
-      .toBe('slug-valido');
+    expect(deriveGmNickname({ displayName: 'x', username: 'y' }, ID)).toBe('user-528baa88');
   });
 
   it('corta em 40 caracteres, o teto do contrato', () => {
-    const longo = 'M'.repeat(60);
-    expect(deriveGmNickname({ username: longo, email: 'a@b.com' }, 'slug-x')).toHaveLength(40);
+    expect(deriveGmNickname({ displayName: 'M'.repeat(60) }, ID)).toHaveLength(40);
+  });
+});
+
+describe('deriveGmNickname — patch invalido nao vence o fallback', () => {
+  const names = { displayName: 'VOID', username: 'void' };
+
+  it.each([null, 'x', '   '])('nickname %j no patch cai no fallback', (nickname) => {
+    expect(deriveGmNickname(names, ID, { nickname })).toBe('VOID');
+  });
+
+  it('nickname acima de 40 e cortado, nunca recusado pelo POST depois', () => {
+    expect(deriveGmNickname(names, ID, { nickname: 'M'.repeat(60) })).toHaveLength(40);
+  });
+});
+
+describe('slugifyGmName', () => {
+  it('tira acento e normaliza separador', () => {
+    expect(slugifyGmName('Clézio RPG')).toBe('clezio-rpg');
+    expect(slugifyGmName('Dado Viciado')).toBe('dado-viciado');
+  });
+
+  it('nome sem letra nem numero devolve vazio (o chamador cai em user-<8 hex>)', () => {
+    expect(slugifyGmName('***')).toBe('');
+  });
+
+  it('sem hifen nas pontas, nem depois do corte em 36', () => {
+    expect(slugifyGmName('--Dado  Viciado!!')).toBe('dado-viciado');
+    expect(slugifyGmName(`${'a'.repeat(35)} b`)).toBe('a'.repeat(35));
+  });
+
+  it('entrada hostil de hifens e simbolos roda em tempo linear', () => {
+    const inicio = Date.now();
+    expect(slugifyGmName('-'.repeat(200_000) + 'x' + '-'.repeat(200_000))).toBe('x');
+    expect(Date.now() - inicio).toBeLessThan(500);
   });
 });
 
 /**
- * Achado de review (PR #301): a primeira correcao de E1 punha `nickname:
- * deriveGmNickname(...)` ANTES de `...sanitizedData` no insert, e o patch
- * sobrescrevia o valor derivado. Como o `PATCH /api/v1/profile/gm` manda
- * `nickname` explicitamente (`profile.ts:183`), os tres casos abaixo voltavam a
- * gravar registro fora do contrato de 2-40 — a porta que E1 fecha.
- *
- * O teste e sobre a FUNCAO porque e ela que decide; a ordem no insert e
- * verificada por leitura (`...sanitizedData` vem antes da chave derivada).
+ * R1 + A9: o e-mail não pode voltar a alimentar a identidade. Se alguém reintroduzir
+ * `email.split('@')` em `profileService.ts`, este teste falha.
  */
-describe('deriveGmNickname — patch invalido nao vence o fallback', () => {
-  const user = { username: 'dadoviciado', email: 'jeferson@exemplo.com' };
-
-  it('nickname null no patch cai no fallback, nao grava null', () => {
-    expect(deriveGmNickname(user, 'dadoviciadopodcast', { nickname: null }))
-      .toBe('dadoviciado');
-  });
-
-  it('nickname de 1 caractere cai no fallback (piso de 2 do contrato)', () => {
-    expect(deriveGmNickname(user, 'dadoviciadopodcast', { nickname: 'x' }))
-      .toBe('dadoviciado');
-  });
-
-  it('nickname acima de 40 e cortado, nunca recusado pelo POST depois', () => {
-    const resultado = deriveGmNickname(user, 'slug-x', { nickname: 'M'.repeat(60) });
-    expect(resultado).toHaveLength(40);
-  });
-
-  it('so espacos no patch cai no fallback', () => {
-    expect(deriveGmNickname(user, 'dadoviciadopodcast', { nickname: '   ' }))
-      .toBe('dadoviciado');
+describe('identidade do mestre — sem e-mail', () => {
+  it('profileService.ts nao le o e-mail para derivar nome ou slug', () => {
+    const source = readFileSync(new URL('../profileService.ts', import.meta.url), 'utf8');
+    const start = source.indexOf('export function deriveGmNickname');
+    const end = source.indexOf('async function promoteUserToGm');
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(source.slice(start, end)).not.toMatch(/email/i);
   });
 });
 

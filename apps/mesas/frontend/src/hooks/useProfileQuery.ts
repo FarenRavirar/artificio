@@ -217,17 +217,10 @@ export function useUpdateGm() {
         return result.data;
       }
 
-      const user = queryClient.getQueryData<FullProfile>(['profile', 'me'])?.user;
-      const slug = deriveGmSlug(user ?? { id: '' });
-      // `POST /gm/profile` (gmPanel.ts:223) rejeita nickname ausente com 400, e
-      // nenhuma chamada de `updateGm` manda nickname — ele edita um campo por
-      // vez. Sem este fallback o upsert falharia para todo mestre novo.
-      const nickname = deriveGmNickname(user, validated as Partial<GmProfile>);
-      const result = await api.post<{ data: FullProfile['gm'] }>('/api/v1/gm/profile', {
-        ...validated,
-        slug,
-        nickname,
-      });
+      // Spec 106 R2: slug e nickname NÃO são mais derivados aqui. O backend os
+      // deriva (nome do perfil → username → user-<8 hex>, nunca o e-mail); o
+      // cliente só manda o que o usuário digitou.
+      const result = await api.post<{ data: FullProfile['gm'] }>('/api/v1/gm/profile', validated);
       return result.data;
     },
     onMutate: async (newData) => {
@@ -299,61 +292,4 @@ export function useRemoveSystem() {
       track('system_removed');
     },
   });
-}
-
-/**
- * Deriva o slug do perfil de mestre para o POST /api/v1/gm/profile
- * (spec 099, resíduo pós-B0).
- *
- * O POST exige slug casando `/^[a-z0-9-]+$/` (gmPanel.ts) — antes esta
- * derivação vivia inline em `useUpdateGm` e podia violar o regex (username com
- * `_`, e-mail com `.`/`+`/acento). Regra base espelha a do PATCH service
- * (`profileService.updateGmProfile`): username → local do e-mail → fallback
- * `user-<id 8>`. Sanitização garante o contrato do POST.
- *
- * Vivia em `utils/gmSlug.ts`; veio para cá na consolidação do editor
- * (pós-B5) porque o único consumidor é o `useUpdateGm` deste mesmo arquivo —
- * evita util pequeno e import cruzado. Exportado para o teste do contrato.
- */
-
-export interface GmSlugSource {
-  id: string;
-  username?: string | null;
-  email?: string;
-}
-
-export function deriveGmSlug(user: GmSlugSource): string {
-  const base =
-    user.username ||
-    (user.email ? user.email.split('@')[0] : '') ||
-    `user-${user.id.slice(0, 8)}`;
-  const sanitized = base.toLowerCase().replace(/[^a-z0-9-]/g, '-');
-  // Guarda final: base não-vazia sempre produz sanitizado não-vazio, mas o
-  // contrato do POST não admite slug vazio em hipótese nenhuma.
-  return sanitized.length > 0 ? sanitized : `user-${user.id.slice(0, 8)}`;
-}
-
-/**
- * Deriva o nickname para o POST /api/v1/gm/profile (achado de review, PR #297).
- *
- * `gmPanel.ts:223` rejeita nickname ausente ou fora de 2-40 caracteres com 400,
- * e nenhuma chamada de `updateGm` manda nickname — o editor grava um campo por
- * vez. Sem este fallback o upsert falhava para TODO mestre novo, mesmo depois
- * de o ramo POST voltar a ser alcançável.
- *
- * Ordem: o que o próprio patch trouxer → username → local do e-mail → o slug
- * derivado (que já garante não-vazio). O corte em 40 é do contrato do backend;
- * o piso de 2 cai no slug, porque um nickname de 1 caractere seria recusado.
- */
-export function deriveGmNickname(
-  user: GmSlugSource | undefined,
-  patch: Partial<GmProfile>,
-): string {
-  const doPatch = typeof patch.nickname === 'string' ? patch.nickname.trim() : '';
-  if (doPatch.length >= 2) return doPatch.slice(0, 40);
-
-  const fonte = user ?? { id: '' };
-  const bruto = (fonte.username || (fonte.email ? fonte.email.split('@')[0] : '') || '').trim();
-  const candidato = bruto.length >= 2 ? bruto : deriveGmSlug(fonte);
-  return candidato.slice(0, 40);
 }

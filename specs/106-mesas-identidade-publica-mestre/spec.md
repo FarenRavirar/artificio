@@ -289,6 +289,7 @@ execução achar algo de produto fora da §3.2, para e pergunta com opções med
 | D15 | Ordem das fases do `plan.md` §14 ("sim, mas não execute, apenas deixe toda a spec pronta"). **Esta sessão não executa nada da spec** |
 | D21 | O commit e a PR levam todo o diff, inclusive os `tasks.md` das specs 091 e 105 e o `cloudflared` ("todo o all vai no commit e na pr") |
 
+| D23 | Remover o resíduo de vínculo Discord (rotas `/profile/me/connect/discord`, `connectDiscord`), antiga autenticação Discord sem uso ('coloque no final da spec'). Tarefa T10.1 |
 | D22 | **Sem banner de consentimento.** A política informa que a coleta é permanente e o que se coleta ("segue sem informar […] coloque apenas na política que sempre coleta e o que coleta, na página de política"). Razão dele: os cookies servem à manutenção do site e a outros fins técnicos. Recomendação do agente era banner com recusa; o mantenedor decidiu o contrário. Registrado como decisão de **não fazer** o banner (T9.4 encerrada) |
 
 ### 3.3 Decisões do agente (executar sem perguntar; ele reverte se quiser)

@@ -44,6 +44,7 @@ import {
 } from '../utils/userMarkdown.js';
 import { parseTextForPreview } from '../discord/parseTextForPreview.js';
 import { extractProfileBioAttributes } from '../discord/llmAssist.js';
+import { prepareNewGmProfileIdentity } from '../services/profileService.js';
 import {
   loadSystemsForParser,
   loadVttPlatformsForParser,
@@ -223,11 +224,13 @@ router.post('/profile', authMiddleware, async (req: Request, res: Response) => {
     contact_methods,
   } = req.body;
 
-  if (!slug || typeof slug !== 'string' || !/^[a-z0-9-]+$/.test(slug)) {
+  // Spec 106 R1/R2: slug e nickname são opcionais. Quando faltam, o backend os
+  // deriva (nunca do e-mail); quando vêm, valem como patch e seguem o contrato.
+  if (slug !== undefined && (typeof slug !== 'string' || !/^[a-z0-9-]+$/.test(slug))) {
     return res.status(400).json({ error: 'Slug inválido. Use apenas letras minúsculas, números e hífens.' });
   }
 
-  if (!nickname || typeof nickname !== 'string' || nickname.trim().length < 2 || nickname.trim().length > 40) {
+  if (nickname !== undefined && (typeof nickname !== 'string' || nickname.trim().length < 2 || nickname.trim().length > 40)) {
     return res.status(400).json({ error: 'Nickname inválido. Use entre 2 e 40 caracteres.' });
   }
 
@@ -281,11 +284,16 @@ router.post('/profile', authMiddleware, async (req: Request, res: Response) => {
       : null;
 
   try {
-    const existing = await db
-      .selectFrom('gm_profiles')
-      .select('id')
-      .where('slug', '=', slug)
-      .executeTakeFirst();
+    const derived = slug === undefined || nickname === undefined
+      ? await prepareNewGmProfileIdentity(userId, { nickname })
+      : null;
+    const finalSlug: string = slug ?? derived!.slug;
+    const finalNickname: string = (nickname ?? derived!.nickname).trim();
+
+    // Só o slug vindo do cliente pode colidir: o derivado já saiu livre.
+    const existing = slug === undefined
+      ? undefined
+      : await db.selectFrom('gm_profiles').select('id').where('slug', '=', slug).executeTakeFirst();
 
     if (existing) {
       return res.status(409).json({ error: 'Este slug de mestre já está em uso.' });
@@ -295,8 +303,8 @@ router.post('/profile', authMiddleware, async (req: Request, res: Response) => {
       .insertInto('gm_profiles')
       .values({
         user_id: userId,
-        slug,
-        nickname: nickname.trim(),
+        slug: finalSlug,
+        nickname: finalNickname,
         bio_long: safeBioLong,
         languages: safeLanguages,
         specialties: safeSpecialties,
@@ -722,7 +730,8 @@ router.get('/tables/:id', authMiddleware, async (req: Request, res: Response) =>
       banner_url: sanitizePublicImageUrl(tableData.banner_url),
       contacts,
       schedules,
-      slots_available: (tableData.slots_total ?? 0) - (tableData.slots_filled ?? 0),
+      // D11 (spec 106): vagas são as que o mestre controla (slots_open), não total - filled.
+      slots_available: tableData.slots_open ?? (tableData.slots_total ?? 0) - (tableData.slots_filled ?? 0),
     };
 
     return res.json({ data: responseData });

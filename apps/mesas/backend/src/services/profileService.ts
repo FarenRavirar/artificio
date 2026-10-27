@@ -51,48 +51,59 @@ export interface FullProfile {
 }
 
 /**
- * Nickname de um `gm_profiles` recem-criado.
+ * Nome público de um `gm_profile` novo (spec 106 R1, D4). Substitui a ordem da
+ * spec 099 E1 (`patch → username → local do e-mail → slug`): o prefixo do e-mail
+ * ia parar no card, na URL e no sitemap, sem caminho de troca (caso `patorico027`,
+ * mestre `VOID`). Medido: `profiles.display_name` — o nome que a pessoa digitou no
+ * onboarding — nunca era lido. A garantia da 099 fica: nunca nulo, sempre 2-40.
  *
- * Relato do mantenedor (2026-09-01, mestre `dadoviciadopodcast`): o perfil
- * nascia com `nickname` NULL por estes dois inserts, que derivavam so o `slug`.
- * O `POST /api/v1/gm/profile` (`gmPanel.ts:250`) EXIGE nickname de 2-40
- * caracteres — dois caminhos de criacao da mesma tabela com contratos
- * diferentes. Medido em producao no dia do relato: 7 de 49 perfis sem
- * nickname, e o mestre travado sem publicar mesa nem salvar o proprio nome.
- *
- * A ordem espelha `deriveGmNickname` do front
- * (`useProfileQuery.ts:349`), que ja resolvia o mesmo problema no upsert do
- * cliente: patch → username → local do e-mail → slug (que nunca e vazio). O
- * corte em 40 e o piso de 2 vem do contrato do backend; manter as duas regras
- * iguais e o que impede o perfil criado por um caminho de ser invalido pelo
- * outro.
+ * Ordem: patch → `profiles.display_name` → `users.username` → `user-<8 hex do id>`.
+ * O e-mail não entra em degrau nenhum.
  */
 export function deriveGmNickname(
-  user: { username: string | null; email: string } | undefined,
-  slug: string,
+  names: { displayName?: string | null; username?: string | null },
+  userId: string,
   patch?: Record<string, unknown>,
 ): string {
   const doPatch = typeof patch?.nickname === 'string' ? patch.nickname.trim() : '';
   if (doPatch.length >= 2) return doPatch.slice(0, 40);
 
-  const bruto = (user?.username || user?.email?.split('@')[0] || '').trim();
-  const candidato = bruto.length >= 2 ? bruto : slug;
-  return candidato.slice(0, 40);
+  for (const candidato of [names.displayName, names.username]) {
+    const nome = candidato?.trim() ?? '';
+    // 'Usuário' é o display_name que `updateProfile` grava quando cria a linha sem
+    // nome (ex.: só a foto do Google): placeholder, não nome escolhido.
+    if (nome.length >= 2 && nome.toLowerCase() !== 'usuário') return nome.slice(0, 40);
+  }
+  return `user-${userId.slice(0, 8)}`;
+}
+
+/** Teto do slug-base: sobra espaço para o sufixo `-N` dentro dos 40 do nickname. */
+const SLUG_BASE_MAX = 36;
+
+/** `Clézio RPG` → `clezio-rpg`. Vazio quando o nome não tem letra nem número. */
+export function slugifyGmName(value: string): string {
+  // split/filter/join em vez de `.replace(/^-+|-+$/g, '')`: essa alternância
+  // retrocede em tempo super-linear (Sonar, PR #341) e o nome vem do usuário.
+  const slug = value
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean)
+    .join('-')
+    .slice(0, SLUG_BASE_MAX);
+  return slug.endsWith('-') ? slug.slice(0, -1) : slug; // join só deixa um '-' por vez
 }
 
 /**
- * Identidade de um `gm_profile` que ainda nao existe, para os dois caminhos que
- * o criam: o upsert do painel (`updateGmProfile`) e o vinculo do Discord.
+ * Identidade de um `gm_profile` que ainda nao existe, para as tres portas que o
+ * criam: `POST /gm/profile`, o upsert do painel (`updateGmProfile`) e o vinculo do
+ * Discord. O `slug` nasce do nome (`slugifyGmName(nickname)`), com sufixo numerico
+ * em colisao; o front nao deriva mais nada (spec 106 R2).
  *
- * Extraido por achado de duplicacao do Sonar (PR #302), mas o motivo nao e a
- * metrica: os dois blocos ja repetiam a busca do usuario, a derivacao do `slug`
- * e a elevacao de role, e E1 acabou de mostrar o custo disso — o `nickname`
- * precisou ser corrigido nos dois lugares, e a segunda rodada de review achou a
- * ordem errada em um deles. Duas copias da regra de identidade divergem; foi
- * assim que 7 perfis de producao nasceram fora do contrato.
- *
- * O `slug` mantem o fallback `user-<prefixo do id>` porque e o unico valor que
- * nunca e vazio — `deriveGmNickname` depende dele como ultimo degrau.
+ * Extraido por achado de duplicacao do Sonar (PR #302): duas copias da regra de
+ * identidade divergem; foi assim que 7 perfis de producao nasceram fora do
+ * contrato. O `user-<8 hex>` e o unico valor que nunca e vazio.
  */
 export async function prepareNewGmProfileIdentity(
   userId: string,
@@ -100,13 +111,40 @@ export async function prepareNewGmProfileIdentity(
 ): Promise<{ slug: string; nickname: string }> {
   const user = await db
     .selectFrom('users')
-    .select(['username', 'email'])
+    .select(['username'])
     .where('id', '=', userId)
     .executeTakeFirst();
+  const profile = await db
+    .selectFrom('profiles')
+    .select(['display_name'])
+    .where('user_id', '=', userId)
+    .executeTakeFirst();
 
-  const slug = user?.username || user?.email.split('@')[0] || `user-${userId.slice(0, 8)}`;
+  const nickname = deriveGmNickname(
+    { displayName: profile?.display_name, username: user?.username },
+    userId,
+    patch,
+  );
+  const base = slugifyGmName(nickname) || `user-${userId.slice(0, 8)}`;
 
-  return { slug, nickname: deriveGmNickname(user, slug, patch) };
+  // Uma consulta traz `base` e `base-N`; o primeiro N livre sai em memória, sem
+  // `await` em laço. `-` e alfanuméricos não são curingas do LIKE.
+  const ocupados = new Set(
+    (
+      await db
+        .selectFrom('gm_profiles')
+        .select('slug')
+        .where((eb) => eb.or([eb('slug', '=', base), eb('slug', 'like', `${base}-%`)]))
+        .execute()
+    ).map((row) => row.slug),
+  );
+  let n = 1;
+  let slug = base;
+  while (ocupados.has(slug)) {
+    n += 1;
+    slug = `${base}-${n}`;
+  }
+  return { slug, nickname };
 }
 
 /**

@@ -5,6 +5,13 @@ import type { TableCard } from '../types/tables';
 import { authGet } from '../services/apiClient';
 import { toFiniteNumber } from '@artificio/ui';
 
+/** Vagas abertas = `slots_open` (controlado pelo mestre); `total - filled` só sem ele (spec 106 D11). */
+export function sumOpenSlots(
+  tables: Array<Pick<TableCard, 'slots_total' | 'slots_filled'> & { slots_open?: number | null }>,
+): number {
+  return tables.reduce((acc, t) => acc + (t.slots_open ?? t.slots_total - t.slots_filled), 0);
+}
+
 export interface ViewerContext {
   is_owner: boolean;
   is_admin: boolean;
@@ -86,7 +93,7 @@ export interface MestrePublicData {
     label?: string;
     discord_server_url?: string;
   }>;
-  tables: Array<Omit<TableCard, 'gm_slug' | 'gm_avatar_url' | 'gm_display_name'>>;
+  tables: Array<Omit<TableCard, 'gm_slug' | 'gm_avatar_url' | 'gm_display_name'> & { master_display_name?: string | null }>;
 }
 
 /**
@@ -276,12 +283,13 @@ export function useMestre(slug?: string, seeded?: MestrePublicData | null) {
       ...table,
       gm_slug: profile.slug,
       gm_avatar_url: profile.avatar_url,
-      gm_display_name: profile.display_name,
+      // R4 (spec 106): a sobrescrita da mesa vence o perfil, como nas demais superfícies.
+      gm_display_name: table.master_display_name?.trim() || profile.display_name,
     }));
   }, [profile]);
 
   const totalOpenSlots = useMemo(() => {
-    return mappedTables.reduce((acc, t) => acc + (t.slots_total - t.slots_filled), 0);
+    return sumOpenSlots(mappedTables);
   }, [mappedTables]);
 
   // `canSeeInsights` saiu daqui na spec 100 (T3.3): ele existia só para o

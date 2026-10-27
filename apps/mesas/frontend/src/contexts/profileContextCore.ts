@@ -14,7 +14,12 @@ export interface ProfileContextValue {
    */
   saveError: string | null;
   refetch: () => void;
-  updateUser: (data: { username?: string; location?: string }) => Promise<void>;
+  /**
+   * `updateUser`/`updateProfile` devolvem a mensagem do erro (ou `null` quando
+   * gravou), para o campo mostrar o motivo no lugar (ex.: "Username já está em
+   * uso"); antes só o indicador de autosave sabia, num tooltip (spec 106).
+   */
+  updateUser: (data: { username?: string; location?: string }) => Promise<string | null>;
   updateProfile: (data: {
     display_name?: string;
     bio?: string;
@@ -23,7 +28,7 @@ export interface ProfileContextValue {
     avatar_width?: number | null;
     avatar_height?: number | null;
     languages?: string[];
-  }) => Promise<void>;
+  }) => Promise<string | null>;
   updatePlayer: (data: Partial<PlayerProfile>) => Promise<void>;
   updateGm: (data: Partial<GmProfile>) => Promise<void>;
   /**

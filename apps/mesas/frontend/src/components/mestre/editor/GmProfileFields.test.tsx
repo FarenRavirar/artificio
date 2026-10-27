@@ -2,6 +2,7 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  NicknameField,
   TaglineField,
   PromoBadgeField,
   ProfileTagsSection,
@@ -138,6 +139,39 @@ vi.mock('@artificio/content-editor', () => ({
     <textarea aria-label={label} value={value} onChange={(e) => onChange(e.target.value)} />
   ),
 }));
+
+describe('NicknameField (spec 106 R5)', () => {
+  beforeEach(() => {
+    updateGm.mockReset();
+    flushGm.mockClear();
+  });
+
+  it('exibe o nome atual e limita a 40 caracteres, o teto do backend', () => {
+    render(<NicknameField value="VOID" />);
+    expect(screen.getByText('VOID')).toBeTruthy();
+    abrirCampo('Nome público do mestre');
+    expect(noModal().getByLabelText('Nome público do mestre')).toHaveAttribute('maxlength', '40');
+  });
+
+  it('1 caractere é recusado no modal e nada vai ao servidor', async () => {
+    render(<NicknameField value="" />);
+    abrirCampo('Nome público do mestre');
+    fireEvent.change(noModal().getByLabelText('Nome público do mestre'), { target: { value: 'x' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+
+    expect(await screen.findByText('Use entre 2 e 40 caracteres.')).toBeTruthy();
+    expect(updateGm).not.toHaveBeenCalled();
+  });
+
+  it('Salvar grava nickname aparado', async () => {
+    render(<NicknameField value="" />);
+    abrirCampo('Nome público do mestre');
+    fireEvent.change(noModal().getByLabelText('Nome público do mestre'), { target: { value: '  VOID  ' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+
+    await waitFor(() => expect(updateGm).toHaveBeenCalledWith({ nickname: 'VOID' }));
+  });
+});
 
 describe('TaglineField', () => {
   beforeEach(() => {
