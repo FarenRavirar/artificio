@@ -148,7 +148,6 @@ export interface DiscordDraftTablePayload extends Record<string, unknown> {
   price_type?: string | null;
   price_value?: number | null;
   slots_total?: number | null;
-  slots_filled?: number | null;
   slots_open?: number | null;
   day_of_week?: string | null;
   start_time?: string | null;

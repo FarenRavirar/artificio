@@ -3351,7 +3351,6 @@ export function parseDiscordAnnouncement(
     accepts_donations: priceType !== 'paga' ? donation.accepts : false,
     suggested_donation_value: priceType !== 'paga' && donation.accepts ? donation.suggested : null,
     slots_total: slotsTotal,
-    slots_filled: slotsTotal != null && slotsOpen != null ? slotsTotal - slotsOpen : null,
     slots_open: slotsOpen,
     day_of_week: dayOfWeek,
     start_time: startTime,

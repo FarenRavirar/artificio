@@ -196,15 +196,24 @@ beta cria 1 linha e 1 aviso; segunda ocorrência incrementa sem novo aviso.
 
 ## 10. Vagas (R11, R15, D11)
 
-Fonte única no backend: `COALESCE(t.slots_open, t.slots_total - t.slots_filled)` como
-`slots_available` (nome já usado em `gmPanel.ts:725`, campo hoje sem nenhum leitor), em `gm.ts:249`
-(junto com `t.slots_open`), `tables.ts` e na resposta de `GET /gm/tables/:id`. O front consome o valor: `useMestre.ts:284` soma
-`slots_available`; `whatsappAnnouncement.ts:274` usa o do payload. Nada de importar o front no
-back: `packages/catalog-table` só tem o front de `mesas` como consumidor (medido), então não é
-tocado, a menos que `tableViewMapper.ts:194` precise do mesmo campo (blast radius = 1 consumidor).
-Medir antes: quem escreve `slots_filled` hoje (spec 096 T3.2d deu escritor no fluxo manual) e se
-isso muda o `COALESCE`. Teste cruzado: o mesmo `mestre-hermes` na página do mestre, na home, no
-texto do WhatsApp e na resposta do editor dá o mesmo número.
+Dois números, e só dois: `slots_total` (teto) e `slots_open` (vagas para entrar, de 0 até o total).
+**Não existe vaga preenchida**: a spec original previa `COALESCE(slots_open, total - filled)` e a
+medição em produção a derrubou (`slots_filled = 0` em 190 de 230 mesas; `slots_open` difere de
+`total - filled` em 70). Sem `slots_open`, vale `slots_total`.
+
+Backend: `slots_filled` sai de validators, service, rotas, importador e do tipo de
+`packages/catalog-table`; `slots_available` (campo sem leitor) sai da resposta do `gmPanel`.
+Invariante `slots_open <= slots_total` fica no schema e no estado resultante do PUT parcial
+(`slotsConsistencySchema`). A coluna `slots_filled` continua no banco com `DEFAULT 0` até um
+`DROP COLUMN` posterior (T8.9: só depois de tudo testado em produção; expand/contract, autorização nominal, `pg_dump` antes): derrubar a coluna na
+mesma entrega faria o app antigo, ainda servindo durante o deploy, quebrar em toda listagem. Enquanto
+ela existe, o PUT que envia `slots_total` grava `slots_filled = 0`, porque o CHECK
+`slots_filled_valid` barraria reduzir o total de uma mesa antiga. O schema aceita e ignora
+`slots_filled` enviado por aba antiga.
+
+Front: `getSlotsVisualState`, `sumOpenSlots` e `formatSlots` leem só `slots_total` e `slots_open`
+(as bolinhas ocupadas são derivadas `total - open`, só para desenhar). Teste cruzado: o mesmo
+`mestre-hermes` na página do mestre e no texto do WhatsApp dá o mesmo número.
 
 ## 11. Fila de feedback (R13, D13, D19, D20)
 

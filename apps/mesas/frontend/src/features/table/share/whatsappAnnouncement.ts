@@ -270,8 +270,7 @@ function formatSchedules(table: TableDetail): string {
 }
 
 function formatSlots(table: TableDetail): string {
-  if (typeof table.slots_open === 'number') return String(table.slots_open);
-  const available = table.slots_total - table.slots_filled;
+  const available = table.slots_open ?? table.slots_total;
   return Number.isFinite(available) ? String(Math.max(available, 0)) : '';
 }
 

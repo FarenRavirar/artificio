@@ -539,7 +539,6 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
       // quando o maior número vinha primeiro no texto original.
       const total = Math.max(slotsAmbiguity.first, slotsAmbiguity.second);
       const smaller = Math.min(slotsAmbiguity.first, slotsAmbiguity.second);
-      const filled = slotsInterpretation === 'filled_total' ? smaller : Math.max(0, total - smaller);
       const open = slotsInterpretation === 'filled_total' ? Math.max(0, total - smaller) : smaller;
       const nextForm = {
         ...state.form,
@@ -557,7 +556,6 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
         table: {
           ...baseTable,
           slots_total: total,
-          slots_filled: filled,
           slots_open: open,
           _slots_ambiguity: null,
         },

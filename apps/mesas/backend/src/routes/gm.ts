@@ -253,7 +253,6 @@ router.get('/perfis/:slug', publicRateLimiter, optionalAuth, async (req: Request
         't.price_type',
         't.price_value',
         't.slots_total',
-        't.slots_filled',
         't.slots_open',
         't.master_display_name', // R4 (spec 106): sobrescrita do nome por mesa
         't.language',

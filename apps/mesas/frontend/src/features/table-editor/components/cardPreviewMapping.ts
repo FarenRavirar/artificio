@@ -100,7 +100,6 @@ export function editorStateToCardPreview(
     // O editor não guarda vagas PREENCHIDAS (ninguém entrou em rascunho). O
     // visual do card prioriza slots_open (getSlotsVisualState deriva
     // filled = total - open), então este valor cru não aparece na tela.
-    slots_filled: 0,
     slots_open: Number.parseInt(state.slotsOpen, 10) || 0,
     language: state.language,
     experience_level: (state.experienceLevel as ExperienceLevel) || 'todos',

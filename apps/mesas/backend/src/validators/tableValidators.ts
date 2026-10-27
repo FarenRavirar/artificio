@@ -179,13 +179,11 @@ const baseTableSchema = z.object({
   suggested_donation_value: z.number().min(0).nullable().optional(),
   price_frequency: z.enum(PRICE_FREQUENCIES).nullable().optional(),
   slots_total: z.number().int().min(1).max(100).default(4),
-  // T3.2d (spec 096): slots_filled ganhou ESCRITOR no fluxo manual — o mapper
-  // envia slots_total - slots_open (mesma semântica do parser,
-  // parseDiscordAnnouncement.ts:2820, e do leitor getSlotsVisualState). A
-  // relação <= slots_total é o CHECK `slots_filled_valid` do Postgres; sem o
-  // refine, um cliente fora do form mandaria filled > total e levaria 500 do
-  // banco em vez de 400 (classe do bug normalizeSlots, syncHelpers.ts:361).
-  slots_filled: z.number().int().min(0).default(0),
+  // Spec 106 T8.2: vagas são DUAS — `slots_total` (teto) e `slots_open` (vagas para
+  // entrar). `slots_filled` não existe mais; a coluna fica no banco só até o
+  // `DROP COLUMN` (expand/contract). `slots_filled` abaixo é aceito e IGNORADO: o
+  // schema é `.strict()` e uma aba aberta antes do deploy ainda o envia.
+  slots_filled: z.number().int().min(0).optional(),
   slots_open: z.number().int().min(0).optional(),
   language: z.string().max(50).default('Português'),
   experience_level: z.enum(EXPERIENCE_LEVELS).default('todos'),
@@ -396,14 +394,6 @@ export const createTableSchema = withPricingRules(
     }, { 
       message: 'Vagas abertas não pode ser maior que vagas totais', 
       path: ['slots_open'] 
-    })
-    .refine((data) => {
-      // Espelha o CHECK `slots_filled_valid` do Postgres (filled <= total) —
-      // 400 antes de chegar no banco (T3.2d, spec 096).
-      return data.slots_filled <= data.slots_total;
-    }, {
-      message: 'Vagas preenchidas não pode ser maior que vagas totais',
-      path: ['slots_filled']
     }),
 ).refine((data) => {
     if (data.publisher_role === 'announcer' && !data.actual_gm_name) return false;
@@ -460,7 +450,7 @@ export const updateTableSchema = baseTableSchema
   // PR #285). O `.partial()` não remove os `.default()` do baseTableSchema,
   // então `slots_total` chega como `4` mesmo num PUT que não o enviou — e o
   // refine comparava contra esse default em vez da linha salva. Medido:
-  // `{ slots_filled: 5 }` era REJEITADO, embora 64 das 114 mesas em produção
+  // `{ slots_open: 5 }` era REJEITADO, embora 64 das 114 mesas em produção
   // tenham `slots_total > 4` e a atualização fosse legítima. Um refine que
   // depende de campo que o cliente não mandou só pode errar: rejeita o válido
   // (aqui) ou aprova o inválido (a outra face, corrigida na rodada anterior).
@@ -557,7 +547,6 @@ export function mergePricingState(
  */
 export interface TableSlotsRow {
   slots_total: number;
-  slots_filled: number;
   slots_open: number;
 }
 
@@ -567,16 +556,13 @@ export interface TableSlotsRow {
  *
  * Por que o refine do `updateTableSchema` não basta (achado Codex, PR #285):
  * a linha salva não é visível de dentro do schema. O patch que escapava é o
- * de **só `slots_total`**, reduzido abaixo do `slots_filled` salvo — que é
- * exatamente o que o form de edição envia, já que ele omite `slots_filled`
- * (mapper.ts). Medido: patch só com `slots_filled` ou só com `slots_open` NÃO
- * escapa, porque o `.partial()` preserva o `.default(4)` de `slots_total` e o
+ * de **só `slots_total`**, reduzido abaixo do `slots_open` salvo — que é
+ * exatamente o que o form de edição envia. Medido: patch só com `slots_open`
+ * NÃO escapa, porque o `.partial()` preserva o `.default(4)` de `slots_total` e o
  * refine dispara no parse comparando contra esse default.
  *
- * Não havia corrupção de dado: os CHECKs do Postgres (`slots_filled_valid`,
- * `check_slots_valid`) barram a escrita. O defeito era o mestre levar 500 em
- * vez de 400 com mensagem. Medido em produção: 9 mesas com
- * `slots_filled >= 3` alcançam esse caminho ao reduzir o total.
+ * Não havia corrupção de dado: o CHECK `check_slots_valid` do Postgres barra a
+ * escrita. O defeito era o mestre levar 500 em vez de 400 com mensagem.
  */
 export function mergeSlotsState(
   payload: UpdateTableInput,
@@ -586,7 +572,6 @@ export function mergeSlotsState(
   const sent = (key: string) => Object.hasOwn(body, key);
   return {
     slots_total: sent('slots_total') ? (payload.slots_total ?? existing.slots_total) : existing.slots_total,
-    slots_filled: sent('slots_filled') ? (payload.slots_filled ?? existing.slots_filled) : existing.slots_filled,
     slots_open: sent('slots_open') ? (payload.slots_open ?? existing.slots_open) : existing.slots_open,
   };
 }
@@ -598,12 +583,7 @@ export function mergeSlotsState(
 export const slotsConsistencySchema = z
   .object({
     slots_total: z.number().int().min(0),
-    slots_filled: z.number().int().min(0),
     slots_open: z.number().int().min(0),
-  })
-  .refine((s) => s.slots_filled <= s.slots_total, {
-    message: 'Vagas preenchidas não pode ser maior que vagas totais',
-    path: ['slots_filled'],
   })
   .refine((s) => s.slots_open <= s.slots_total, {
     message: 'Vagas abertas não pode ser maior que vagas totais',

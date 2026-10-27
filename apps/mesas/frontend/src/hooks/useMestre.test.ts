@@ -133,12 +133,12 @@ describe('normalizeMestreProfile — selling_points na fronteira', () => {
 });
 
 describe('sumOpenSlots', () => {
-  it('usa slots_open, não total - filled (caso mestre-hermes: filled 0, open 2/4/4/0/5/6)', () => {
-    const tables = [2, 4, 4, 0, 5, 6].map((slots_open) => ({ slots_total: 6, slots_filled: 0, slots_open }));
+  it('soma slots_open (caso mestre-hermes: total 6, open 2/4/4/0/5/6)', () => {
+    const tables = [2, 4, 4, 0, 5, 6].map((slots_open) => ({ slots_total: 6, slots_open }));
     expect(sumOpenSlots(tables)).toBe(21);
   });
 
-  it('cai em total - filled só quando slots_open falta', () => {
-    expect(sumOpenSlots([{ slots_total: 5, slots_filled: 2 }])).toBe(3);
+  it('sem slots_open, todas as vagas totais contam como abertas', () => {
+    expect(sumOpenSlots([{ slots_total: 5 }])).toBe(5);
   });
 });

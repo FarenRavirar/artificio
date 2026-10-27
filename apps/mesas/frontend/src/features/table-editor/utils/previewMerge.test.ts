@@ -207,7 +207,6 @@ describe('applyParserPreview (Fase 6, T6.2) — prévia + campos que a fonte pro
         accepts_donations: false,
         suggested_donation_value: null,
         slots_total: 0,
-        slots_filled: 0,
         slots_open: 0,
         experience_level: 'todos',
         table_level: null,

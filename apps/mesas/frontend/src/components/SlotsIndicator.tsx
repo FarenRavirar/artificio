@@ -2,7 +2,7 @@ import { getSlotsVisualState } from '../utils/slots';
 import type { TableCard } from '../types/tables';
 
 interface SlotsIndicatorProps {
-  table: Pick<TableCard, 'slots_total' | 'slots_filled' | 'slots_open'>;
+  table: Pick<TableCard, 'slots_total' | 'slots_open'>;
   variant?: 'default' | 'compact';
   maxDots?: number;
 }
@@ -30,7 +30,7 @@ export function SlotsIndicator({
   const {
     open: slotsLeft,
     visibleTotal,
-    visibleFilled,
+    visibleClosed,
     total,
     colorClass,
     isUrgent,
@@ -44,7 +44,7 @@ export function SlotsIndicator({
           {Array.from({ length: visibleTotal }).map((_, i) => (
             <div
               key={i}
-              className={`w-2 h-2 rounded-full transition-colors ${i < visibleFilled ? colorClass : 'bg-white/20'
+              className={`w-2 h-2 rounded-full transition-colors ${i < visibleClosed ? colorClass : 'bg-white/20'
                 }`}
             />
           ))}
@@ -73,7 +73,7 @@ export function SlotsIndicator({
         {Array.from({ length: visibleTotal }).map((_, i) => (
           <div
             key={i}
-            className={`w-2 h-2 rounded-full transition-colors ${i < visibleFilled ? colorClass : 'bg-white/20'
+            className={`w-2 h-2 rounded-full transition-colors ${i < visibleClosed ? colorClass : 'bg-white/20'
               }`}
           />
         ))}

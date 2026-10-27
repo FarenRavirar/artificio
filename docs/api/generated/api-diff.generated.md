@@ -6,20 +6,5 @@
 
 ---
 
-## Sumário
-
-| App | Breaking | Non-breaking | Unclassified |
-|-----|:--------:|:------------:|:------------:|
-| mesas | ❌ 2 | ✅ 0 | ⚪ 0 |
-
----
-
-### mesas
-
-#### ❌ Breaking Changes (2)
-
-| Path | Method | Ação | Código |
-|------|--------|------|--------|
-| `/api/v1/profile/me/connect/discord` |  | remove | `path.remove` |
-| `/api/v1/profile/me/discord` |  | remove | `path.remove` |
+✅ **Nenhuma mudança detectada entre a versão atual e dev.**
 

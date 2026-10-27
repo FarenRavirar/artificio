@@ -191,10 +191,9 @@ export function mapTableToView(table: TableDetail): TableViewModel {
     'banner',
   );
 
-  // CORREÇÃO DT-09: Usar slots_open ao invés de calcular slots_total - slots_filled
+  // Spec 106 T8.2: vagas são `slots_total` (teto) e `slots_open` (para entrar).
   // slots_open = vagas abertas para recrutamento (controlado pelo mestre)
-  // slots_filled = jogadores já inscritos
-  const slotsLeft = table.slots_open ?? ((table.slots_total ?? 0) - (table.slots_filled ?? 0));
+  const slotsLeft = table.slots_open ?? table.slots_total ?? 0;
 
   // Estrutura de certificações
   const certifications: TableCertifications = {};
@@ -255,7 +254,6 @@ export function mapTableToView(table: TableDetail): TableViewModel {
     // Vagas
     slotsLeft,
     slotsTotal: table.slots_total,
-    slotsFilled: table.slots_filled,
     slotsOpen: table.slots_open, // CORREÇÃO DT-09: Adicionar slots_open ao ViewModel
     isFull: slotsLeft <= 0,
 

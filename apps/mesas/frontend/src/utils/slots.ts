@@ -9,10 +9,11 @@ function clamp(value: number, min: number, max: number): number {
 
 export interface SlotsVisualState {
   total: number;
-  filled: number;
+  /** Vagas que NÃO dá para entrar (total - open). Não implica ocupação: o mestre pode só ter fechado. */
+  closed: number;
   open: number;
   visibleTotal: number;
-  visibleFilled: number;
+  visibleClosed: number;
   ratio: number;
   colorClass: string;
   isUrgent: boolean;
@@ -20,9 +21,10 @@ export interface SlotsVisualState {
 }
 
 /**
- * Fonte única de verdade para lógica de vagas
- * - Usa slots_open como prioridade (backend)
- * - Fallback para cálculo clássico
+ * Fonte única de verdade para lógica de vagas (spec 106 T8.2): só `slots_total`
+ * (teto) e `slots_open` (vagas para entrar). `closed` abaixo é DERIVADO (total - open) e só
+ * desenha as bolinhas sem vaga; não é dado de ocupação e não deve ser rotulado como "preenchidas".
+ * - Sem slots_open, todas as vagas contam como abertas
  * - Normaliza valores inválidos
  * - Limita visual a maxDots (default: 10)
  * - Retorna cor baseada em ocupação (verde → amarelo → vermelho)
@@ -30,27 +32,24 @@ export interface SlotsVisualState {
  * - Blindado contra valores negativos ou maiores que total
  */
 export function getSlotsVisualState(
-  table: Pick<TableCard, 'slots_total' | 'slots_filled'> & { slots_open?: number | null },
+  table: Pick<TableCard, 'slots_total'> & { slots_open?: number | null },
   maxDots: number = 10
 ): SlotsVisualState {
   const total = Math.max(0, table.slots_total ?? 0);
 
-  let open =
-    table.slots_open !== null && table.slots_open !== undefined
-      ? table.slots_open
-      : Math.max(0, total - (table.slots_filled ?? 0));
+  let open = table.slots_open ?? total;
 
   // Blindagem: garantir que open esteja no range [0, total]
   open = clamp(open, 0, total);
 
-  const filled = Math.max(0, total - open);
+  const closed = Math.max(0, total - open);
 
   // Limite visual
   const visibleTotal = Math.min(maxDots, total);
 
   // Proporção (resolve casos > maxDots)
-  const ratio = total > 0 ? filled / total : 0;
-  const visibleFilled = Math.round(ratio * visibleTotal);
+  const ratio = total > 0 ? closed / total : 0;
+  const visibleClosed = Math.round(ratio * visibleTotal);
 
   // Estados de urgência
   const isUrgent = open <= 2 && open > 0;
@@ -59,8 +58,8 @@ export function getSlotsVisualState(
   // Cor baseada na ocupação (thresholds ajustados para reservar vermelho)
   let colorClass = 'bg-green-500';
 
-  if (filled === 0) {
-    colorClass = 'bg-white/40'; // Mesa vazia
+  if (closed === 0) {
+    colorClass = 'bg-white/40'; // Todas as vagas abertas
   } else if (ratio > 0.85) {
     colorClass = 'bg-red-500'; // Quase lotado
   } else if (ratio > 0.5) {
@@ -69,10 +68,10 @@ export function getSlotsVisualState(
 
   return {
     total,
-    filled,
+    closed,
     open,
     visibleTotal,
-    visibleFilled,
+    visibleClosed,
     ratio,
     colorClass,
     isUrgent,

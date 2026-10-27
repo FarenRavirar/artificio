@@ -80,7 +80,6 @@ interface MyTable {
   status: TableStatus;
   modality: string;
   slots_total: number;
-  slots_filled: number;
   system_name: string | null;
   publisher_role: 'gm' | 'announcer';
   actual_gm_name: string | null;
