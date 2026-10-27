@@ -39,6 +39,12 @@ export interface AdminNotificationInput {
   metadata?: Record<string, unknown>;
   /** Nao notifica este usuario (ex.: o proprio admin que executou a acao). */
   excludeUserId?: string | null;
+  /**
+   * Espera a entrega imediata do outbox terminar. Para processo que sai logo em
+   * seguida (`ops:alerts` faz `process.exit`): sem isto a entrega, disparada em
+   * segundo plano, morre com o processo e o aviso espera o sweep.
+   */
+  awaitDelivery?: boolean;
 }
 
 /**
@@ -109,9 +115,10 @@ export async function notifyAdmins(
     // gastaria uma volta à toa. Quem chama dentro de `trx` dispara depois do
     // commit, como fazem os handlers de sugestão.
     if (!executor) {
-      void deliverPendingNotifications().catch((deliveryError: unknown) => {
+      const delivery = deliverPendingNotifications().catch((deliveryError: unknown) => {
         console.error('[notifyAdmins] Falha na entrega pós-commit do outbox:', deliveryError);
       });
+      if (input.awaitDelivery) await delivery;
     }
   } catch (error) {
     console.error('[notifyAdmins]', input.type, error);

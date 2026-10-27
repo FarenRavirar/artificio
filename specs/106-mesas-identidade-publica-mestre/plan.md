@@ -226,12 +226,12 @@ texto do WhatsApp e na resposta do editor dá o mesmo número.
 ## 12. Contatos (R12, R20)
 
 - Dado: 2 `UPDATE` (cauda `)__` e `**`) e 3 `DELETE` de `form` duplicado de Discord, conforme T8.3.
-- Escrita: `canonicalizeHttpsUrl` (`contactUrls.ts:54`) passa a aplicar a mesma limpeza de
-  `trimTrailingUrlWrappers` (`parseDiscordAnnouncement.ts:1939`). Mover a função para
+- Escrita: `canonicalizeHttpsUrl` (`contactUrls.ts:54`) passa a aplicar a limpeza de
+  `trimTrailingUrlWrappers` só quando a cauda é inequívoca (`hasMarkdownUrlTail`) (`parseDiscordAnnouncement.ts:1939`). Mover a função para
   `utils/contactUrls.ts` e importar nos dois lados: uma cópia só. Conferir no parser que a
   semântica de `(`/`)` balanceados continua igual (testes do parser rodam).
-- Varredura: `services/contactTailSweep.ts` (`value ~ '[)\]_*>]+$'` em canal de URL de
-  `table_contacts`) chama `notifyAdmins('contact_tail')`, com dedupe de 24 h por `activity_log`
+- Varredura: `services/contactTailSweep.ts` (`MARKDOWN_URL_TAIL_SQL` + `>` em canal de URL de
+  `table_contacts`; `_`, `*` e `~` isolados são válidos e não são acusados) chama `notifyAdmins('contact_tail')`, com dedupe de 24 h por `activity_log`
   (`contact.tail_detected`). Roda em `ops:alerts` (§11.3). Não varre `gm_profiles.contact_methods`.
 
 ## 13. Contenção e mapas (R10, R17, R18, D17)

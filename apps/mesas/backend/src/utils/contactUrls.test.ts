@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canonicalizeContactValue, canonicalizeHttpsUrl, canonicalizeSocialProfileUrl, isResolvableUrl, trimTrailingUrlWrappers } from './contactUrls.js';
+import { canonicalizeContactValue, canonicalizeHttpsUrl, canonicalizeSocialProfileUrl, hasMarkdownUrlTail, isResolvableUrl, trimTrailingUrlWrappers } from './contactUrls.js';
 
 describe('canonicalizeSocialProfileUrl', () => {
   it('aceita host da própria rede', () => {
@@ -98,7 +98,35 @@ describe('cauda de Markdown na URL de contato', () => {
     expect(canonicalizeHttpsUrl(input)).toEqual({ ok: true, value: expected });
   });
 
+  it.each([
+    ['instagram', 'https://instagram.com/mestre_'],
+    ['form', 'https://forms.gle/abc_'],
+    ['form', 'https://forms.gle/abc*'],
+  ])('preserva caractere válido isolado em %s: %s', (channel, input) => {
+    expect(canonicalizeContactValue(channel, input)).toEqual({ ok: true, value: input });
+  });
+
   it('mantém parênteses balanceados no caminho', () => {
     expect(trimTrailingUrlWrappers('https://pt.wikipedia.org/wiki/Foo_(bar)')).toBe('https://pt.wikipedia.org/wiki/Foo_(bar)');
+  });
+});
+
+describe('hasMarkdownUrlTail e limpeza em entrada hostil', () => {
+  it.each([
+    ['https://x.com/a)', true],
+    ['https://x.com/a]', true],
+    ['https://x.com/a**', true],
+    ['https://x.com/a__', true],
+    ['https://x.com/a_', false],
+    ['https://x.com/a*', false],
+    ['', false],
+  ])('%j → %s', (url, expected) => {
+    expect(hasMarkdownUrlTail(url)).toBe(expected);
+  });
+
+  it('cauda longa de pontuação roda em tempo linear', () => {
+    const inicio = Date.now();
+    expect(trimTrailingUrlWrappers(`https://x.com/a${'.x'.repeat(100_000)}${'.'.repeat(100_000)}`).length).toBeGreaterThan(0);
+    expect(Date.now() - inicio).toBeLessThan(500);
   });
 });

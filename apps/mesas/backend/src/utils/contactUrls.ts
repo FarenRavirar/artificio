@@ -73,7 +73,19 @@ function countChar(value: string, char: string): number {
  * casar ênfase pareada no meio da frase): aqui o alvo é só a cauda da URL, e
  * ênfase não pareada — `**` sem fechamento — também precisa sair.
  */
-const URL_TRAILING_EMPHASIS_RE = /[*_~`]+$/;
+const URL_TRAILING_EMPHASIS = '*_~`';
+const URL_TRAILING_PUNCTUATION = '.,;:';
+
+/**
+ * Corta do fim os caracteres de `chars`. Laço linear: `/[...]+$/` reescaneia a
+ * cauda a cada posição inicial possível (quadrático em entrada de usuário
+ * com milhares de `.` seguidos de outro caractere; Sonar, PR #343).
+ */
+function stripTrailingChars(value: string, chars: string): string {
+  let end = value.length;
+  while (end > 0 && chars.includes(value[end - 1])) end -= 1;
+  return value.slice(0, end);
+}
 
 /**
  * Remove pontuação e marcação que o Discord cola no fim de uma URL quando o
@@ -84,28 +96,46 @@ const URL_TRAILING_EMPHASIS_RE = /[*_~`]+$/;
  * `**` sobrevivia inteiro e `__` sobrevivia depois da queda do `)`.
  */
 export function trimTrailingUrlWrappers(url: string): string {
-  let trimmed = url.replace(/[.,;:]+$/g, '');
+  let trimmed = stripTrailingChars(url, URL_TRAILING_PUNCTUATION);
   let previous = '';
   while (previous !== trimmed) {
     previous = trimmed;
-    trimmed = trimmed.replace(URL_TRAILING_EMPHASIS_RE, '');
+    trimmed = stripTrailingChars(trimmed, URL_TRAILING_EMPHASIS);
     if (trimmed.endsWith(')') && countChar(trimmed, '(') < countChar(trimmed, ')')) {
       trimmed = trimmed.slice(0, -1);
     }
     if (trimmed.endsWith(']') && countChar(trimmed, '[') < countChar(trimmed, ']')) {
       trimmed = trimmed.slice(0, -1);
     }
-    trimmed = trimmed.replace(/[.,;:]+$/g, '');
+    trimmed = stripTrailingChars(trimmed, URL_TRAILING_PUNCTUATION);
   }
   return trimmed;
 }
+
+/**
+ * Cauda que só Markdown produz: `)`/`]` de link, ou ênfase repetida (`**`, `__`, `~~`, ``` `` ```).
+ * Escrita (`canonicalizeHttpsUrl`) e varredura (`contactTailSweep`, em SQL) usam a mesma regra.
+ * `shortcut:` `)` balanceado no caminho (`Foo_(bar)`) também casa, e a limpeza o preserva; a varredura
+ * pode acusá-lo, e o aviso ao admin é só leitura. Estreitar se virar ruído.
+ */
+export function hasMarkdownUrlTail(url: string): boolean {
+  const last = url.at(-1);
+  if (last === ')' || last === ']') return true;
+  return last !== undefined && URL_TRAILING_EMPHASIS.includes(last) && url.at(-2) === last;
+}
+
+/** Mesma regra de `hasMarkdownUrlTail`, em regex do Postgres (varredura SQL). */
+export const MARKDOWN_URL_TAIL_SQL = String.raw`(?:[)\]]|\*{2,}|_{2,}|~{2,}|` + '`{2,})$';
 
 export function canonicalizeHttpsUrl(value: unknown): ContactUrlResult {
   if (typeof value !== 'string') return { ok: false, message: INVALID_URL_MESSAGE };
 
   // Cauda de Markdown (`)__`, `**`): mesma limpeza do parser do Discord, para o
   // editor manual e o dado legado não gravarem o que o importador já não grava (spec 106 R12).
-  const trimmed = trimTrailingUrlWrappers(value.trim());
+  // Só quando a cauda é inequívoca: `_`, `*`, `~` ou `` ` `` isolados são caracteres válidos
+  // de caminho (`instagram.com/mestre_`) e a URL digitada não pode mudar de destino.
+  const raw = value.trim();
+  const trimmed = hasMarkdownUrlTail(raw) ? trimTrailingUrlWrappers(raw) : raw;
   if (!trimmed) return { ok: false, message: INVALID_URL_MESSAGE };
 
   const hasExplicitScheme = EXPLICIT_SCHEME.test(trimmed);

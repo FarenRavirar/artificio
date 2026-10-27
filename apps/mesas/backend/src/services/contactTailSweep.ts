@@ -1,6 +1,6 @@
 import { sql } from 'kysely';
 import { db } from '../db/index.js';
-import { URL_VALUE_CHANNELS } from '../utils/contactUrls.js';
+import { MARKDOWN_URL_TAIL_SQL, URL_VALUE_CHANNELS } from '../utils/contactUrls.js';
 import { logActivity } from './activityLogger.js';
 import { notifyAdmins } from './adminNotifications.js';
 
@@ -10,7 +10,8 @@ import { notifyAdmins } from './adminNotifications.js';
  * (SQL, importação antiga) e avisa o admin. Não corrige dado: escrita em
  * produção pede autorização.
  */
-export const CONTACT_TAIL_RE = String.raw`[)\]_*>]+$`;
+// `>` só aqui: a limpeza da escrita não o remove, mas ele nunca é caminho válido.
+export const CONTACT_TAIL_RE = `${MARKDOWN_URL_TAIL_SQL}|>$`;
 const DEDUPE_ACTION = 'contact.tail_detected';
 
 /** Contatos de URL com cauda suspeita. `shortcut:` só `table_contacts`; contato de perfil não é varrido, ampliar se a medição achar cauda lá. */
@@ -42,6 +43,7 @@ export async function alertContactTails(): Promise<number> {
   });
   await notifyAdmins({
     type: 'contact_tail',
+    awaitDelivery: true,
     title: 'Contato com URL quebrada',
     message: `${rows.length} contato(s) de mesa terminam em caractere de Markdown (\`)\`, \`_\`, \`*\`) e o link não abre.`,
     action_url: '/gestao',

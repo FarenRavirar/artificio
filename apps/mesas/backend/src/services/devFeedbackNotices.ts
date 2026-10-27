@@ -90,14 +90,18 @@ export async function alertStaleFeedback(): Promise<number> {
     .returning(['id', 'title', 'kind'])
     .execute();
 
-  for (const row of claimed) {
-    await notifyAdmins({
-      type: 'feedback_stale',
-      title: 'Relato parado na fila',
-      message: `"${row.title.slice(0, TITLE_MAX)}" está há ${STALE_AFTER_DAYS} dias sem triagem.`,
-      action_url: '/gestao',
-      metadata: { feedback_id: row.id, kind: row.kind },
-    });
-  }
+  // Em paralelo: a entrega do outbox faz claim atômico com lease, então entregas simultâneas não duplicam.
+  await Promise.all(
+    claimed.map((row) =>
+      notifyAdmins({
+        type: 'feedback_stale',
+        awaitDelivery: true,
+        title: 'Relato parado na fila',
+        message: `"${row.title.slice(0, TITLE_MAX)}" está há ${STALE_AFTER_DAYS} dias sem triagem.`,
+        action_url: '/gestao',
+        metadata: { feedback_id: row.id, kind: row.kind },
+      }),
+    ),
+  );
   return claimed.length;
 }

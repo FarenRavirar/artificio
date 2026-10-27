@@ -198,10 +198,13 @@ o parser) e a varredura. **Dado (aut.):** `pg_dump` de `table_contacts`; 2 `UPDA
 mesa). Aceite: regex `~ '[)\]_*>]+$'` em URL → 0; `form` duplicado de Discord → 0.
 
 Estado do código: `trimTrailingUrlWrappers` mora em `utils/contactUrls.ts` (uma cópia; o parser
-importa) e `canonicalizeHttpsUrl` a aplica; 273 testes do parser seguem verdes. Varredura:
-`services/contactTailSweep.ts`, chamada por `ops:alerts` no cron diário, dedupe de 24 h por
-`activity_log` (`contact.tail_detected`) e `notifyAdmins('contact_tail')`. Varre só
-`table_contacts`; contato de perfil (`gm_profiles.contact_methods`) não é varrido. Dado (aut.) pendente.
+importa). `canonicalizeHttpsUrl` só a aplica quando a cauda é inequívoca (`hasMarkdownUrlTail`: `)`,
+`]` ou ênfase repetida `**`, `__`, `~~`); `_`, `*`, `~` isolados são válidos no caminho e ficam
+(medido: `instagram.com/mestre_` virava `…/mestre` com a limpeza incondicional). Varredura:
+`services/contactTailSweep.ts`, mesma regra em SQL mais `>`, chamada por `ops:alerts` no cron diário,
+dedupe de 24 h por `activity_log` (`contact.tail_detected`) e `notifyAdmins('contact_tail')`.
+Varre só `table_contacts`. O aceite `~ '[)\]_*>]+$'` abaixo acusa `_` isolado válido: usar a regex do
+código. Dado (aut.) pendente.
 
 ### [~] T8.4 — Fila de feedback: status dos 14 e aviso ao autor (R13, D13, D19, D20)
 
