@@ -18,7 +18,7 @@ Mesas RPG Artificio e um portal colaborativo para anuncios de mesas de RPG. Comp
 
 - Gratuidade.
 - Sem anúncios.
-- Sem coleta desnecessaria de dados.
+- Sem venda nem repasse de dados a terceiros; coleta técnica mínima para operar (erro, desempenho, segurança, auditoria) é permitida (`AGENTS.md` §Produto e SEO).
 - Google OAuth como unico login autorizado.
 - Discord e vinculo opcional de perfil, nao substitui Google OAuth.
 
@@ -62,7 +62,7 @@ SDD Completo usa `spec.md`, `plan.md`, `tasks.md`, validacao e sessao; quando ho
 - Nunca executar `ALTER TABLE` avulso em producao.
 - Nunca reaplicar migration antiga com mais de uma semana.
 - Nunca usar `git checkout` entre `dev` e `main` durante deploy.
-- Nunca criar tunnel/container `cloudflared` paralelo.
+- Nunca criar tunnel novo nem container `cloudflared` com token diferente do tunnel de produção; `cloudflared` roda com tag fixa e token só por `--env-file` (`docs/agents/deploy-flow.md` §4).
 - Nunca expor token, PAT, segredo ou credencial em chat, logs, commits ou arquivos.
 
 ## Invariantes tecnicos

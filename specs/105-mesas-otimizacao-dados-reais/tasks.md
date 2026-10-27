@@ -162,8 +162,13 @@ script fora do repositório, mesma chave:
 - **Google Signals:** `GOOGLE_SIGNALS_ENABLED`. Coleta dado demográfico e entre aparelhos
   ligado à conta Google do visitante — **decisão de produto** diante de "sem coleta
   desnecessária de dados".
-- **Filtro de tráfego interno e exclusão de referral:** não medidos. A Admin API v1alpha
-  não expõe essas configurações; precisa do painel.
+- **Filtro de tráfego interno e exclusão de referral:** a Admin API v1alpha não expõe essas
+  configurações; só o painel. Em 2026-10-13, no painel do stream Mesas (sessão do mantenedor,
+  Configurar tag → Definir o tráfego interno), a lista de regras está vazia. O clique em
+  "Criar" foi negado pelo classificador do auto mode, sem motivo informado, e não foi
+  contornado. Falta o mantenedor criar a regra (IP público medido por `api.ipify.org`:
+  `45.237.150.140`, IPv4, provavelmente dinâmico) ou liberar o clique. Referral exclusion
+  (`accounts.google.com`, `accounts.artificiorpg.com`) não tentado.
 - **Search Console:** só `sc-domain:artificiorpg.com` (`siteFullUser`). Sitemaps enviados
   eram 3 (`artificiorpg.com/sitemap-index.xml`, `mesas`, `glossario`). Serviam e não estavam
   enviados: `downloads.artificiorpg.com/sitemap.xml` (17 URLs, declarado no `robots.txt`) e
@@ -232,11 +237,19 @@ stream do `site`, T1b.1). `run_realtime_report` por `streamId`: `15290051302` (M
 `15290119709` (Glossario) com `page_view`. `run_report` padrão por `hostName` e `date`
 (2026-10-12 a hoje, medido em 2026-10-13): `mesas.artificiorpg.com` 3 eventos e 1 usuário em
 20261012; `glossario.artificiorpg.com` sem linha; 20261013 só tem `artificiorpg.com` (46
-eventos). O relatório padrão atrasa o dia corrente.
+eventos). O relatório padrão atrasa o dia corrente. `run_report` por `streamId` × `date` (20261012 a
+hoje): `15290051302` só em 20261012 (3 eventos); 20261013 só no stream do `site` (147).
+`run_realtime_report` depois de um `page_view` sintético em prod (20:31 UTC, Playwright sem
+sessão, `/g/collect` 204): stream `15290051302` com `page_view` 1 e `session_start` 1. A coleta
+chega; o relatório padrão de 20261013 ainda não tem `mesas`/`glossario`.
 
 **Aceite (aberto).** Falta: `run_report` por `hostName` devolver
-`glossario.artificiorpg.com` (e `mesas.` em 20261013); e o painel do stream deixar de mostrar
-"A coleta de dados não está ativa" (painel, não medi).
+`glossario.artificiorpg.com` (e `mesas.` em 20261013).
+
+**Painel do stream Mesas (2026-10-13, sessão do mantenedor).** "A coleta de dados esteve ativa
+nas últimas 48 horas"; Google tag `G-43T3C6K6V6`: "Qualidade da Tag: Excelente — Tag está
+enviando dados". O aviso "A coleta de dados não está ativa" saiu para o `mesas`; o stream
+`glossario` não foi aberto.
 
 ### [~] T1.1 — `page_view` limpo e sem repetição (I1) — em prod; falta relatório
 
@@ -259,7 +272,9 @@ nova.
 
 **Relatório (2026-10-13).** `run_report` por `hostName` × `pagePathPlusQueryString`,
 filtrado em `mesas.artificiorpg.com`: 1 linha, `/` (3 eventos), sem `?`. Amostra só da home;
-rota de mesa e catálogo com filtro ainda não aparecem.
+rota de mesa e catálogo com filtro ainda não aparecem. Em prod (2026-10-13), `/catalogo?sistema=teste`
+em `mesas`: o app descartou a query e o `dl` do `/g/collect` foi `https://mesas.artificiorpg.com/catalogo`
+(1 `page_view`, 204).
 
 **Aceite (aberto).** `pagePathPlusQueryString` sem `?` numa rota com query (catálogo
 filtrado) e filtro de catálogo sem gerar `page_view` — ainda não medidos.
@@ -278,8 +293,16 @@ passou pelo roteador do app com clique real, então o par pode ser EM + app, ou 
 duas vezes; o DebugView separa. **Escrita no GA4 (desligar *Page changes* em `mesas` e
 `glossario`) não aplicada:** só com ordem do mantenedor.
 
-**Aceite (aberto).** I2 confirmado no DebugView e, depois do ajuste, N `page_view` em N
-rotas.
+**Clique real no roteador (2026-10-13, prod, Playwright sem sessão).** De `/mestre/nidolina`,
+clique em "Catálogo" (`/`): **1** `page_view` (`dl=/`, `dr=/mestre/nidolina`). De `/` para `/`
+(mesmo pathname): 1 `page_view` (`dr=/`), que o hook do app não dispararia, porque só o pathname
+o aciona; logo a Enhanced Measurement está ativa. Resultado: a navegação sintética (`pushState` +
+`popstate`) dá 2N, o clique real deu 1 por navegação. **Não confirma o 2N como defeito do
+usuário real.** Não separei se o evento único vem do app ou da Enhanced Measurement; o DebugView
+(painel dele) separa.
+
+**Aceite (aberto).** I2 medido no DebugView e, só se o 2N se confirmar com clique real, N
+`page_view` em N rotas depois do ajuste. Nenhuma escrita no GA4 feita.
 
 ### [ ] T1.3 — Evento `contact_click` (I3) — ADIADO por ordem do mantenedor (2026-10-13)
 
@@ -462,7 +485,7 @@ um bloco de validação para as duas partes. Nenhuma das duas tinha sido aplicad
 produção). `parse_header` e `validate_sql_against_class … online-safe` rc 0;
 `rtk rg "migration_168" apps` sem resultado.
 
-### [~] T1.6 — Formulário interno do mestre responde sucesso sem enviar (M4) — removido; falta deploy
+### [~] T1.6 — Formulário interno do mestre responde sucesso sem enviar (M4) — removido; medido em prod
 
 **Correção do enquadramento (2026-10-13, medido).** `plan.md` §3.6 trata o canal `form` como
 "o formulário que não envia" e oferece enviar por `@artificio/email` ou retirar o canal. Isso
@@ -497,7 +520,10 @@ aplicava a regra e emitiria `https://uwill/` para legado ativo: agora `form` nã
 sai como `discord`, igual ao importador. 3 testes novos. As 3 linhas no banco seguem como
 estão; corrigi-las é SQL write em prod (aprovação), e a leitura já as neutraliza.
 
-**Aceite.** M4: nenhuma rota responde sucesso sem ter enviado. Falta deploy de `mesas`.
+**Medido em prod (2026-10-13).** `POST /api/v1/gm/perfis/nidolina/contact` → 404 (rota removida);
+perfil sem o formulário interno.
+
+**Aceite.** M4: nenhuma rota responde sucesso sem ter enviado — cumprido.
 
 ### [x] T1.7 — Aviso de lint em `useBannerScrim.ts` — FEITA (2026-10-12)
 
@@ -551,7 +577,8 @@ description em cliques é indetectável; a F4 só pode medir impressão, posiç�
   `Invalid object type for field "brand"` — o JSON-LD usava `Person`. `brand` saiu
   do `Product` (`tableMeta.ts`, teste novo): `Brand` com o nome do mestre só trocaria o tipo,
   porque nome de exibição não é marca do produto (achado do CodeRabbit na PR #339).
-  Falta deploy, e confirmar no Rich Results Test depois dele que o aviso sumiu. Os demais avisos (`review`, `aggregateRating`,
+  Em prod (2026-10-13) a página de mesa não tem `"brand"` (`curl`, 0 ocorrências). Falta
+  confirmar no Rich Results Test que o aviso sumiu. Os demais avisos (`review`, `aggregateRating`,
   `shippingDetails`, `hasMerchantReturnPolicy`) são opcionais e não se aplicam a mesa de RPG.
 - Não medi o porquê do canonical diferente nos 6 perfis.
 
@@ -626,7 +653,7 @@ sensível à carga, não investigado.
 Formato obrigatório de cada task: hipótese · métrica · antes · janela · depois
 (`plan.md` §6).
 
-### [~] T4.1 — Perfis de mestre no sitemap — implementado; falta deploy e a janela
+### [~] T4.1 — Perfis de mestre no sitemap — sitemap reenviado ao GSC; falta a janela
 
 - **Hipótese:** perfis indexáveis fora do sitemap demoram mais para ser descobertos.
 - **Métrica:** perfis `Submitted and indexed` no `batch_url_inspection`; impressões em
@@ -635,7 +662,17 @@ Formato obrigatório de cada task: hipótese · métrica · antes · janela · d
   Google chose different canonical`; 0 dos 61 no sitemap (T2.2). Impressões em `/mestre/`
   na janela 2026-09-13…10-10: 16 páginas, 1–3 impressões cada, 0 cliques (T2.3).
 - **Janela:** 28 dias fechados depois do deploy, com o sitemap reenviado no GSC.
-- **Depois:** a medir.
+  Request Indexing feito em 2026-10-13 (painel do GSC, sessão do mantenedor, 10 URLs): a mesa
+  `caverna-do-dragao-lv-4-mv0zuq9h` e 9 perfis "URL is unknown to Google" — `absool-dug`,
+  `academiahardya`, `alfredo-nemesis`, `dm-marcelo-lima`, `endyrpg13`, `luan-sales`, `manu-plus`,
+  `mestre-charles-correa`, `mestre-jonio`. Outros 2 desconhecidos ficaram para o sitemap
+  (`mestre-kaique-ganzaro-8d6-rpg-de-mesa`, `mestre-lg`); 22 dos 62 perfis não inspecionados
+  nesta rodada. Nenhuma URL reenviada.
+  Sitemap reenviado em 2026-10-13 20:43 (`submit_sitemap`, ordem do mantenedor): resposta
+  `Pending processing`; `get_sitemaps` logo depois ainda mostrava `last_downloaded` 2026-10-11 20:33.
+  A janela só conta a partir do primeiro `last_downloaded` posterior ao reenvio — medir de novo.
+- **Depois:** a medir. Sitemap de prod medido em 2026-10-13 depois do deploy: 88 `<loc>`, 62
+  em `/mestre/` (`curl` com `?cb=`).
 
 `routes/sitemap.ts` passa a listar `gm_profiles` ⨝ `users`, o mesmo critério da rota
 pública `GET /gm/perfis/:slug` (que só dá 404 sem essa linha; 61 de 61 devolveram 200). Sem
@@ -651,10 +688,18 @@ Abertas só com os quatro primeiros campos preenchidos.
 
 ## F5 — Fechar a F6 da 102
 
-### [ ] T5.1 — *Validate Fix* e *Request Indexing* **(mantenedor)**
+### [~] T5.1 — *Validate Fix* e *Request Indexing* — feitos em 2026-10-13; falta o resultado
 
-Lista de até 10 URLs vinda de T2.3, por impressão. Depois, marcar 102 T6.1/T6.2 com
-ponteiro para esta task.
+Feito no painel do GSC com a sessão do mantenedor, por ordem dele:
+
+- *Validate Fix*: "Erro soft 404" (13 páginas), "Não encontrado (404)" (1.129) e "Página
+  alternativa com tag canônica adequada" (300) mostram "Validação iniciado — Início 13/10/2026".
+  Os 3 grupos têm `Não foi iniciado` na tabela geral só por cache da lista. A validação do
+  Google leva dias; o resultado (Passou/Falhou) é a medição que falta.
+- *Request Indexing*: 10 URLs, listadas na T4.1. Das 4 mesas da T2.3 com impressão em
+  posição 4–15, todas devolvem 410 hoje (`curl`); por isso não entraram.
+
+Depois do resultado, marcar 102 T6.1/T6.2 com ponteiro para esta task.
 
 ---
 
