@@ -161,7 +161,8 @@ export async function recordClientError(input: ClientErrorInput, userId: string 
       type: 'client_error',
       title: 'Erro no navegador de um usuário',
       message: `${input.message.slice(0, 160)} (${input.routePattern || input.path || 'sem rota'})`,
-      action_url: '/gestao',
+      // A listagem so existe nesta aba; '/gestao' redireciona para a visao geral.
+      action_url: '/gestao/sistema?tab=client-errors',
       metadata: { client_error_id: result.alertId },
     });
   }
