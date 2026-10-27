@@ -160,4 +160,33 @@ describe('POST /api/v1/gm/profile — cria perfil COM contact_methods (T4.0p2)',
     expect(res.body.error).toContain('JSON válido');
     expect(db.insertInto).not.toHaveBeenCalled();
   });
+
+  // Spec 106 R1/R2: sem slug/nickname no corpo, o backend deriva de
+  // profiles.display_name — nunca do e-mail (caso patorico027 / VOID).
+  it('sem slug nem nickname deriva de display_name e desvia de slug ocupado', async () => {
+    const selectChain = mockChain({
+      executeTakeFirst: vi.fn()
+        .mockResolvedValueOnce({ username: null })        // users
+        .mockResolvedValueOnce({ display_name: 'VOID' })  // profiles
+        .mockResolvedValueOnce({ id: 'ocupado' })         // slug "void" já existe
+        .mockResolvedValueOnce(undefined),                // "void-2" livre
+    });
+    const insertChain = mockInsertChain();
+    (db.selectFrom as Mock).mockReturnValue(selectChain);
+    (db.insertInto as Mock).mockReturnValue(insertChain);
+    (db.updateTable as Mock).mockReturnValue(mockChain({ execute: vi.fn().mockResolvedValue([]) }));
+
+    const res = await request(makeApp()).post('/api/v1/gm/profile').send({});
+
+    expect(res.status).toBe(201);
+    expect(insertChain.values).toHaveBeenCalledWith(
+      expect.objectContaining({ slug: 'void-2', nickname: 'VOID' }),
+    );
+  });
+
+  it('nickname de 1 caractere continua recusado com 400', async () => {
+    const res = await request(makeApp()).post('/api/v1/gm/profile').send({ nickname: 'x' });
+    expect(res.status).toBe(400);
+    expect(db.insertInto).not.toHaveBeenCalled();
+  });
 });

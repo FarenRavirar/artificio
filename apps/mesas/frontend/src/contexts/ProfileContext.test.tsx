@@ -326,3 +326,60 @@ describe('ProfileContext.updateGm — autosave com debounce (spec 099 B8)', () =
     expect(mutateRemoveSystemAsync).toHaveBeenCalledWith('sistema-1');
   });
 });
+
+describe('ProfileContext.updateUser/updateProfile — fila sem descarte (spec 106 R6)', () => {
+  beforeEach(() => {
+    mutateUserAsync.mockReset();
+    mutateProfileAsync.mockReset();
+    capturedBox.value = null;
+  });
+
+  it('escrita feita com outra em voo espera e roda depois, em ordem, sem ser descartada', async () => {
+    const ordem: string[] = [];
+    let soltarPrimeira: () => void = () => {};
+    mutateUserAsync
+      .mockImplementationOnce(() => new Promise<void>((resolve) => {
+        soltarPrimeira = () => { ordem.push('fim-1'); resolve(); };
+      }))
+      .mockImplementationOnce(async () => { ordem.push('2'); });
+
+    renderProvider();
+    const primeira = capturedBox.value!.updateUser({ username: 'void' });
+    const segunda = capturedBox.value!.updateUser({ username: 'void_2' });
+
+    await act(async () => { await Promise.resolve(); });
+    // A segunda NÃO começou enquanto a primeira está em voo...
+    expect(mutateUserAsync).toHaveBeenCalledTimes(1);
+
+    soltarPrimeira();
+    await act(async () => { await Promise.all([primeira, segunda]); });
+
+    // ...e roda depois dela, com o valor mais novo (não é descartada).
+    expect(mutateUserAsync).toHaveBeenCalledTimes(2);
+    expect(mutateUserAsync).toHaveBeenLastCalledWith({ username: 'void_2' });
+    expect(ordem).toEqual(['fim-1', '2']);
+  });
+
+  it('falha de uma escrita não trava a fila', async () => {
+    mutateProfileAsync
+      .mockRejectedValueOnce(new Error('400'))
+      .mockResolvedValueOnce({});
+
+    renderProvider();
+    await act(async () => {
+      await capturedBox.value!.updateProfile({ display_name: 'x' });
+      await capturedBox.value!.updateProfile({ display_name: 'VOID' });
+    });
+
+    expect(mutateProfileAsync).toHaveBeenCalledTimes(2);
+    expect(mutateProfileAsync).toHaveBeenLastCalledWith({ display_name: 'VOID' });
+  });
+
+  it('devolve a mensagem do erro, para o campo mostrar o motivo', async () => {
+    mutateUserAsync.mockRejectedValueOnce(new Error('Username já está em uso'));
+    renderProvider();
+    let resultado: string | null = 'x';
+    await act(async () => { resultado = await capturedBox.value!.updateUser({ username: 'void' }); });
+    expect(resultado).toContain('Username já está em uso');
+  });
+});

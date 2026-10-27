@@ -72,6 +72,14 @@ export function ProfileProvider({ children }: ProfileProviderProps) {
   // debounce (deliberado: a UI não pisca por tecla).
   // ---------------------------------------------------------------------------
 
+  // Fila das escritas de `updateUser`/`updateProfile` (spec 106 R6): uma por vez.
+  const writeChainRef = React.useRef<Promise<unknown>>(Promise.resolve());
+  const enqueueWrite = <T,>(run: () => Promise<T>): Promise<T> => {
+    const next = writeChainRef.current.then(run);
+    writeChainRef.current = next;
+    return next;
+  };
+
   // Patch pendente (acumulado por campo, último valor vence).
   const gmBufferRef = React.useRef<Partial<GmProfile> | null>(null);
   // Timer do debounce.
@@ -164,24 +172,34 @@ export function ProfileProvider({ children }: ProfileProviderProps) {
       saving,
       saveError,
       refetch,
-      updateUser: async (data) => {
-        if (updateUserMutation.isPending) return;
-        try {
-          await updateUserMutation.mutateAsync(data);
-          setSaveError(null);
-        } catch (mutationError) {
-          setSaveError(toErrorMessage(mutationError));
-        }
-      },
-      updateProfile: async (data) => {
-        if (updateProfileMutation.isPending) return;
-        try {
-          await updateProfileMutation.mutateAsync(data);
-          setSaveError(null);
-        } catch (mutationError) {
-          setSaveError(toErrorMessage(mutationError));
-        }
-      },
+      // Spec 106 R6: escrita em voo NÃO descarta a seguinte. O guard antigo
+      // (`if (isPending) return`) engolia em silêncio o valor digitado durante a
+      // requisição anterior; agora cada escrita espera a anterior terminar, em
+      // ordem, e a última vence.
+      updateUser: (data) =>
+        enqueueWrite(async () => {
+          try {
+            await updateUserMutation.mutateAsync(data);
+            setSaveError(null);
+            return null;
+          } catch (mutationError) {
+            const message = toErrorMessage(mutationError);
+            setSaveError(message);
+            return message;
+          }
+        }),
+      updateProfile: (data) =>
+        enqueueWrite(async () => {
+          try {
+            await updateProfileMutation.mutateAsync(data);
+            setSaveError(null);
+            return null;
+          } catch (mutationError) {
+            const message = toErrorMessage(mutationError);
+            setSaveError(message);
+            return message;
+          }
+        }),
       updatePlayer: async (data) => {
         if (updatePlayerMutation.isPending) return;
         try {

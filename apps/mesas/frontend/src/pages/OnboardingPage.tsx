@@ -266,7 +266,12 @@ export const OnboardingPage = () => {
                     onChange={(e) => setForm((prev) => ({ ...prev, display_name: e.target.value }))}
                     className="w-full rounded-xl border border-white/15 bg-[var(--surface-input)] px-4 py-3 outline-none focus:border-[var(--color-artificio-orange)]"
                     placeholder="Como você quer aparecer na comunidade"
+                    aria-describedby="onboarding-display-name-hint"
                   />
+                  <p id="onboarding-display-name-hint" className="text-xs text-white/60 mt-1">
+                    Aparece nos seus comentários e avaliações. Se você for mestre, a sua página
+                    pode ter outro nome público, que você define depois na aba Mestre do perfil.
+                  </p>
                 </div>
                 <div className="md:col-span-2">
                   <label htmlFor="onboarding-bio" className="text-sm text-white/70 block mb-1">Bio curta</label>

@@ -1,5 +1,13 @@
 [
   {
+    "id": "2026-10-27-nome-publico-do-mestre",
+    "title": "Nome público do mestre e correções no perfil",
+    "body": "O perfil agora deixa claro quais nomes aparecem onde:\n\n- **Nome público do mestre** - Novo campo na aba Mestre do perfil. É o nome que jogadores veem na sua página, nos cards das mesas e nos links compartilhados, e pode ser diferente do nome da sua conta\n- **Perfil novo nunca usa o seu e-mail** - O nome e o endereço da página de mestre novos nascem do nome que você informou no cadastro, não mais do começo do seu e-mail\n- **Campos que gravam ao sair** - Nome e username são salvos quando você sai do campo, com o erro visível no próprio campo, em vez de reclamar a cada letra digitada\n- **Vagas certas na página do mestre** - O total de vagas abertas agora é o que o mestre configurou em cada mesa\n\nO relato que originou estas correções veio do formulário de reporte do site. Obrigado — continue mandando.",
+    "type": "app",
+    "published": true,
+    "created_at": "2026-10-27T18:00:00-03:00"
+  },
+  {
     "id": "2026-09-18-filtro-dia-horario",
     "title": "Filtre mesas por dia da semana e horário",
     "body": "O catálogo agora deixa você procurar mesa pelo horário que você tem livre:\n\n- **Dia da semana** - Marque os dias em que você pode jogar. Pode marcar mais de um: o catálogo mostra as mesas que jogam em qualquer um deles\n- **Faixa de horário** - Manhã, tarde, noite ou madrugada, pelo horário em que a sessão começa\n- **Os dois juntos** - Marcando \"sexta\" e \"noite\", aparecem as mesas que jogam sexta à noite, não as que jogam sexta de manhã ou domingo à noite\n- **Quantas mesas em cada opção** - Cada dia e cada faixa mostra o número de mesas, então você vê onde há mais opção antes de filtrar\n- **No computador e no celular** - Os mesmos filtros nas duas telas\n\nO filtro por dia da semana veio de uma sugestão enviada por um usuário pelo formulário de reporte do site. Obrigado pela ideia — continue mandando.",

@@ -133,6 +133,7 @@ vi.mock('../components/MarkdownEditor', () => ({
 }));
 
 vi.mock('../components/mestre/editor/GmProfileFields', () => ({
+  NicknameField: () => <div data-testid="nickname-field" />,
   TaglineField: () => <div data-testid="tagline-field" />,
   ClosedGroupSection: () => <div data-testid="closed-group-section" />,
   ProfileTagsSection: () => <div data-testid="profile-tags-section" />,
@@ -220,6 +221,26 @@ describe('ProfileEditPage — indicador de autosave (spec 099 B8)', () => {
       'title',
       'Biografia deve ter no máximo 2000 caracteres'
     );
+  });
+});
+
+describe('ProfileEditPage — aviso de perfil de mestre pendente (spec 106 R16)', () => {
+  it('sem perfil de mestre, a aba Mestre avisa que ele nasce ao salvar ou publicar', () => {
+    const gm = mockCtx.profile.gm;
+    mockCtx.profile.gm = null as unknown as typeof gm;
+    try {
+      renderPage();
+      fireEvent.click(screen.getByRole('tab', { name: 'Mestre' }));
+      expect(screen.getByTestId('gm-profile-pending')).toBeTruthy();
+    } finally {
+      mockCtx.profile.gm = gm;
+    }
+  });
+
+  it('com perfil de mestre, o aviso não aparece', () => {
+    renderPage();
+    fireEvent.click(screen.getByRole('tab', { name: 'Mestre' }));
+    expect(screen.queryByTestId('gm-profile-pending')).toBeNull();
   });
 });
 

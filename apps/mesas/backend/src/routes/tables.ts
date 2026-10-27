@@ -28,6 +28,7 @@ import {
   flattenTree,
 } from '../services/catalogClient.js';
 import type { Database, TableModality, TableType, TableAudience, PriceType, ExperienceLevel, TableReportReason } from '../db/types.js';
+import { tableGmDisplayNameSql } from '../utils/gmDisplayName.js';
 
 const VALID_REPORT_REASONS: Set<TableReportReason> = new Set(['golpe', 'conteudo_inadequado', 'spam', 'informacao_falsa', 'outro']);
 
@@ -244,7 +245,7 @@ router.get('/', async (req: Request, res: Response) => {
         'gm.slug as gm_slug',
         sql<string | null>`COALESCE(gm.avatar_url, p.avatar_url)`.as('gm_avatar_url'),
         'gm.badges as gm_badges',
-        sql<string>`COALESCE(gm.nickname, p.display_name)`.as('gm_display_name'),
+        tableGmDisplayNameSql().as('gm_display_name'),
         // T3.7/T8.6 (spec 081): rating resumido no card do catálogo.
         // `::float8` obrigatório: a coluna é NUMERIC(3,2) e o parser default do
         // `pg` devolve NUMERIC como string, que quebrava `.toFixed()` no
@@ -308,7 +309,7 @@ router.get('/', async (req: Request, res: Response) => {
         t.title ILIKE ${safeSearch}
         OR t.description ILIKE ${safeSearch}
         OR ${systemIdsSql}
-        OR COALESCE(gm.nickname, p.display_name) ILIKE ${safeSearch}
+        OR ${tableGmDisplayNameSql()} ILIKE ${safeSearch}
       )`);
     }
 
@@ -871,10 +872,13 @@ async function buildClosedTablePayload(table: {
     const actor = await db
       .selectFrom('users as u')
       .leftJoin('profiles as p', 'p.user_id', 'u.id')
-      .select(['p.display_name', 'u.username'])
+      // R4 (spec 106): "encerrada pelo mestre X" é texto público; o nome do mestre
+      // é o do perfil de mestre, o mesmo das demais superfícies.
+      .leftJoin('gm_profiles as gm', 'gm.user_id', 'u.id')
+      .select(['gm.nickname', 'p.display_name', 'u.username'])
       .where('u.id', '=', table.archived_by)
       .executeTakeFirst();
-    closedByName = actor?.display_name || actor?.username || null;
+    closedByName = actor?.nickname || actor?.display_name || actor?.username || null;
   }
 
   return {
@@ -997,7 +1001,7 @@ router.get('/:slug', async (req: Request, res: Response) => {
         sql<string | null>`COALESCE(gm.avatar_url, p.avatar_url)`.as('gm_avatar_url'),
         'gm.badges as gm_badges',
         'u.id as gm_user_id', // CORREÇÃO DT-025: Adicionar user_id para verificação de ownership
-        sql<string>`COALESCE(gm.nickname, p.display_name)`.as('gm_display_name'),
+        tableGmDisplayNameSql().as('gm_display_name'),
         'gm.bio_long as gm_bio_long', // CORREÇÃO REG-13: Renomeado para evitar conflito com t.gm_bio
         // T6 (spec 081): rating resumido no card da mesa. `::float8` pelo mesmo
         // motivo do SELECT do catálogo acima — NUMERIC vira string no `pg`.
