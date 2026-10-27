@@ -133,9 +133,7 @@ function classifyRoute(method: string, path: string, app: string): Classificatio
   if (
     p.includes('/mine') ||
     p.includes('/suggest') ||
-    p.includes('/suggestions') ||
-    p.includes('/connect/discord') ||
-    p.includes('/profile/me/discord')
+    p.includes('/suggestions')
   ) {
     return { owner: app, scope: 'self-service', status: 'active', auth: 'user', consumers: [] };
   }

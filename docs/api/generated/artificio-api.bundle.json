@@ -7,10 +7,10 @@
     "downloads": 108,
     "glossario": 50,
     "links": 22,
-    "mesas": 209,
+    "mesas": 206,
     "site": 58
   },
-  "total": 500,
+  "total": 497,
   "operations": [
     {
       "app": "accounts",
@@ -4824,42 +4824,6 @@
       "auth": "user",
       "consumers": [],
       "operationId": "patchapi_v1_profile_me"
-    },
-    {
-      "app": "mesas",
-      "method": "DELETE",
-      "path": "/api/v1/profile/me/connect/discord",
-      "summary": "Remove api v1 profile me connect discord",
-      "owner": "mesas",
-      "scope": "self-service",
-      "status": "active",
-      "auth": "user",
-      "consumers": [],
-      "operationId": "deleteapi_v1_profile_me_connect_discord"
-    },
-    {
-      "app": "mesas",
-      "method": "POST",
-      "path": "/api/v1/profile/me/connect/discord",
-      "summary": "Cria ou executa api v1 profile me connect discord",
-      "owner": "mesas",
-      "scope": "self-service",
-      "status": "active",
-      "auth": "user",
-      "consumers": [],
-      "operationId": "postapi_v1_profile_me_connect_discord"
-    },
-    {
-      "app": "mesas",
-      "method": "GET",
-      "path": "/api/v1/profile/me/discord",
-      "summary": "Consulta api v1 profile me discord",
-      "owner": "mesas",
-      "scope": "self-service",
-      "status": "active",
-      "auth": "user",
-      "consumers": [],
-      "operationId": "getapi_v1_profile_me_discord"
     },
     {
       "app": "mesas",

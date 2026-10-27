@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { TableDetail } from '../../../types/tables';
 import { buildWhatsAppTableAnnouncement, copyTextToClipboard } from './whatsappAnnouncement';
+import { sumOpenSlots } from '../../../hooks/useMestre';
 import { deriveSchedule } from '../../table-editor/utils/editorMapping';
 import { createDefaultEditorState } from '../../table-editor/hooks/useTableEditor';
 
@@ -428,5 +429,19 @@ describe('copyTextToClipboard', () => {
     });
 
     await expect(copyTextToClipboard('fallback')).rejects.toThrow('Clipboard unavailable');
+  });
+});
+
+// Spec 106 T8.8 (R11/R15): a página do mestre (soma), a home/cartão e o texto do
+// WhatsApp contam as vagas da mesma forma. Falha se um dos lados voltar a `total - filled`.
+describe('vagas: uma conta só', () => {
+  it.each([
+    [{ slots_total: 5, slots_filled: 2, slots_open: 1 }, 1],
+    [{ slots_total: 5, slots_filled: 2, slots_open: 0 }, 0],
+    [{ slots_total: 5, slots_filled: 2, slots_open: null }, 3],
+  ])('%j → %i', (slots, expected) => {
+    const table = makeTable(slots as Partial<TableDetail>);
+    expect(sumOpenSlots([table])).toBe(expected);
+    expect(buildWhatsAppTableAnnouncement(table)).toContain(`▬ Nº de Vagas: ${expected}`);
   });
 });

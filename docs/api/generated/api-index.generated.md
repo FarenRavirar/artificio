@@ -4,7 +4,7 @@
 > Bundle machine-readable: `docs/api/generated/artificio-api.bundle.json`.
 > Não editar à mão. Regenerar com `pnpm api:bundle` (faz parte de `pnpm verify:api`).
 
-Total: **500 operações**.
+Total: **497 operações**.
 
 ## accounts (53)
 
@@ -259,7 +259,7 @@ Total: **500 operações**.
 | GET | `/grupo/{slug}` | public-page | none | active | — | Consulta grupo slug |
 | GET | `/healthz` | internal | none | active | — | Consulta healthz |
 
-## mesas (209)
+## mesas (206)
 
 | Método | Path | Scope | Auth | Status | Consumidores | Resumo |
 |--------|------|-------|------|--------|--------------|--------|
@@ -420,9 +420,6 @@ Total: **500 operações**.
 | PATCH | `/api/v1/profile/links/reorder` | public | user | active | — | Atualiza api v1 profile links reorder |
 | GET | `/api/v1/profile/me` | public | user | active | — | Consulta api v1 profile me |
 | PATCH | `/api/v1/profile/me` | public | user | active | — | Atualiza api v1 profile me |
-| DELETE | `/api/v1/profile/me/connect/discord` | self-service | user | active | — | Remove api v1 profile me connect discord |
-| POST | `/api/v1/profile/me/connect/discord` | self-service | user | active | — | Cria ou executa api v1 profile me connect discord |
-| GET | `/api/v1/profile/me/discord` | self-service | user | active | — | Consulta api v1 profile me discord |
 | PATCH | `/api/v1/profile/me/gm` | public | user | active | — | Atualiza api v1 profile me gm |
 | POST | `/api/v1/profile/me/google-picture` | public | user | active | — | Cria ou executa api v1 profile me google-picture |
 | PATCH | `/api/v1/profile/me/player` | public | user | active | — | Atualiza api v1 profile me player |

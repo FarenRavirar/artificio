@@ -10,16 +10,16 @@
 
 | App | Breaking | Non-breaking | Unclassified |
 |-----|:--------:|:------------:|:------------:|
-| mesas | ✅ 0 | ✅ 2 | ⚪ 0 |
+| mesas | ❌ 2 | ✅ 0 | ⚪ 0 |
 
 ---
 
 ### mesas
 
-#### ✅ Non-breaking (2)
+#### ❌ Breaking Changes (2)
 
-| Path | Method | Ação |
-|------|--------|------|
-| `/api/v1/admin/client-errors` |  | add |
-| `/api/v1/client-errors` |  | add |
+| Path | Method | Ação | Código |
+|------|--------|------|--------|
+| `/api/v1/profile/me/connect/discord` |  | remove | `path.remove` |
+| `/api/v1/profile/me/discord` |  | remove | `path.remove` |
 

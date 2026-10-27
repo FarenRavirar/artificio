@@ -18,6 +18,8 @@
     "metrics:anonymize:dev": "tsx src/scripts/anonymizeMetricEvents.ts",
     "client-errors:purge": "node dist/scripts/purgeClientErrors.js",
     "client-errors:purge:dev": "tsx src/scripts/purgeClientErrors.ts",
+    "ops:alerts": "node dist/scripts/opsAlerts.js",
+    "ops:alerts:dev": "tsx src/scripts/opsAlerts.ts",
     "og:worker": "node dist/scripts/processLinkMetadataJobs.js",
     "og:cleanup": "node dist/scripts/cleanupLinkMetadataCache.js",
     "og:cron": "node dist/scripts/cronRunner.js",
