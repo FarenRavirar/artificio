@@ -34,11 +34,15 @@ export function CommitTextField({
   const [error, setError] = useState<string | null>(null);
   // Versão da última gravação enviada: a resposta de uma antiga não decide o estado do valor atual.
   const versionRef = useRef(0);
+  // Último valor que ESTE campo enviou. `initialValue` já reflete o cache otimista,
+  // não a última escrita pedida: com uma gravação em voo, voltar a esse valor
+  // parece "sem mudança" e deixaria a escrita enfileirada (outro valor) vencer.
+  const sentRef = useRef<string | null>(null);
 
   const commit = async () => {
     const next = value.trim();
     // Sem mudança não há o que validar nem gravar (username novo começa vazio).
-    if (next === initialValue.trim()) {
+    if (next === (sentRef.current ?? initialValue.trim())) {
       setError(null);
       return;
     }
@@ -46,9 +50,13 @@ export function CommitTextField({
     setError(problem);
     if (problem) return;
     const version = ++versionRef.current;
+    sentRef.current = next;
     // Recusa do servidor (username em uso etc.) fica no campo, não só no indicador.
     const serverError = await onCommit(next);
-    if (version === versionRef.current) setError(serverError || null);
+    if (version !== versionRef.current) return;
+    setError(serverError || null);
+    // Recusado: o cache volta ao valor anterior, então o valor recusado deixa de ser a base.
+    if (serverError) sentRef.current = null;
   };
 
   return (

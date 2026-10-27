@@ -138,8 +138,12 @@ export async function prepareNewGmProfileIdentity(
         .execute()
     ).map((row) => row.slug),
   );
+  let n = 1;
   let slug = base;
-  for (let n = 2; ocupados.has(slug); n += 1) slug = `${base}-${n}`;
+  while (ocupados.has(slug)) {
+    n += 1;
+    slug = `${base}-${n}`;
+  }
   return { slug, nickname };
 }
 

@@ -89,4 +89,24 @@ describe('CommitTextField (spec 106 R6)', () => {
 
     expect(screen.queryByText('Username já está em uso')).toBeNull();
   });
+
+  // Achado do Codex (PR #341): com gravação em voo, `initialValue` já reflete o cache
+  // otimista, não a última escrita pedida; voltar a esse valor não pode ser tido como "sem mudança".
+  it('voltar ao valor otimista depois de enfileirar outro ainda regrava o último', async () => {
+    const onCommit = vi.fn().mockImplementation(() => new Promise<string | null>(() => {})); // sempre em voo
+    const props = { id: 'display_name', label: 'Nome', hint: 'dica', validate: (v: string) => (v.length < 2 ? 'curto' : null), onCommit };
+    const { rerender } = render(<CommitTextField {...props} initialValue="nome_a" />);
+    const input = screen.getByLabelText('Nome');
+
+    fireEvent.change(input, { target: { value: 'nome_b' } });
+    fireEvent.blur(input);                                   // 1ª: b em voo
+    rerender(<CommitTextField {...props} initialValue="nome_b" />); // cache otimista = b
+    fireEvent.change(input, { target: { value: 'nome_c' } });
+    fireEvent.blur(input);                                   // 2ª: c fica na fila
+    fireEvent.change(input, { target: { value: 'nome_b' } });
+    fireEvent.blur(input);                                   // 3ª: volta a b — precisa substituir c
+
+    expect(onCommit).toHaveBeenCalledTimes(3);
+    expect(onCommit).toHaveBeenLastCalledWith('nome_b');
+  });
 });
