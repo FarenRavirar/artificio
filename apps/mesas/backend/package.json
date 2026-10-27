@@ -16,6 +16,8 @@
     "scenarios:import": "tsx src/scripts/importCenarios.ts",
     "metrics:anonymize": "node dist/scripts/anonymizeMetricEvents.js",
     "metrics:anonymize:dev": "tsx src/scripts/anonymizeMetricEvents.ts",
+    "client-errors:purge": "node dist/scripts/purgeClientErrors.js",
+    "client-errors:purge:dev": "tsx src/scripts/purgeClientErrors.ts",
     "og:worker": "node dist/scripts/processLinkMetadataJobs.js",
     "og:cleanup": "node dist/scripts/cleanupLinkMetadataCache.js",
     "og:cron": "node dist/scripts/cronRunner.js",

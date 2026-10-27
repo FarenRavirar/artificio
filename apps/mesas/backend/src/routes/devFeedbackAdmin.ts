@@ -106,6 +106,24 @@ router.get('/dev-feedback', async (req: Request, res: Response) => {
   }
 });
 
+// GET /api/v1/admin/client-errors - erros de cliente (spec 106 R19), so leitura.
+// `message`/`stack` vem do navegador de qualquer visitante: o painel os renderiza
+// como texto, nunca como HTML.
+router.get('/client-errors', async (_req: Request, res: Response) => {
+  try {
+    const data = await db
+      .selectFrom('client_errors')
+      .selectAll()
+      .orderBy('last_seen', 'desc')
+      .limit(200)
+      .execute();
+    return res.json({ data });
+  } catch (error) {
+    console.error('[GET /admin/client-errors]', error);
+    return res.status(500).json({ error: 'Erro ao listar erros de cliente.' });
+  }
+});
+
 // PATCH /api/v1/admin/dev-feedback/:id - atualiza status e/ou notas
 router.patch('/dev-feedback/:id', async (req: Request, res: Response) => {
   try {

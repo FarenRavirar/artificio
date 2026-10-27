@@ -186,6 +186,9 @@ describe('POST /api/v1/gm/profile — cria perfil COM contact_methods (T4.0p2)',
   it('nickname de 1 caractere continua recusado com 400', async () => {
     const res = await request(makeApp()).post('/api/v1/gm/profile').send({ nickname: 'x' });
     expect(res.status).toBe(400);
-    expect(db.insertInto).not.toHaveBeenCalled();
+    // Spec 106 R8: a recusa grava `activity_log` (`*_rejected`), nunca `gm_profiles`.
+    const tabelas = (db.insertInto as Mock).mock.calls.map((c) => c[0]);
+    expect(tabelas).not.toContain('gm_profiles');
+    expect(tabelas).toEqual(['activity_log']);
   });
 });

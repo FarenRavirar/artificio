@@ -45,6 +45,8 @@ import {
 import { parseTextForPreview } from '../discord/parseTextForPreview.js';
 import { extractProfileBioAttributes } from '../discord/llmAssist.js';
 import { prepareNewGmProfileIdentity } from '../services/profileService.js';
+import { isGmSlugTaken } from '../services/gmSlug.js';
+import { auditIdentityChange, auditIdentityRejected } from '../services/identityAudit.js';
 import {
   loadSystemsForParser,
   loadVttPlatformsForParser,
@@ -227,10 +229,12 @@ router.post('/profile', authMiddleware, async (req: Request, res: Response) => {
   // Spec 106 R1/R2: slug e nickname são opcionais. Quando faltam, o backend os
   // deriva (nunca do e-mail); quando vêm, valem como patch e seguem o contrato.
   if (slug !== undefined && (typeof slug !== 'string' || !/^[a-z0-9-]+$/.test(slug))) {
+    await auditIdentityRejected({ actorId: userId, field: 'slug', attempted: slug, reason: 'format', door: 'POST /gm/profile' });
     return res.status(400).json({ error: 'Slug inválido. Use apenas letras minúsculas, números e hífens.' });
   }
 
   if (nickname !== undefined && (typeof nickname !== 'string' || nickname.trim().length < 2 || nickname.trim().length > 40)) {
+    await auditIdentityRejected({ actorId: userId, field: 'nickname', attempted: nickname, reason: 'length', door: 'POST /gm/profile' });
     return res.status(400).json({ error: 'Nickname inválido. Use entre 2 e 40 caracteres.' });
   }
 
@@ -291,11 +295,11 @@ router.post('/profile', authMiddleware, async (req: Request, res: Response) => {
     const finalNickname: string = (nickname ?? derived!.nickname).trim();
 
     // Só o slug vindo do cliente pode colidir: o derivado já saiu livre.
-    const existing = slug === undefined
-      ? undefined
-      : await db.selectFrom('gm_profiles').select('id').where('slug', '=', slug).executeTakeFirst();
+    // Inclui slug antigo (`gm_slug_redirects`): perfil novo nao herda o 301 de outro.
+    const existing = slug === undefined ? false : await isGmSlugTaken(slug);
 
     if (existing) {
+      await auditIdentityRejected({ actorId: userId, field: 'slug', attempted: slug, reason: 'taken', door: 'POST /gm/profile' });
       return res.status(409).json({ error: 'Este slug de mestre já está em uso.' });
     }
 
@@ -355,6 +359,16 @@ router.post('/profile', authMiddleware, async (req: Request, res: Response) => {
       .where('role', '=', 'player')
       .execute();
 
+    // O nome nasce aqui (`from` nulo): sem esta linha o perfil do Victor nao deixou rastro.
+    await auditIdentityChange({
+      actorId: userId,
+      field: 'nickname',
+      from: null,
+      to: finalNickname,
+      door: 'POST /gm/profile',
+      entityId: gmProfile.id,
+    });
+
     return res.status(201).json({
       data: {
         ...gmProfile,
@@ -405,6 +419,7 @@ router.put('/profile', authMiddleware, async (req: Request, res: Response) => {
 
   if (nickname !== undefined) {
     if (typeof nickname !== 'string' || nickname.trim().length < 2 || nickname.trim().length > 40) {
+      await auditIdentityRejected({ actorId: userId, field: 'nickname', attempted: nickname, reason: 'length', door: 'PUT /gm/profile' });
       return res.status(400).json({ error: 'Nickname inválido. Use entre 2 e 40 caracteres.' });
     }
   }
@@ -481,7 +496,7 @@ router.put('/profile', authMiddleware, async (req: Request, res: Response) => {
   try {
     const gmProfile = await db
       .selectFrom('gm_profiles')
-      .select(['id'])
+      .select(['id', 'nickname'])
       .where('user_id', '=', userId)
       .executeTakeFirst();
 
@@ -558,6 +573,17 @@ router.put('/profile', authMiddleware, async (req: Request, res: Response) => {
       ])
         .execute();
     });
+
+    if (safeNickname !== undefined) {
+      await auditIdentityChange({
+        actorId: userId,
+        field: 'nickname',
+        from: gmProfile.nickname ?? null,
+        to: safeNickname,
+        door: 'PUT /gm/profile',
+        entityId: gmProfile.id,
+      });
+    }
 
     return res.json({
       data: {

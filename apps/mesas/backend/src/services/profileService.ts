@@ -1,7 +1,10 @@
 import type { CropRect } from '@artificio/media/image-kinds';
+import type { Kysely, Transaction } from 'kysely';
 import { toJsonbParam } from '../db/jsonb.js';
 import { db } from '../db/index.js';
+import { auditIdentityChange } from './identityAudit.js';
 import type {
+  Database,
   PlayerProfile,
   PlayerProfileUpdate,
   GmProfile,
@@ -104,17 +107,23 @@ export function slugifyGmName(value: string): string {
  * Extraido por achado de duplicacao do Sonar (PR #302): duas copias da regra de
  * identidade divergem; foi assim que 7 perfis de producao nasceram fora do
  * contrato. O `user-<8 hex>` e o unico valor que nunca e vazio.
+ *
+ * `executor`: quem chama de DENTRO de uma transacao passa o `trx`. Consultar pelo
+ * `db` global ali pedia uma SEGUNDA conexao enquanto a da transacao ficava presa;
+ * com o pool de 10 (`db/index.ts`), 10 criacoes simultaneas travavam tudo (achado
+ * de review, PR #342).
  */
 export async function prepareNewGmProfileIdentity(
   userId: string,
   patch?: Record<string, unknown>,
+  executor: Kysely<Database> | Transaction<Database> = db,
 ): Promise<{ slug: string; nickname: string }> {
-  const user = await db
+  const user = await executor
     .selectFrom('users')
     .select(['username'])
     .where('id', '=', userId)
     .executeTakeFirst();
-  const profile = await db
+  const profile = await executor
     .selectFrom('profiles')
     .select(['display_name'])
     .where('user_id', '=', userId)
@@ -129,15 +138,21 @@ export async function prepareNewGmProfileIdentity(
 
   // Uma consulta traz `base` e `base-N`; o primeiro N livre sai em memória, sem
   // `await` em laço. `-` e alfanuméricos não são curingas do LIKE.
-  const ocupados = new Set(
-    (
-      await db
-        .selectFrom('gm_profiles')
-        .select('slug')
-        .where((eb) => eb.or([eb('slug', '=', base), eb('slug', 'like', `${base}-%`)]))
-        .execute()
-    ).map((row) => row.slug),
-  );
+  // Slug antigo (`gm_slug_redirects`) tambem esta ocupado: um perfil novo nao pode
+  // herdar o 301 de outro mestre (spec 106 R3).
+  const [perfis, antigos] = await Promise.all([
+    executor
+      .selectFrom('gm_profiles')
+      .select('slug')
+      .where((eb) => eb.or([eb('slug', '=', base), eb('slug', 'like', `${base}-%`)]))
+      .execute(),
+    executor
+      .selectFrom('gm_slug_redirects')
+      .select('old_slug')
+      .where((eb) => eb.or([eb('old_slug', '=', base), eb('old_slug', 'like', `${base}-%`)]))
+      .execute(),
+  ]);
+  const ocupados = new Set([...perfis.map((row) => row.slug), ...antigos.map((row) => row.old_slug)]);
   let n = 1;
   let slug = base;
   while (ocupados.has(slug)) {
@@ -227,15 +242,31 @@ export async function getUserById(userId: string) {
 // UPDATE USER (dados gerais)
 // =============================================================================
 
-export async function updateUser(userId: string, data: UserUpdate) {
-  await db
-    .updateTable('users')
-    .set({
-      ...data,
-      updated_at: new Date(),
-    })
-    .where('id', '=', userId)
-    .execute();
+export async function updateUser(userId: string, data: UserUpdate, door = 'profileService.updateUser') {
+  // Valor anterior lido sob `FOR UPDATE`, gravacao e auditoria na MESMA transacao:
+  // duas edicoes simultaneas gravavam a mesma trilha "antes → depois" nas duas
+  // chamadas e a primeira mudanca sumia (achado de review, PR #342).
+  await db.transaction().execute(async (trx) => {
+    const antes =
+      data.username === undefined
+        ? undefined
+        : await trx.selectFrom('users').select('username').where('id', '=', userId).forUpdate().executeTakeFirst();
+    await trx
+      .updateTable('users')
+      .set({
+        ...data,
+        updated_at: new Date(),
+      })
+      .where('id', '=', userId)
+      .execute();
+
+    if (antes) {
+      await auditIdentityChange(
+        { actorId: userId, field: 'username', from: antes.username ?? null, to: data.username ?? null, door },
+        trx,
+      );
+    }
+  });
 
   return db
     .selectFrom('users')
@@ -276,7 +307,8 @@ export async function updateProfile(
     avatar_width?: number | null;
     avatar_height?: number | null;
     languages?: string[];
-  }
+  },
+  door = 'profileService.updateProfile',
 ) {
   const sanitizedBio = sanitizeOptionalUserMarkdown(data.bio);
   // `avatar_crop_data` é JSONB: sai do spread para ser serializado (ver
@@ -284,38 +316,58 @@ export async function updateProfile(
   // recorte nunca chegava a gravar — medido em beta: 0 de 18 perfis com crop.
   const { avatar_crop_data: rawCrop, ...restData } = data;
   const cropParam = toJsonbParam(rawCrop);
-  const exists = await db
-    .selectFrom('profiles')
-    .select('id')
-    .where('user_id', '=', userId)
-    .executeTakeFirst();
 
-  if (exists) {
-    await db
-      .updateTable('profiles')
-      .set({
-        ...restData,
-        avatar_crop_data: cropParam,
-        bio: sanitizedBio,
-        updated_at: new Date(),
-      })
+  // Leitura do nome anterior sob `FOR UPDATE`, escrita e auditoria numa transacao
+  // so, e a auditoria usa o valor que ESTA chamada gravou (achado de review, PR
+  // #342: sob concorrencia, reler a linha registrava o valor da outra requisicao).
+  await db.transaction().execute(async (trx) => {
+    const exists = await trx
+      .selectFrom('profiles')
+      .select(['id', 'display_name'])
       .where('user_id', '=', userId)
-      .execute();
-  } else {
-    await db
-      .insertInto('profiles')
-      .values({
-        user_id: userId,
-        display_name: data.display_name || 'Usuário',
-        bio: sanitizedBio || null,
-        avatar_url: data.avatar_url || null,
-        avatar_crop_data: cropParam ?? null,
-        avatar_width: data.avatar_width ?? null,
-        avatar_height: data.avatar_height ?? null,
-        languages: data.languages || [],
-      })
-      .execute();
-  }
+      .forUpdate()
+      .executeTakeFirst();
+
+    if (exists) {
+      await trx
+        .updateTable('profiles')
+        .set({
+          ...restData,
+          avatar_crop_data: cropParam,
+          bio: sanitizedBio,
+          updated_at: new Date(),
+        })
+        .where('user_id', '=', userId)
+        .execute();
+    } else {
+      await trx
+        .insertInto('profiles')
+        .values({
+          user_id: userId,
+          display_name: data.display_name || 'Usuário',
+          bio: sanitizedBio || null,
+          avatar_url: data.avatar_url || null,
+          avatar_crop_data: cropParam ?? null,
+          avatar_width: data.avatar_width ?? null,
+          avatar_height: data.avatar_height ?? null,
+          languages: data.languages || [],
+        })
+        .execute();
+    }
+
+    if (data.display_name !== undefined) {
+      await auditIdentityChange(
+        {
+          actorId: userId,
+          field: 'display_name',
+          from: exists?.display_name ?? null,
+          to: exists ? data.display_name : data.display_name || 'Usuário',
+          door,
+        },
+        trx,
+      );
+    }
+  });
 
   const result = await db
     .selectFrom('profiles')
@@ -366,32 +418,48 @@ export async function updatePlayerProfile(
 // UPDATE GM PROFILE
 // =============================================================================
 
-export async function updateGmProfile(userId: string, data: GmProfileUpdate): Promise<GmProfile> {
+export async function updateGmProfile(
+  userId: string,
+  data: GmProfileUpdate,
+  door = 'profileService.updateGmProfile',
+): Promise<GmProfile> {
   const sanitizedData: GmProfileUpdate = {
     ...data,
     bio_long: sanitizeOptionalUserMarkdown(data.bio_long),
     closed_group_description: sanitizeOptionalUserMarkdown(data.closed_group_description),
   };
-  // Verificar se já existe
-  const exists = await db
-    .selectFrom('gm_profiles')
-    .select('id')
-    .where('user_id', '=', userId)
-    .executeTakeFirst();
-
-  if (exists) {
-    // Update
-    await db
-      .updateTable('gm_profiles')
-      .set({
-        ...sanitizedData,
-        updated_at: new Date(),
-      })
+  // Mesma regra de `updateProfile`: leitura sob `FOR UPDATE`, escrita e auditoria
+  // do `nickname` na mesma transacao, com o valor que esta chamada gravou.
+  const criou = await db.transaction().execute(async (trx) => {
+    const exists = await trx
+      .selectFrom('gm_profiles')
+      .select(['id', 'nickname'])
       .where('user_id', '=', userId)
-      .execute();
-  } else {
+      .forUpdate()
+      .executeTakeFirst();
+
+    if (exists) {
+      await trx
+        .updateTable('gm_profiles')
+        .set({
+          ...sanitizedData,
+          updated_at: new Date(),
+        })
+        .where('user_id', '=', userId)
+        .execute();
+
+      // So quando o patch trouxe `nickname` (o PATCH reenvia o campo a cada salvamento).
+      if (data.nickname !== undefined) {
+        await auditIdentityChange(
+          { actorId: userId, field: 'nickname', from: exists.nickname ?? null, to: data.nickname ?? null, door, entityId: exists.id },
+          trx,
+        );
+      }
+      return false;
+    }
+
     // Insert (precisa de slug)
-    const { slug, nickname } = await prepareNewGmProfileIdentity(userId, sanitizedData);
+    const { slug, nickname } = await prepareNewGmProfileIdentity(userId, sanitizedData, trx);
 
     // `nickname` DEPOIS do spread (achado de review, PR #301). Na primeira
     // correcao a chave derivada vinha antes de `...sanitizedData`, e o patch
@@ -401,7 +469,7 @@ export async function updateGmProfile(userId: string, data: GmProfileUpdate): Pr
     // que E1 existe para impedir. `prepareNewGmProfileIdentity` ja recebeu o
     // patch e decidiu: usa o valor do mestre quando ele serve, cai no fallback
     // quando nao serve. Vindo por ultimo, e a decisao dela que prevalece.
-    await db
+    const criado = await trx
       .insertInto('gm_profiles')
       .values({
         user_id: userId,
@@ -409,10 +477,18 @@ export async function updateGmProfile(userId: string, data: GmProfileUpdate): Pr
         ...sanitizedData,
         nickname,
       })
-      .execute();
+      .returning('id')
+      .executeTakeFirstOrThrow();
 
-    await promoteUserToGm(userId);
-  }
+    // Perfil novo: `from` nulo, o nome nasceu aqui.
+    await auditIdentityChange(
+      { actorId: userId, field: 'nickname', from: null, to: nickname, door, entityId: criado.id },
+      trx,
+    );
+    return true;
+  });
+
+  if (criou) await promoteUserToGm(userId);
 
   const result = await db
     .selectFrom('gm_profiles')

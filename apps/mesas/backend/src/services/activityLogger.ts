@@ -12,12 +12,20 @@ export type ActivityAction =
   | 'system_suggestion.resolved'
   | 'scenario_suggestion.created' | 'scenario_suggestion.approved' | 'scenario_suggestion.rejected'
   | 'dev_feedback.created' | 'dev_feedback.updated'
-  | 'dev_feedback.archived' | 'dev_feedback.deleted' | 'dev_feedback.merged';
+  | 'dev_feedback.archived' | 'dev_feedback.deleted' | 'dev_feedback.merged'
+  // Spec 106 R8: as quatro portas de nome/slug, sucesso e recusa. `activity_log.action`
+  // e `text` sem CHECK (medido), entao nao exige migration.
+  | 'profile.display_name_changed' | 'profile.display_name_rejected'
+  | 'gm.nickname_changed' | 'gm.nickname_rejected'
+  | 'user.username_changed' | 'user.username_rejected'
+  | 'gm.slug_changed' | 'gm.slug_rejected'
+  // Spec 106 R19: primeira ocorrencia de um erro de cliente; R13/R20: alertas do cron.
+  | 'client_error.first_seen' | 'dev_feedback.stale_alerted' | 'contact.tail_detected';
 
 export type ActivityEntityType =
   | 'user' | 'table' | 'system' | 'scenario'
   | 'system_suggestion' | 'scenario_suggestion'
-  | 'dev_feedback';
+  | 'dev_feedback' | 'gm_profile' | 'client_error' | 'table_contact';
 
 export interface LogActivityInput {
   actorId: string | null;
@@ -53,6 +61,11 @@ export async function logActivity(
       })
       .executeTakeFirst();
   } catch (err) {
+    // Dentro de transacao o INSERT que falha ja deixou a transacao abortada: o
+    // COMMIT vira ROLLBACK sem erro e o chamador reportaria sucesso de algo que nao
+    // gravou (achado de review, PR #342). Com `trx` o erro sobe; sem `trx` segue
+    // best-effort, e a auditoria nao derruba a acao de merito.
+    if (trx) throw err;
     console.error('[activityLogger]', err);
   }
 }

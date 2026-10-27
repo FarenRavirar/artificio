@@ -33,7 +33,11 @@ export type MesasEventType =
   | 'mesas.admin.scenario_suggestion'
   | 'mesas.admin.table_published'
   | 'mesas.admin.member_joined'
-  | 'mesas.admin.dev_feedback';
+  | 'mesas.admin.dev_feedback'
+  // Spec 106: avisos operacionais ao admin (erro de cliente, fila parada, contato com cauda).
+  | 'mesas.admin.client_error'
+  | 'mesas.admin.feedback_stale'
+  | 'mesas.admin.contact_tail';
 
 /**
  * Traduz `mesas.users.id` (id LOCAL) para o id que o `accounts.` entende.

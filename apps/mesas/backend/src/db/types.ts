@@ -501,9 +501,11 @@ export interface DevFeedbackTable {
   screenshot_public_id: string | null;
   merged_into: string | null;
   merged_sources: ColumnType<unknown[], string | undefined, string>;
+  // Migration 168 (spec 106): alerta de fila parada, um por report
+  stale_alerted_at: Date | null;
 }
 
-export type DevFeedback = Selectable<DevFeedbackTable>;
+export type DevFeedback =Selectable<DevFeedbackTable>;
 export type NewDevFeedback = Insertable<DevFeedbackTable>;
 export type DevFeedbackUpdate = Updateable<DevFeedbackTable>;
 
@@ -1261,6 +1263,8 @@ export interface Database {
   gm_profile_metrics: GmProfileMetricsTable;
   gm_profile_view_events: GmProfileViewEventsTable;
   gm_profile_contact_events: GmProfileContactEventsTable; // Migration 167 (spec 105 M3)
+  gm_slug_redirects: GmSlugRedirectsTable; // Migration 168 (spec 106 R3)
+  client_errors: ClientErrorsTable; // Migration 168 (spec 106 R19)
   table_metric_events: TableMetricEventsTable;
   table_click_events: TableClickEventsTable; // Migration 007: A/B testing
 
@@ -1381,6 +1385,32 @@ export interface GmProfileContactEventsTable {
   channel: ContactChannel; // os 7 de CONTACT_CHANNELS (utils/contactUrls.ts)
   clicked_at: Generated<Date>;
 }
+
+/** Slug antigo de mestre → perfil atual (spec 106 R3). Destino é sempre o slug corrente de `gm_id`. */
+export interface GmSlugRedirectsTable {
+  old_slug: string;
+  gm_id: string;
+  created_at: Generated<Date>;
+}
+
+/** Erro de cliente, um por `fingerprint` (spec 106 R19). Sem IP, header nem query string. */
+export interface ClientErrorsTable {
+  id: Generated<string>;
+  fingerprint: string;
+  first_seen: Generated<Date>;
+  last_seen: Generated<Date>;
+  occurrences: Generated<number>;
+  user_id: string | null;
+  route_pattern: Generated<string>;
+  path: Generated<string>;
+  message: Generated<string>;
+  stack: Generated<string>;
+  component_stack: Generated<string>;
+  user_agent: Generated<string>;
+  build: Generated<string>;
+}
+
+export type ClientError = Selectable<ClientErrorsTable>;
 
 // Migration 07: Eventos de métricas para anti-abuso
 export type TableMetricAction = 'view' | 'click' | 'contact' | 'favorite';

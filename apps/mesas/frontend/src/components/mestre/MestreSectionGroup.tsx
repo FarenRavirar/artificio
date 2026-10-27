@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { SectionBoundary } from '../SectionBoundary';
 
 interface Props {
   readonly id: string;
@@ -41,7 +42,10 @@ export function MestreSectionGroup({ id, title, hasContent, children }: Props) {
         </h2>
       </div>
 
-      <div className="mestre-group-body">{children}</div>
+      {/* Um bloco com defeito nao leva a pagina publica junto (spec 106 R18). */}
+      <div className="mestre-group-body">
+        <SectionBoundary name={title}>{children}</SectionBoundary>
+      </div>
     </section>
   );
 }

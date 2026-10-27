@@ -10,7 +10,10 @@ export type AdminNotificationType =
   | 'scenario_suggestion'
   | 'table_published'
   | 'member_joined'
-  | 'dev_feedback';
+  | 'dev_feedback'
+  | 'client_error'
+  | 'feedback_stale'
+  | 'contact_tail';
 
 /**
  * T7.4b (spec 096): tradução do vocabulário local para o do registro central.
@@ -23,6 +26,9 @@ const ADMIN_EVENT_TYPE: Record<AdminNotificationType, MesasEventType> = {
   table_published: 'mesas.admin.table_published',
   member_joined: 'mesas.admin.member_joined',
   dev_feedback: 'mesas.admin.dev_feedback',
+  client_error: 'mesas.admin.client_error',
+  feedback_stale: 'mesas.admin.feedback_stale',
+  contact_tail: 'mesas.admin.contact_tail',
 };
 
 export interface AdminNotificationInput {

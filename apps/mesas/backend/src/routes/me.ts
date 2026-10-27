@@ -4,6 +4,7 @@ import { authMiddleware, optionalAuth } from '../middleware/auth.js';
 import { flattenTree } from '../services/catalogClient.js';
 import { getSystemCatalogProvider } from '../services/systemCatalogProvider.js';
 import { sanitizeNullableUserMarkdown } from '../utils/userMarkdown.js';
+import { auditIdentityChange, auditIdentityRejected } from '../services/identityAudit.js';
 
 const router = Router();
 
@@ -122,6 +123,7 @@ router.put('/preferences', authMiddleware, async (req: Request, res: Response) =
   } = req.body;
 
   if (!display_name || typeof display_name !== 'string' || display_name.trim().length < 2) {
+    await auditIdentityRejected({ actorId: userId, field: 'display_name', attempted: display_name, reason: 'length', door: 'PUT /me/preferences' });
     return res.status(400).json({ error: 'Nome de exibição inválido.' });
   }
 
@@ -144,12 +146,14 @@ router.put('/preferences', authMiddleware, async (req: Request, res: Response) =
       return res.status(400).json({ error: 'Nenhum sistema válido foi selecionado.' });
     }
 
+    let displayNameAntes: string | null = null;
     await db.transaction().execute(async (trx) => {
       const profileExists = await trx
         .selectFrom('profiles')
-        .select('id')
+        .select(['id', 'display_name'])
         .where('user_id', '=', userId)
         .executeTakeFirst();
+      displayNameAntes = profileExists?.display_name ?? null;
 
       if (profileExists) {
         await trx
@@ -193,6 +197,18 @@ router.put('/preferences', authMiddleware, async (req: Request, res: Response) =
           })
         )
         .execute();
+
+      // Na mesma transacao do perfil: se a auditoria falhar, nada e gravado pela metade.
+      await auditIdentityChange(
+        {
+          actorId: userId,
+          field: 'display_name',
+          from: displayNameAntes,
+          to: display_name.trim(),
+          door: 'PUT /me/preferences',
+        },
+        trx,
+      );
     });
 
     return res.json({

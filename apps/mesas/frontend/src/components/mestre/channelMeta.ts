@@ -93,3 +93,12 @@ export const CONTACT_CHANNEL_META: Record<TableContactChannel, ContactChannelMet
     valueLabel: 'URL do formulário',
   },
 };
+
+/** Canal que o frontend nao conhece: exibe o valor, sem ícone de marca (spec 106 R17). */
+export const FALLBACK_CHANNEL_META: ContactChannelMeta = {
+  icon: ExternalLink,
+  label: 'Contato',
+  placeholder: '',
+  iconClass: 'text-gray-400',
+  valueLabel: 'Valor',
+};

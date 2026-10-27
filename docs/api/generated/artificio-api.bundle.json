@@ -7,10 +7,10 @@
     "downloads": 108,
     "glossario": 50,
     "links": 22,
-    "mesas": 207,
+    "mesas": 209,
     "site": 58
   },
-  "total": 498,
+  "total": 500,
   "operations": [
     {
       "app": "accounts",
@@ -2956,6 +2956,18 @@
     {
       "app": "mesas",
       "method": "GET",
+      "path": "/api/v1/admin/client-errors",
+      "summary": "Consulta api v1 admin client-errors",
+      "owner": "mesas",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "getapi_v1_admin_client_errors"
+    },
+    {
+      "app": "mesas",
+      "method": "GET",
       "path": "/api/v1/admin/dev-feedback",
       "summary": "Consulta api v1 admin dev-feedback",
       "owner": "mesas",
@@ -4056,6 +4068,18 @@
       "auth": "none",
       "consumers": [],
       "operationId": "getapi_v1_changelog"
+    },
+    {
+      "app": "mesas",
+      "method": "POST",
+      "path": "/api/v1/client-errors",
+      "summary": "Cria ou executa api v1 client-errors",
+      "owner": "mesas",
+      "scope": "public",
+      "status": "active",
+      "auth": "user",
+      "consumers": [],
+      "operationId": "postapi_v1_client_errors"
     },
     {
       "app": "mesas",

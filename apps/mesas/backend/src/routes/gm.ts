@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { sql } from 'kysely';
 import { db } from '../db/index.js';
+import { resolveGmSlugRedirect } from '../services/gmSlug.js';
 import { authMiddleware, optionalAuth } from '../middleware/auth.js';
 import { publicRateLimiter, authRateLimiter } from '../middleware/rateLimit.js';
 import { isValidSlugParam, readBodyField } from '../utils/validation.js';
@@ -205,6 +206,11 @@ router.get('/perfis/:slug', publicRateLimiter, optionalAuth, async (req: Request
       .executeTakeFirst();
 
     if (!gm) {
+      // Spec 106 R3: slug antigo responde 200 `{ data: null, redirect_to }` e nao 301.
+      // O `fetch` do SSR segue 301 sozinho e o `loader` perderia a informacao; ele
+      // converte isto em `redirect(..., 301)` para o navegador e para o Googlebot.
+      const redirectTo = await resolveGmSlugRedirect(slug);
+      if (redirectTo) return res.json({ data: null, redirect_to: redirectTo });
       return res.status(404).json({ error: 'Mestre não encontrado.' });
     }
 

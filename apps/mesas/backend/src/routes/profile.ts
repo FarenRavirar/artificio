@@ -4,6 +4,7 @@ import { Router, Request, Response } from 'express';
 import { authMiddleware } from '../middleware/auth.js';
 import { strictRateLimiter } from '../middleware/rateLimit.js';
 import * as profileService from '../services/profileService.js';
+import { auditIdentityRejected } from '../services/identityAudit.js';
 
 const router = Router();
 
@@ -49,11 +50,13 @@ router.patch('/me', authMiddleware, async (req: Request, res: Response) => {
     // Validar username se fornecido
     if (username !== undefined) {
       if (typeof username !== 'string' || username.trim().length < 3) {
+        await auditIdentityRejected({ actorId: userId, field: 'username', attempted: username, reason: 'length', door: 'PATCH /profile/me' });
         return res.status(400).json({ error: 'Username deve ter no mínimo 3 caracteres' });
       }
 
       // Validar formato (apenas letras, números e underscore)
       if (!/^[a-z0-9_]+$/i.test(username)) {
+        await auditIdentityRejected({ actorId: userId, field: 'username', attempted: username, reason: 'format', door: 'PATCH /profile/me' });
         return res
           .status(400)
           .json({ error: 'Username deve conter apenas letras, números e underscore' });
@@ -62,11 +65,12 @@ router.patch('/me', authMiddleware, async (req: Request, res: Response) => {
       // Verificar unicidade
       const existing = await profileService.checkUsernameExists(username, userId);
       if (existing) {
+        await auditIdentityRejected({ actorId: userId, field: 'username', attempted: username, reason: 'taken', door: 'PATCH /profile/me' });
         return res.status(400).json({ error: 'Username já está em uso' });
       }
     }
 
-    const user = await profileService.updateUser(userId, { username, location });
+    const user = await profileService.updateUser(userId, { username, location }, 'PATCH /profile/me');
     return res.json({ data: user });
   } catch (error: unknown) {
     console.error('[PATCH /profile/me]', error);
@@ -90,6 +94,7 @@ router.patch('/me/profile', authMiddleware, async (req: Request, res: Response) 
   // Spec 106 R6: o PUT /me/preferences já exigia 2+ caracteres; este PATCH gravava
   // qualquer valor, inclusive vazio, que apagava o nome da conta.
   if (display_name !== undefined && (typeof display_name !== 'string' || display_name.trim().length < 2)) {
+    await auditIdentityRejected({ actorId: userId, field: 'display_name', attempted: display_name, reason: 'length', door: 'PATCH /profile/me/profile' });
     return res.status(400).json({ error: 'Nome de exibição deve ter no mínimo 2 caracteres' });
   }
 
@@ -108,7 +113,7 @@ router.patch('/me/profile', authMiddleware, async (req: Request, res: Response) 
       avatar_width,
       avatar_height,
       languages,
-    });
+    }, 'PATCH /profile/me/profile');
     return res.json({ data: profile });
   } catch (error: unknown) {
     console.error('[PATCH /profile/me/profile]', error);
@@ -185,9 +190,16 @@ async function updateGmProfileHandler(req: Request, res: Response) {
   const avatarFrame = normalizeImageFramePatch(req.body, 'avatar');
   const bannerFrame = normalizeImageFramePatch(req.body, 'banner');
 
+  // Spec 106 R1: o PATCH gravava `nickname` sem validar (null, 1 caractere, 60); o
+  // contrato de 2-40 so existia em `POST`/`PUT /gm/profile`.
+  if (nickname !== undefined && (typeof nickname !== 'string' || nickname.trim().length < 2 || nickname.trim().length > 40)) {
+    await auditIdentityRejected({ actorId: userId, field: 'nickname', attempted: nickname, reason: 'length', door: 'PATCH /profile/gm' });
+    return res.status(400).json({ error: 'Nickname inválido. Use entre 2 e 40 caracteres.' });
+  }
+
   try {
     const gm = await profileService.updateGmProfile(userId, {
-      nickname,
+      nickname: typeof nickname === 'string' ? nickname.trim() : undefined,
       bio_long,
       avatar_url,
       avatar_crop_data: toJsonbParam(avatarFrame.crop),
@@ -204,7 +216,7 @@ async function updateGmProfileHandler(req: Request, res: Response) {
       gm_style,
       tools,
       game_format,
-    });
+    }, 'PATCH /profile/gm');
     return res.json({ data: gm });
   } catch (error: unknown) {
     console.error('[PATCH /profile/gm]', error);

@@ -10,7 +10,7 @@ import {
   toSafeSocialProfileUrl,
   toWhatsAppUrl,
 } from '../../utils/safeExternalUrl';
-import { CONTACT_CHANNEL_META } from './channelMeta';
+import { CONTACT_CHANNEL_META, FALLBACK_CHANNEL_META } from './channelMeta';
 
 /**
  * Contato público do mestre (T4.0r): os MESMOS 7 canais do editor e do
@@ -93,11 +93,24 @@ const CHANNEL_CONFIG: Record<TableContactChannel, ChannelDisplayConfig> = {
   },
 };
 
+const UNKNOWN_CHANNEL_CONFIG: ChannelDisplayConfig = {
+  color: 'from-gray-500/20 to-gray-600/20',
+  borderColor: 'border-gray-500/30',
+  buttonColor: '',
+  actionLabel: '',
+};
+
 function ContactCard({ contact, gmSlug }: { contact: ContactMethod; gmSlug: string }) {
   const [copied, setCopied] = useState(false);
   const { trackGmContactClick } = useTracking();
-  const config = CHANNEL_CONFIG[contact.channel];
-  const meta = CONTACT_CHANNEL_META[contact.channel];
+  // Canal vem do servidor: um valor fora dos 7 conhecidos (canal novo no backend,
+  // dado antigo) nao pode derrubar a pagina inteira (spec 106 R17; mesmo defeito do
+  // `redfallen`, onde `<Icon/>` recebia `undefined`).
+  // Sem acao conhecida, sem botao: cair no config de `form` mostraria "Preencher
+  // formulario" num botao que `handleAction` nao trata (achado de review, PR #342).
+  const known = Object.hasOwn(CHANNEL_CONFIG, contact.channel);
+  const config = known ? CHANNEL_CONFIG[contact.channel] : UNKNOWN_CHANNEL_CONFIG;
+  const meta = CONTACT_CHANNEL_META[contact.channel] ?? FALLBACK_CHANNEL_META;
   const Icon = meta.icon;
   const safeDiscordServerUrl = toSafeDiscordInviteUrl(contact.discord_server_url);
 
@@ -191,7 +204,7 @@ function ContactCard({ contact, gmSlug }: { contact: ContactMethod; gmSlug: stri
           )}
 
           {/* Botão de ação principal (não mostrar para Discord, já tem o inline) */}
-          {contact.channel !== 'discord' && (
+          {contact.channel !== 'discord' && known && (
             <button
               onClick={handleAction}
               className={`

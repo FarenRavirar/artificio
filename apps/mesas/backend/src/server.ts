@@ -13,6 +13,7 @@ import scenarioSuggestionsRoutes from './routes/scenarioSuggestions.js';
 import systemSuggestionsAdminRoutes from './routes/systemSuggestionsAdmin.js';
 import scenarioSuggestionsAdminRoutes from './routes/scenarioSuggestionsAdmin.js';
 import devFeedbackRoutes from './routes/devFeedback.js';
+import clientErrorsRoutes from './routes/clientErrors.js';
 import devFeedbackAdminRoutes from './routes/devFeedbackAdmin.js';
 import communityCommentsRoutes from './routes/communityComments.js';
 import communityModerationRoutes from './routes/communityModeration.js';
@@ -91,6 +92,8 @@ app.use(cors({
 app.use(parseCookies);
 app.use(globalRateLimiter);
 app.use(csrfProtection(allowedFrontendOrigins));
+// Antes do parser global de 12 MB: o endpoint publico de telemetria tem limite proprio (64 KB).
+app.use('/api/v1/client-errors', clientErrorsRoutes);
 app.use(express.json({ limit: '12mb' }));
 
 // Middleware de logging de todas as requisições
