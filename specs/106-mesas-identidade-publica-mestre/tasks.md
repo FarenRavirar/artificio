@@ -67,26 +67,30 @@ falha; restaurado → 15 passam. Sobram duas portas de criação, `POST /gm/prof
 
 ## F2 — Redirecionamento de slug (R3)
 
-### [ ] T2.1 — Migration `gm_slug_redirects` **(aut.: aplicar em produção)**
+### [x] T2.1 — Migration `gm_slug_redirects` **(aut.: aplicar em produção)**
 
-Plan §3. Ler `deploy-flow.md` §3 e os cabeçalhos das migrations vizinhas. Número: conferir
-`ls apps/mesas/database | grep migration_16` (última medida: 167). Idempotente; guard
-`MAX_AUTO_PENDING` ([[E012]]) lido antes de aplicar (a 168 é a única migration da spec).
+Medido em beta e em produção: `migration_168_spec106_slug_redirects_client_errors.sql` é a última de
+`schema_migrations`; `to_regclass('gm_slug_redirects')` e `to_regclass('client_errors')` não nulos;
+`dev_feedback.stale_alerted_at` existe. É a única migration da spec; a próxima é a da T8.9.
 
-### [ ] T2.2 — `GET /gm/perfis/:slug` com `redirect_to`; `loader` com 301
+### [x] T2.2 — `GET /gm/perfis/:slug` com `redirect_to`; `loader` com 301
 
-Testes: slug antigo → 301; inexistente → 404; atual → 200; encadeado → 301 direto ao atual.
-`pnpm verify:api` (muda contrato de rota).
+Medido em produção (`curl`): `/mestre/patorico027`, `/mestre/academiahardya`,
+`/mestre/dadoviciadopodcast` e `/mestre/endyrpg13` → 301 para o slug novo; slug inexistente → 404;
+slug atual (`void`) → 200; a API devolve `redirect_to`. Encadeado (A→B→C responde A→C) só por teste
+unitário (`gmSlug.test.ts`).
 
-### [ ] T2.3 — `renameGmSlug` (transação, unicidade, `activity_log`)
+### [x] T2.3 — `renameGmSlug` (transação, unicidade, `activity_log`)
 
-Testes de colisão contra `gm_profiles` e `gm_slug_redirects`; formato; reversão da transação.
+`gmSlug.test.ts` (12 testes verdes): colisão contra `gm_profiles` e `gm_slug_redirects`, formato,
+reversão. `renameGmSlug(input, outer?)` aceita transação externa: o script da T6 grava slug,
+redirect, nickname e auditoria numa transação só.
 
 ---
 
 ## F3 — Um nome em todas as superfícies (R4)
 
-### [ ] T3.1 — `gmDisplayNameSql` nas 6 consultas
+### [~] T3.1 — `gmDisplayNameSql` nas 6 consultas
 
 Plan §4. Aceite: para as 6 mesas com sobrescrita divergente (spec §2.5), card, OG, busca, lista e
 página devolvem o mesmo nome; o `SELECT` da §2.5 remedido.
@@ -98,17 +102,24 @@ as 6 mesas com sobrescrita divergente devolvem o nome da sobrescrita na express�
 Revisados os outros usos de `display_name` da §2.5: autor de avaliação (`gm.ts:689`), `AuthContext`,
 `actorNameResolver` e `activityLog` são identidade de pessoa/ator, não nome de mestre; ficam. Única
 superfície pública achada: "encerrada pelo mestre X" (`tables.ts:874`, resposta 410), que usava
-`display_name`/`username`; passou a preferir `gm.nickname`. Falta
-conferir em beta, com HTTP real, card, OG e página de uma dessas mesas.
+`display_name`/`username`; passou a preferir `gm.nickname`. Medido em
+produção (2026-10-27): das 6 mesas, 5 respondem 410 (encerradas) e deixaram de ser verificáveis; na do Nido
+(`o-sequestro-de-bess-mulil1xa`) detalhe, lista e busca devolvem `Nido` (a sobrescrita), enquanto o perfil
+é `Mestre Nido`. A descrição OG dessa mesa não cita o nome do mestre, então o aceite de OG não foi
+conferido. As mesas do `dadoviciadopodcast` e do `endyrpg13` mantêm a sobrescrita própria (decisão dele:
+manter o que o mestre colocou).
 
 ---
 
 ## F4 — Auditoria (R8)
 
-### [ ] T4.1 — Ações novas em `activity_log` nas portas de nome e slug
+### [x] T4.1 — Ações novas em `activity_log` nas portas de nome e slug
 
-Plan §6. Aceite: um `PUT /me/preferences` de teste em beta grava a linha; recusa (1 caractere)
-grava `*_rejected` com `{ attempted, reason }`.
+Medido em beta com a sessão de admin: `PUT /me/preferences` com `display_name` de 1 caractere → 400 e
+`profile.display_name_rejected` com `reason: length` e `door: PUT /me/preferences`; `PATCH
+/profile/me/profile` com nome válido grava `profile.display_name_changed` com de/para, e a reversão
+grava a segunda linha. Em produção, o script da T6 gravou 4 `gm.slug_changed` e 4
+`gm.nickname_changed`.
 
 ---
 
@@ -119,7 +130,8 @@ grava `*_rejected` com `{ attempted, reason }`.
 Estado: `NicknameField` em `GmProfileFields.tsx`, montado em `ProfileEditPage.tsx` (parte "Quem"),
 no padrão linha + modal dos vizinhos (Salvar explícito, 2–40 validado antes de enviar). Desvio do
 plan §5: o plan dizia "salvamento ao sair"; o campo segue o primitivo dos vizinhos (modal), que
-já descarta sem gravar. Falta validação visual em beta.
+já descarta sem gravar. Medido em beta: a aba Mestre mostra "Nome público do mestre"; o modal e a validação 2 a 40 só têm teste
+unitário. Falta a validação visual.
 
 ### [~] T5.2 — Aba Geral: gravar ao sair do campo, validar antes, sem tecla descartada
 
@@ -138,26 +150,31 @@ Estado: rótulos da aba Geral trocados, texto sob o campo do onboarding, entrada
 `/perfil` com `profile.gm` nulo, e o aviso foi para lá. Revisão de copy e auditoria feitas por
 leitura do código contra os critérios WCAG 3.3.1, 3.3.2, 4.1.3 e as heurísticas H1 e H9, não pelo
 roteiro completo das skills `wcag-accessibility-audit` e `nielsen-heuristics-audit`; contraste
-não medido. Falta a validação funcional em beta com a janela anônima do mantenedor.
+não medido. Medido em beta: a aba Geral de `/perfil` mostra os rótulos novos. Falta o aviso de perfil pendente (exige
+usuário sem perfil de mestre) e a validação com a janela anônima do mantenedor.
 
 ---
 
 ## F6 — Dado em produção (R9)
 
-### [ ] T6.1 — Nickname e slug do Victor e do Albert **(aut.)**
+### [x] T6.1 — Nickname e slug do Victor e do Albert **(aut.)**
 
-Depois de F1, F2, F3 em produção. Ensaio em beta. `pg_dump` de `gm_profiles` e `profiles`. Em
-transação com `SELECT` antes e depois. Script no padrão de `backend/src/scripts/`, `docker exec` no
-`mesas-api`, `--dry-run` primeiro (plan §7). Victor: `nickname='VOID'`, slug → `void`. Albert:
-`nickname='Albert'`, slug → `albert`. Via `renameGmSlug`. Aceite: `GET /mestre/patorico027` → 301
-para `void`, `GET /mestre/academiahardya` → 301 para `albert`; `/sitemap.xml` sem os antigos.
+Aplicado em produção por `npm run gm-identity:fix` (`fixGmIdentity.ts`, lista fechada por id). Sem
+argumento só imprime; grava com `--apply --actor=<id do admin>`. O ensaio em beta não prova nada: beta
+não tem esses mestres (medido: 13 mestres, nenhum com nome do e-mail). `pg_dump` de `gm_profiles`,
+`profiles` e `gm_slug_redirects` antes; uma transação por mestre (slug, redirect, nickname, auditoria) com
+releitura `FOR UPDATE`, que recusa o alvo se o dono já trocou o nome.
 
-### [ ] T6.2 — `dadoviciadopodcast` → `Dado Viciado` e `endyrpg13` → `Endy` (D8) **(aut.)**
+Medido depois: `patorico027` → `void`/`VOID` e `academiahardya` → `albert`/`Albert`, com 301 nos dois;
+`/sitemap.xml?cb=…` lista os novos e nenhum dos antigos; `activity_log` com 4 `gm.slug_changed` e 4
+`gm.nickname_changed`.
 
-Decisão dele: "é Dado Viciado e o outro é Endy". Mesmo procedimento da T6.1; slugs `dado-viciado`
-e `endy` (livres em 2026-10-27; remedir) com redirect do slug antigo. O `--dry-run` imprime o slug
-antes de gravar, porque a derivação do slug a partir do nome é leitura minha. `dadoviciadopodcast`
-tem 2 mesas ativas: conferir no beta que `/mestre/dadoviciadopodcast` segue em 301.
+### [x] T6.2 — `dadoviciadopodcast` → `Dado Viciado` e `endyrpg13` → `Endy` (D8) **(aut.)**
+
+Mesma execução da T6.1. Slugs derivados por `slugifyGmName` e impressos no dry-run antes de gravar:
+`dado-viciado` e `endy`. `/mestre/dadoviciadopodcast` → 301 para `/mestre/dado-viciado`. As mesas deles têm
+`master_display_name` próprio (`Jeferson Stankowski [DADO VICIADO]`, `EndyRPG`). Decisão dele: manter o que
+o mestre colocou, então só o título da página do mestre mudou.
 
 ---
 
@@ -168,15 +185,13 @@ primeira rodada mudou em cinco deles (`spec.md` §2.8).
 
 ### [ ] T8.1 — `redfallen`: aviso e confirmação (R10)
 
-Correção já em produção (`2e38fd1`). Falta o aviso ao autor e ele confirmar que volta a gravar
-(`gm_profiles.updated_at` hoje 2026-09-14). **Não fechar sem o `updated_at` novo ou sem nomear o
-bloqueio "usuário não respondeu".** Reprodução como ele exige a sessão dele: pedir antes.
+Correção `2e38fd1` em produção. O aviso ao autor saiu: `fa0efabf…` foi fechado como `resolved` pelo
+`PATCH` com a sessão do mantenedor, e `mesas_notification_outbox` tem 1 `mesas.system.notice` entregue.
+Falta ele confirmar que volta a gravar (`gm_profiles.updated_at` era 2026-09-14). **Não fechar sem o
+`updated_at` novo ou sem nomear o bloqueio "usuário não respondeu".** Reprodução como ele exige a sessão
+dele: pedir antes.
 
-**Conflito a resolver (T8.4):** o aviso sai só pelo `PATCH`, e os 14 `UPDATE` da T8.4 são SQL direto
-(plan §11.1), então o `redfallen` não recebe aviso por eles. Para ele receber, fechar `fa0efabf…` pelo
-`PATCH` (`status = resolved`) em vez do `UPDATE`. Inferência a confirmar com ele.
-
-### [~] T8.2 — Vagas: dois números só, `slots_total` e `slots_open` (R11, R15, D11, D24)
+### [x] T8.2 — Vagas: dois números só, `slots_total` e `slots_open` (R11, R15, D11, D24)
 
 Decisão dele (2026-10-27, D24): "tem um total de vagas e vagas que dá para entrar; vagas totais é o
 que manda; não existe vagas preenchidas". Modelo: `slots_total` (teto) e `slots_open` (vagas para
@@ -195,71 +210,57 @@ envia `slots_total` e o `UPDATE` de `syncDraftToTable` gravam `slots_filled = 0`
 tira `slots_filled` da leitura (o `selectAll` devolveria valor velho); o cartão diz "N de Y vagas
 abertas", não "preenchidas".
 
-Falta, em beta: `curl /api/v1/gm/perfis/mestre-hermes` devolve `slots_total` e `slots_open` e nenhum
-`slots_filled`; soma da página do mestre = soma da home; cartão da home mostra "N de Y vagas
-abertas" (texto novo não visto no navegador). O `DROP COLUMN` é a T8.9.
+Aceite medido: `/gm/perfis/*` e `/tables` não têm `slots_filled` e devolvem `slots_total` e `slots_open`
+(beta e produção). Soma da página igual à da home em produção (`mestre-hermes`: 5 mesas, 15 vagas abertas
+nos dois) e em beta (`mestre-pollux`: 5 e 5). A home de beta tem 20 cartões "N de Y vagas abertas" e
+nenhum "preenchid" (Playwright sem sessão); o cartão de produção não foi visto no navegador. O
+`DROP COLUMN` é a T8.9.
 
-### [~] T8.3 — Contatos: cauda de Markdown e duplicados de Discord (R12, R20)
+### [x] T8.3 — Contatos: cauda de Markdown e duplicados de Discord (R12, R20)
 
-Plan §12. **Dado (aut.):** `pg_dump` de `table_contacts`; 2 `UPDATE`
+Plan §12. Aplicado em produção: `pg_dump` de `table_contacts`, depois uma transação com 2 `UPDATE`
 (`uma-nova-fabula-se-inicia-ms21l0mk` → `https://forms.gle/mVvUiUTq7Z5yJTWT9`,
-`techno-jogos-do-anfitriao-mrrxgq10` → `https://forms.gle/b3uwFZeGNLQViQ1U7`) e 3 `DELETE` de
-`form` (`uwill`, `.zero9899`, `kauarang`; `channel='form'` e `value` igual ao `discord` da mesma
-mesa). Aceite: a regex `MARKDOWN_URL_TAIL_SQL` de `utils/contactUrls.ts` (`)` ou `]` no fim, ou `**`, `__`,
-`~~`, crase dupla) em `form`/`facebook`/`instagram` → 0 (medido em 2026-10-27: 2 linhas); `form` duplicado de Discord → 0.
+`techno-jogos-do-anfitriao-mrrxgq10` → `https://forms.gle/b3uwFZeGNLQViQ1U7`) e 3 `DELETE` por id de
+`form` igual ao `discord` da mesma mesa (`uwill`, `.zero9899`, `kauarang`). Medido depois: a regex
+`MARKDOWN_URL_TAIL_SQL` de `utils/contactUrls.ts` em `form`/`facebook`/`instagram` → 0 (eram 2); `form`
+duplicado de Discord → 0.
 
 Decisões de execução: `canonicalizeHttpsUrl` só limpa cauda inequívoca (`)`, `]` ou ênfase repetida
 `**`, `__`, `~~`); `_`, `*`, `~` isolados são válidos no caminho e ficam (medido: `instagram.com/mestre_`
 virava `…/mestre` com a limpeza incondicional). A varredura (`ops:alerts`, cron diário) usa a mesma
 regra em SQL mais `>`, dedupe de 24 h por `activity_log` (`contact.tail_detected`) e
 `notifyAdmins('contact_tail')`; varre só `table_contacts`, não `gm_profiles.contact_methods`. O
-primeiro `ops:alerts` depois do deploy avisa 1 vez se as 2 linhas ainda estiverem sujas.
+primeiro `ops:alerts` em produção acusou `contatos com cauda: 2`, antes do dado ser limpo.
 
-### [~] T8.4 — Fila de feedback: status dos 14 e aviso ao autor (R13, D13, D19, D20)
+### [x] T8.4 — Fila de feedback: status dos 14 e aviso ao autor (R13, D13, D19, D20)
 
-**(aut.) 14 `UPDATE`** em `dev_feedback`, uma transação, `reviewed_by =
-'15f19890-625d-4b4c-8761-dc5f30e1cec9'` (único `admin`, `farenravirar`), `reviewed_at = now()`,
-`updated_at = now()`. `admin_notes` internas (nenhuma rota de usuário as lê, `spec.md` §2.8).
-`SELECT` antes e depois; rollback: `status='new'`, `admin_notes=NULL`, `reviewed_at=NULL`,
-`reviewed_by=NULL`, `merged_into=NULL` nos mesmos ids.
+Aplicado em produção (`dev_feedback`; `pg_dump` antes): 13 relatos por `UPDATE` numa transação
+(`reviewed_by` = único `admin`, `reviewed_at` e `updated_at` = `now()`, `admin_notes` internas) e
+`fa0efabf…` (`redfallen`) pelo `PATCH` com a sessão dele, para o autor receber o aviso. Resultado
+medido: `status='new'` → 0; 11 `resolved`, 2 `duplicate` (`0d7992ef…` → `fa0efabf…`, `ea186f5f…` →
+`7bf0ffcf…`) e 4 `triaged` (`57a70eca…` T5.3, `1f4c0f2d…` T8.6, `1e0c54c0…` T8.5, `7b375d1d…` T8.6).
+Rollback: `status='new'`, `admin_notes=NULL`, `reviewed_at=NULL`, `reviewed_by=NULL`, `merged_into=NULL`.
 
-| id | report | status | admin_notes |
-|---|---|---|---|
-| `98077e25-7fac-482d-9961-796d08f36cb8` | 07-22 Sumiram as informações | `resolved` | Mesa encerrada responde 410 "Mesa encerrada" por desenho (`tables.ts:1020`, spec 090/102). |
-| `1ea146a7-a129-437b-a741-d986d400ce4c` | 07-28 Formulário | `triaged` | Contato `form` gravado na importação com `)__` no fim. Parser corrigido em 2026-08-11; dado e editor manual não (spec 106 T8.3). |
-| `93817982-7e1b-42b5-b309-13c86b63b0a8` | 08-24 Link | `resolved` | Causa `db.fn.count` (backlog D-QA-ROTAS-ESCRITA-SEM-TESTE). 21 links de 11 usuários criados depois de 2026-08-24. |
-| `57a70eca-aca2-44ed-b97f-57315236fd64` | 08-27 Banner (player) | `triaged` | A aba Mestre de `/perfil` oferece banner sem perfil de mestre; `GET /gm/me` 404 esperado (spec 106 T5.3). |
-| `1f4c0f2d-69ed-48d2-ae41-86d1d88e40a0` | 08-27 Adicionar sistema | `triaged` | `POST /profile/systems` 500 sem causa medida; logs de agosto não existem. Hipótese E1 não testada (spec 106 T8.6). |
-| `1e0c54c0-07ea-4750-a819-1f883fd36d46` | 08-27 Lista de sistemas | `triaged` | Dungeon World ausente do catálogo; decisão de conteúdo (spec 106 T8.5, D9). |
-| `7bf0ffcf-ff66-4f2e-b9d8-491bb23df5bb` | 08-28 Vagas | `triaged` | `gm.ts:249` sem `slots_open`; conta crua em 3 outros lugares (spec 106 T8.2). |
-| `85c53cd9-c07a-44a2-8ae9-fed927352971` | 09-01 Nome e sistema | `resolved` | Spec 099 E1/E2/E3. O nome gravado vem do e-mail e é revisto na spec 106 (D8). |
-| `0148d2d4-2674-4245-b911-f7975b958155` | 09-08 Filtro de dias | `resolved` | `GET /api/v1/tables?weekday=sexta` filtra (30 → 3). |
-| `fa0efabf-d312-4223-bcd2-c02401075f74` | 09-30 `redfallen` | `resolved` | Ícone `whatsapp` ausente em cópia do mapa (`linkTypes.ts:8-13`); correção `2e38fd1` em produção desde 2026-10-13. Confirmação do usuário pendente. |
-| `7b375d1d-ff95-4d07-9aef-96693b445d19` | 10-06 Aureth | `triaged` | Colou anúncio no feedback; sem perfil de mestre (spec 106 T8.6). |
-| `0d7992ef-f512-48fb-b154-63c1d8bbba18` | 10-11 `redfallen` | `duplicate` | Mesmo usuário e causa de `fa0efabf…`. `merged_into = fa0efabf-d312-4223-bcd2-c02401075f74`. |
-| `ea186f5f-1728-4fe5-aa2c-71fe42b7e66a` | 10-21 Vagas | `duplicate` | Mesma causa de `7bf0ffcf…`. `merged_into = 7bf0ffcf-ff66-4f2e-b9d8-491bb23df5bb`. |
-| `6812bb3b-c54f-4320-a7bc-7500479bafd2` | 10-25 `void` | `triaged` | Nome e URL do mestre vêm do e-mail (spec 106 F1 a F6). |
+Desvio da tabela original: `1ea146a7…` (formulário), `7bf0ffcf…` (vagas) e `6812bb3b…` (`void`) foram
+para `resolved`, porque T8.3, T8.2 e T6.1 já estavam aplicadas em produção; as notas dizem isso.
 
-Resultado: 5 `resolved`, 2 `duplicate`, 7 `triaged`. Remedir os ids com `SELECT id, status FROM
-dev_feedback WHERE status='new'` antes (a lista pode ter crescido).
-
-**Código (sem aut.):** aviso ao autor no `PATCH` (plan §11.2) e alerta de fila parada (plan §11.3).
-D13 decidida: sim (só in-app). Aceite em beta: fechar um report de teste cria a notificação do autor
-(só na transição para `resolved`, `wont_fix` ou `duplicate`; reenviar o mesmo status não duplica); um
-`new` com 7 dias aciona `notifyAdmins` uma vez (`npm run ops:alerts` duas vezes: a 2ª não avisa).
-
-**Risco de deploy medido (2026-10-27):** `dev_feedback` tem 14 `new`, 12 com mais de 7 dias e 0
-revisados. O primeiro `ops:alerts` do cron novo (roda no boot) avisaria os 12 de uma vez (teto de 20
-por execução) e marcaria `stale_alerted_at`. Para evitar o ruído, aplicar os 14 `UPDATE` (aut.) ANTES
-de o cron novo subir, ou aceitar os 12 avisos. O alerta usa `/gestao/sistema?tab=feedback`, não
-`/gestao` (que redireciona para a visão geral).
+Código: aviso ao autor no `PATCH` (plan §11.2) e alerta de fila parada (plan §11.3); D13 decidida: só
+in-app. Medido em beta: `PATCH` `resolved` no único `new` → 1 `mesas.system.notice` entregue; o 2º `PATCH`
+com o mesmo status não duplica; `ops:alerts` 1ª rodada `relatos parados: 1`, 2ª `0`. Em produção o cron
+novo avisou os 12 relatos antigos de uma vez no boot (aceito pelo mantenedor). Não medido: a caixa de
+notificações do `accounts` do autor, só o outbox do `mesas`.
 
 ### [ ] T8.5 — Dungeon World, Monster of the Week, Urban Shadows no catálogo (R14, D9) **(aut.)**
 
 Plan §16. Catálogo central: `POST /api/admin/v1/catalog/nodes` ou a tela de catálogo do `/gestao`;
 nunca SQL em `systems` do `mesas`, nunca o `CATALOG_INTERNAL_TOKEN` por conta própria. O agente
 prepara os 3 payloads (slug, nome, `name_pt`, aliases, `official_website_url` conferido na fonte) e
-o mantenedor cria ou autoriza. Aceite: `GET /api/v1/systems?view=tree` contém os 3; `mesas` os
+o mantenedor cria ou autoriza. Preparados e enviados a ele (`node_type: system`, `status: active`, `name_pt`
+nulo como `Monsterhearts`; `curl` 200 em cada URL): `dungeon-world` (`https://www.dungeon-world.com/`,
+alias `DW`), `monster-of-the-week` (`https://evilhat.com/product/monster-of-the-week/`, alias `MotW`) e
+`urban-shadows` (`https://magpiegames.com/collections/urban-shadows`, a coleção da editora, não há página
+própria do jogo). Medido em produção: `Masks` e `Monsterhearts` casam como sistemas distintos (`Masks`
+com a edição `A New Generation`). Aceite: `GET /api/v1/systems?view=tree` contém os 3; `mesas` os
 oferece no seletor de sistema; `Masks` e `Monsterhearts` conferidos contra o que casou.
 
 ### [ ] T8.6 — `/painel` como `player` e o 500 de 27/08
@@ -284,6 +285,11 @@ Plan §9 e §13. Tabela `client_errors`, na `migration_168` **(aut.: aplicar)**.
 Aceite: erro forçado em beta → 1 linha em `client_errors` + 1 aviso; 2ª ocorrência incrementa sem
 novo aviso; canal desconhecido renderiza com fallback; `pnpm verify:api`.
 
+Medido em beta: 2 `POST /client-errors` → 204; 1 linha com `occurrences = 2`; `path` sem a query; 1 aviso
+ao admin (outbox entregue); a linha de teste foi removida. `GET /admin/client-errors` → 200 com sessão;
+`client_errors` em produção = 0. Falta: o fallback de canal desconhecido e o `ErrorBoundary` por seção só
+têm teste unitário, não foram forçados no navegador.
+
 ### [~] T8.8 — Testes cruzados (R21)
 
 Vagas (perfil × home × WhatsApp × resposta do editor) e identidade (`nickname`/`slug` ≠ prefixo do
@@ -303,8 +309,8 @@ antigo ainda seleciona `slots_filled`).
 
 Só começa quando: (1) o código da T8.2 está em produção; (2) o aceite da T8.2 rodou em produção; (3)
 as demais tasks desta spec que tocam `tables` passaram no mesmo ambiente. Aí, uma PR própria com a
-próxima `migration_NNN` (conferir `ls apps/mesas/database | grep migration_1`; última medida
-em 2026-10-27, aplicada em prod e beta: 167, com a 168 ainda pendente): `DROP COLUMN IF EXISTS slots_filled` e os
+próxima `migration_NNN` (conferir `ls apps/mesas/database | grep migration_1`; a última é a 168,
+aplicada em prod e beta; a T8.2 já roda em produção e o aceite dela passou): `DROP COLUMN IF EXISTS slots_filled` e os
 CHECKs `slots_filled_valid` e `check_slots_valid` (este último é recriado sem `slots_filled`, mantendo
 `slots_open >= 0 AND slots_open <= slots_total`), `DROP INDEX IF EXISTS idx_tables_slots`. Header de
 5 campos e idempotência (`deploy-flow.md` §3), `pg_dump` antes, aprovação nominal.
@@ -348,37 +354,34 @@ fazer e o motivo dele (cookies para manutenção do site e outros fins técnicos
 
 ## F7 — Fechamento
 
-### [ ] T7.1 — Deploy do `mesas`, conferes e remedição da §2
+### [~] T7.1 — Deploy do `mesas`, conferes e remedição da §2
 
 **Ordem** (plan §8; cada passo é autorização nominal): deploy de beta; conferes de beta; promote
 `dev→main`; deploy de produção; conferes de produção; dado em produção (T6.1, T6.2, T8.3, T8.4);
-T8.9 por último. A `migration_168` aplica antes do app e é a única pendente (prod e beta na 167,
-medido em 2026-10-27). O promote só move o ponteiro Git: produção só atualiza com o dispatch de
-`deploy.yml` (`deploy-flow.md` §6).
+T8.9 por último. A `migration_168` aplica antes do app. O promote só move o ponteiro Git: produção só
+atualiza com o dispatch de `deploy.yml` (`deploy-flow.md` §6).
 
-**Conferes de beta e de produção:**
-- Migration: `schema_migrations` tem `migration_168_spec106_slug_redirects_client_errors.sql`;
-  `to_regclass('gm_slug_redirects')` e `to_regclass('client_errors')` não nulos; coluna
-  `dev_feedback.stale_alerted_at` existe.
-- Cron: `docker logs mesas-cron` mostra `[ops:alerts]` e `[client-errors:purge]` sem erro. Atenção ao
-  risco dos 12 avisos na T8.4.
-- T8.2: `curl /api/v1/gm/perfis/mestre-hermes`; soma da página = soma da home.
-- T8.4: fechar um relato de teste pelo `PATCH`; notificação do autor; `ops:alerts` não repete.
-- T8.7: erro forçado → 1 linha em `client_errors` e 1 aviso; 2ª ocorrência só incrementa.
-- T10.1: `GET /api/v1/profile/me/discord` → 404.
-- T2.2, T3.1, T4.1, T5.1 a T5.3: o aceite de cada bloco, em beta.
+**Conferes feitos (medidos):**
+- Migration: ver T2.1, em beta e produção.
+- Cron: em produção, `mesas-cron` rodou `[client-errors:purge] 0 erros removidos` e `[ops:alerts] relatos
+  parados: 12` / `contatos com cauda: 2` no boot. **Beta não tem container de cron** (só o `mesas-cron` de
+  produção): lá o confere é `docker exec mesas-beta-api npm run ops:alerts` (escreve).
+- T8.2, T8.4, T8.7, T10.1: ver os blocos. `mestre-hermes` só existe em produção; em beta usar um slug de
+  `gm_profiles` (`mestre-pollux`).
+- T2.2, T4.1, T6.x, T8.3: aceites medidos, ver os blocos.
 
-**Remedição da §2:** reexecutar cada comando da `spec.md` §2 e §6. O `COUNT` da §2.2 deve devolver 0
-para `nickname` igual ao prefixo com `display_name` diferente; sitemap sem os slugs antigos;
-`dev_feedback` sem `new`; `client_errors` recebendo. Atualizar o que o comando não mede (decisão,
-bloqueio) e apagar o resto; trabalho mergeado encolhe (T0). Registrar em `.specify/memory/errors.md`
-só o que o protocolo manda (forma que não funciona, medição que contradiz a spec).
+**Remedição da §2:** `COUNT` da §2.2 em beta → 13 mestres, 0 com nickname ou slug igual ao prefixo do
+e-mail; em produção os 4 casos foram corrigidos pela T6; `dev_feedback` sem `new` (T8.4);
+`client_errors` em produção = 0 (nada reportado). Falta decidir o que vai para
+`.specify/memory/errors.md` (protocolo: forma que não funciona, medição que contradiz a spec).
+Candidatos medidos: o ensaio em beta da T6 não vale (beta não tem os mestres); o confere de cron em beta
+não existe; das 6 mesas da §2.5, 5 estão encerradas.
 
 ---
 
 ## F10 — Resíduo de autenticação Discord
 
-### [~] T10.1 — Remover o vínculo Discord sem uso (D23)
+### [x] T10.1 — Remover o vínculo Discord sem uso (D23)
 
 Decisão dele em 2026-10-27: era uma autenticação Discord antiga, para algumas finalidades; o
 resíduo sai. Hoje o Discord no produto é só importação de mesas (JSON) e canal de contato.
@@ -391,6 +394,7 @@ fora até ele mandar. Outros leitores das colunas, deixados: resposta pública d
 sempre `false`/`null`), `hydration/config.ts`, `adminEnrichment.ts` e tipos do front; saem com o
 `DROP COLUMN`.
 
-Falta, em produção: `GET /api/v1/profile/me/discord` → 404; `rtk rg "connectDiscord|disconnectDiscord"
-apps/mesas` só em comentário (há dois: `ProfileEditPage.tsx` e um teste). `pnpm verify:api` aponta
-`breaking=2`, as duas rotas removidas, esperado.
+Medido: `GET /api/v1/profile/me/discord` e `/profile/me/connect/discord` → 404 em beta com sessão (`me/options`
+→ 200) e em produção sem sessão (`me/options` → 401, então a rota não existe); `rtk rg
+"connectDiscord|disconnectDiscord" apps/mesas` só em comentário (`ProfileEditPage.tsx` e um teste).
+`pnpm verify:api` aponta `breaking=2`, as duas rotas removidas, esperado.
