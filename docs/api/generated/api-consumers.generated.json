@@ -966,7 +966,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "fetch",
-      "line": 66
+      "line": 74
     },
     {
       "app": "mesas-frontend",
@@ -976,7 +976,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "refreshSession",
-      "line": 61
+      "line": 69
     },
     {
       "app": "mesas-frontend",
@@ -2016,7 +2016,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authGet",
-      "line": 31
+      "line": 39
     },
     {
       "app": "mesas-frontend",

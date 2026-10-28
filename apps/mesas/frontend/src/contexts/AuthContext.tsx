@@ -14,7 +14,15 @@ const mapSsoRole = (role: UserRole): User['role'] => role === 'admin' ? 'admin' 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const session = useSession();
   const [localUser, setLocalUser] = useState<User | null>(null);
-  const [isLocalLoading, setIsLocalLoading] = useState(false);
+  // Id da sessão SSO cujo perfil local (/me) já foi consultado. "Carregando" é
+  // derivado no render (user SSO presente e ainda não hidratado) e não um flag
+  // setado em effect: com o flag, `useSession` resolvia (user + loading=false) num
+  // render em que o flag ainda era false, a página protegida montava, disparava
+  // seus GETs, e logo o effect ligava o flag e a desmontava — ao remontar, o
+  // dedup do apiClient abortava o GET da primeira montagem ("signal is aborted
+  // without reason" + toast em /gestao/visao-geral).
+  const [hydratedFor, setHydratedFor] = useState<string | null>(null);
+  const isLocalLoading = session.user !== null && hydratedFor !== session.user.id;
 
   const clearSession = useCallback(() => {
     setLocalUser(null);
@@ -26,7 +34,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
 
-    setIsLocalLoading(true);
+    const sessionUserId = session.user.id;
     try {
       const meRes = await authGet('/api/v1/me');
 
@@ -53,7 +61,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } catch (error) {
       console.warn('[AuthContext] Erro ao hidratar perfil local:', error);
     } finally {
-      setIsLocalLoading(false);
+      setHydratedFor(sessionUserId);
     }
   }, [clearSession, session.user]);
 

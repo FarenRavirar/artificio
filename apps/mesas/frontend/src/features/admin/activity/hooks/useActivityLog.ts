@@ -8,7 +8,7 @@ import {
   type ActivityFiltersState,
 } from '../types';
 
-import { authGet } from '../../../../services/apiClient';
+import { authGet, isAbortError } from '../../../../services/apiClient';
 
 const DEFAULT_LIMIT = 30;
 
@@ -120,6 +120,8 @@ export function useActivityLog(): UseActivityLogReturn {
       setNextCursor(payload.pagination?.next_cursor ?? null);
       setFiltersMeta(payload.filters_meta ?? DEFAULT_ACTIVITY_FILTERS_META);
     } catch (error) {
+      // Abort = dedup do apiClient (chamada vencedora resolve): não é falha, sem toast nem reset.
+      if (isAbortError(error)) return;
       console.error('[useActivityLog] Erro ao carregar atividades:', error);
       showError('Erro ao carregar atividades.');
 
