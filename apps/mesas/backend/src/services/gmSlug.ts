@@ -74,7 +74,7 @@ interface RenameInput {
  * `gm_profiles.slug`. Sem endpoint publico; o uso e o script de correcao do dado
  * (spec 106 T6.1). Recusa tambem vira linha de auditoria.
  */
-export async function renameGmSlug(input: RenameInput): Promise<{ from: string; to: string }> {
+export async function renameGmSlug(input: RenameInput, outer?: Transaction<Database>): Promise<{ from: string; to: string }> {
   const newSlug = input.newSlug.trim();
   // Preenchido apos a leitura do perfil: a recusa `taken` aponta o perfil afetado.
   let alvo = null as { id: string; user_id: string } | null;
@@ -82,7 +82,7 @@ export async function renameGmSlug(input: RenameInput): Promise<{ from: string; 
     if (newSlug.length < 2 || newSlug.length > GM_SLUG_MAX || !GM_SLUG_PATTERN.test(newSlug)) {
       throw new GmSlugError('format', 'Slug deve ter 2 a 40 caracteres: letras minúsculas, números e hífen.');
     }
-    return await db.transaction().execute(async (trx) => {
+    const run = async (trx: Transaction<Database>) => {
       // Trava a linha: duas trocas simultaneas do mesmo perfil gravariam redirects trocados.
       const atual = await trx
         .selectFrom('gm_profiles')
@@ -123,7 +123,9 @@ export async function renameGmSlug(input: RenameInput): Promise<{ from: string; 
         trx,
       );
       return { from: atual.slug, to: newSlug };
-    });
+    };
+    // `outer`: o chamador (script de correção) junta slug, nickname e auditoria numa transação só.
+    return outer ? await run(outer) : await db.transaction().execute(run);
   } catch (error) {
     if (error instanceof GmSlugError && error.code !== 'same') {
       await auditIdentityRejected({
