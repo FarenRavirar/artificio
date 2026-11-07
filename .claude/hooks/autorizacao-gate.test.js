@@ -26,6 +26,19 @@ function rodar(command) {
   return JSON.parse(saida).hookSpecificOutput;
 }
 
+function rodarCodex(command, hookEventName) {
+  const saida = execFileSync('node', [HOOK, '--codex'], {
+    input: JSON.stringify({
+      hook_event_name: hookEventName,
+      tool_name: 'Bash',
+      tool_input: { command },
+    }),
+    encoding: 'utf8',
+  });
+  if (!saida.trim()) return null;
+  return JSON.parse(saida).hookSpecificOutput;
+}
+
 // [comando, regra esperada ou null se deve passar]
 const CASOS = [
   // --- BLOQUEIA: forma direta ---
@@ -148,7 +161,28 @@ for (const [cmd, esperada] of DECISOES) {
   }
 }
 
-console.log(`autorizacao-gate: ${ok}/${CASOS.length + DECISOES.length} casos`);
+const CODEX = [
+  ['PreToolUse ask nao emite schema nao suportado', () => rodarCodex('rtk git commit -m x', 'PreToolUse') === null],
+  ['PreToolUse deny continua bloqueando', () => rodarCodex('rtk shutdown -h now', 'PreToolUse')?.permissionDecision === 'deny'],
+  ['PermissionRequest allow libera leitura remota', () => rodarCodex('rtk ssh faren docker ps', 'PermissionRequest')?.decision?.behavior === 'allow'],
+  ['PermissionRequest allow libera SELECT remoto', () => rodarCodex('rtk ssh faren psql -c "SELECT count(*) FROM users"', 'PermissionRequest')?.decision?.behavior === 'allow'],
+  ['PermissionRequest ask preserva o prompt', () => rodarCodex('rtk git commit -m x', 'PermissionRequest') === null],
+  ['PermissionRequest ask preserva prompt para SQL write', () => rodarCodex('rtk ssh faren psql -c "DELETE FROM users"', 'PermissionRequest') === null],
+  ['PermissionRequest deny rejeita irreversivel', () => rodarCodex('rtk shutdown -h now', 'PermissionRequest')?.decision?.behavior === 'deny'],
+  ['PermissionRequest nao libera SSH cru', () => rodarCodex('ssh faren docker ps', 'PermissionRequest') === null],
+  ['PermissionRequest desconhecido preserva o prompt', () => rodarCodex('rtk ssh faren comando-desconhecido', 'PermissionRequest') === null],
+];
+
+for (const [nome, verificar] of CODEX) {
+  try {
+    if (verificar()) ok += 1;
+    else falhas.push(`FALHA Codex: ${nome}`);
+  } catch (e) {
+    falhas.push(`ERRO Codex: ${nome} -> ${e.message}`);
+  }
+}
+
+console.log(`autorizacao-gate: ${ok}/${CASOS.length + DECISOES.length + CODEX.length} casos`);
 if (falhas.length) {
   console.log(falhas.join('\n'));
   process.exit(1);

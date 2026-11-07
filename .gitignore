@@ -92,6 +92,8 @@ opencode.json
 .codex/*
 !.codex/agents/
 !.codex/hooks.json
+!.codex/rules/
+!.codex/rules/**
 /spec047-backup
 # Amostras reais de import (dado real — nunca commitar). Ver specs/048 ambiente de teste.
 temp/

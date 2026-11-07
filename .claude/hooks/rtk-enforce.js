@@ -50,10 +50,16 @@ const RULES = [
     // leitura, e continua livre — foi assim que a saída de `.env` da VM foi
     // filtrada para não imprimir segredo.
     name: 'leitura-parcial-crua',
-    test: /(^|[;&|]\s*)(sed\s+-n\s+["']?\d+\s*,\s*\d+p|awk\s+["']NR\s*[<>=]|head\s+-c\s*\d+\s+[^|;&]*[./\\])/,
-    // Já vindo de um pipe não é leitura de arquivo. `rtk` na frente também passa.
-    allow: /(\|\s*(sed|awk)\b)|(^|[;&|]\s*)rtk\s+/,
+    test: /(^|[;&]\s*)(sed\s+-n\s+["']?\d+\s*,\s*\d+p|awk\s+["']NR\s*[<>=]|head\s+-c\s*\d+\s+(?:"[^"]+"|'[^']+'|[^|;&\s]+))/,
+    // `sed`/`awk` depois de pipe são filtros, pois `test` só aceita início,
+    // `;` ou `&`. `rtk` na frente também passa.
+    allow: /(^|[;&|]\s*)rtk\s+/,
     fix: (cmd) => {
+      const head = /\bhead\s+-c\s*\d+\s+(?:"([^"]+)"|'([^']+)'|([^|;&\s]+))/.exec(cmd);
+      if (head) {
+        const target = head[1] || head[2] || head[3];
+        return `rtk read "${target.replace(/"/g, '\\"')}"`;
+      }
       // Extrai o alvo: último token que parece caminho de arquivo.
       const file = cmd.trim().split(/\s+/).filter((t) => /[./\\]/.test(t) && !/^["']/.test(t)).pop();
       const target = file || '<arquivo>';
@@ -65,7 +71,7 @@ const RULES = [
       }
       return `rtk read "${target}"`;
     },
-    why: '`sed -n`/`awk NR` para ler trecho não é reescrito pela camada 1 (medido: "No rewrite"), ao contrário de head/tail.',
+    why: '`sed -n`/`awk NR` e `head -c` para ler trecho não podem devolver saída crua; use `rtk read`.',
   },
   {
     // DEB-088-01: `rtk lint` tenta parsear JSON do ESLint e o turbo nao entrega

@@ -37,13 +37,30 @@ const promptCodex = (texto) =>
     },
   });
 
-const ferramentaCodex = (source) =>
+const ferramentaCodex = (source, callId = "call-tool") =>
   JSON.stringify({
     type: "response_item",
     payload: {
       type: "custom_tool_call",
       name: "exec",
       input: source,
+      call_id: callId,
+    },
+  });
+
+const resultadoCodex = (callId = "call-tool", sucesso = true) =>
+  JSON.stringify({
+    type: "response_item",
+    payload: {
+      type: "custom_tool_call_output",
+      call_id: callId,
+      output: [
+        {
+          type: "input_text",
+          text: sucesso ? "Script completed\nWall time 1.0 seconds\nOutput:\n" : "Script failed\n",
+        },
+        { type: "input_text", text: sucesso ? "{}" : "apply_patch failed" },
+      ],
     },
   });
 
@@ -326,9 +343,82 @@ t("rollout Codex: sessão escrita por apply_patch conta como registro", () => {
   const r = roda([
     promptCodex("investiga e registra"),
     ferramentaCodex('await tools.exec_command({cmd: "rtk git status"});'),
-    ferramentaCodex(patch),
+    ferramentaCodex(patch, "call-patch"),
+    resultadoCodex("call-patch"),
   ]);
   assert.strictEqual(r.code, 0, "sessão pedida pelo mantenedor é registro válido");
+});
+
+t("rollout Codex: apply_patch com quebras escapadas conta como registro", () => {
+  const patch = 'await tools.apply_patch("*** Begin Patch\\n*** Update File: specs/102-seo-indexacao-recuperacao/tasks.md\\n+registro\\n*** End Patch");';
+  const r = roda([
+    promptCodex("investiga e registra"),
+    ferramentaCodex('await tools.exec_command({cmd: "rtk git status"});'),
+    ferramentaCodex(patch, "call-patch"),
+    resultadoCodex("call-patch"),
+  ]);
+  assert.strictEqual(r.code, 0, "quebras escapadas não podem esconder o arquivo registrado");
+});
+
+t("rollout Codex: apply_patch sem resultado não conta como registro", () => {
+  const patch = 'await tools.apply_patch("*** Begin Patch\\n*** Update File: specs/102-seo-indexacao-recuperacao/tasks.md\\n+registro\\n*** End Patch");';
+  const r = roda([
+    promptCodex("investiga e registra"),
+    ferramentaCodex('await tools.exec_command({cmd: "rtk git status"});'),
+    ferramentaCodex(patch, "call-patch"),
+  ]);
+  assert(bloqueou(r), "intenção sem resultado não comprova escrita");
+});
+
+t("rollout Codex: apply_patch rejeitado não conta como registro", () => {
+  const patch = 'await tools.apply_patch("*** Begin Patch\\n*** Update File: specs/102-seo-indexacao-recuperacao/tasks.md\\n+registro\\n*** End Patch");';
+  const r = roda([
+    promptCodex("investiga e registra"),
+    ferramentaCodex('await tools.exec_command({cmd: "rtk git status"});'),
+    ferramentaCodex(patch, "call-patch"),
+    resultadoCodex("call-patch", false),
+  ]);
+  assert(bloqueou(r), "patch rejeitado não gravou registro");
+});
+
+t("rollout Codex: mensagem humana sem input_text inicia o turno atual", () => {
+  const fragmento = JSON.stringify({
+    type: "response_item",
+    payload: {
+      type: "message",
+      role: "user",
+      content: [],
+      internal_chat_message_metadata_passthrough: {
+        content_item_metadata: [{ provenance: { type: "user" } }],
+      },
+    },
+  });
+  const r = roda([
+    promptCodex("investiga"),
+    ferramentaCodex('await tools.exec_command({cmd: "rtk git status"});'),
+    fragmento,
+  ]);
+  assert.strictEqual(r.code, 0, "turno anterior não pode contaminar mensagem user atual");
+});
+
+t("rollout Codex: contexto user do harness não corta o turno humano", () => {
+  const contexto = JSON.stringify({
+    type: "response_item",
+    payload: {
+      type: "message",
+      role: "user",
+      content: [{ type: "input_text", text: "contexto automático" }],
+      internal_chat_message_metadata_passthrough: {
+        content_item_metadata: [{ provenance: { type: "harness" } }],
+      },
+    },
+  });
+  const r = roda([
+    promptCodex("investiga"),
+    ferramentaCodex('await tools.exec_command({cmd: "rtk git status"});'),
+    contexto,
+  ]);
+  assert(bloqueou(r), "contexto automático não pode esconder medição humana");
 });
 
 t("rollout Codex: só o último prompt humano delimita o turno", () => {

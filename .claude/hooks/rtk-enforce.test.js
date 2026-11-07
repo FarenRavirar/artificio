@@ -17,6 +17,15 @@ const CASES = [
   { cmd: `sed -n '300,345p' .github/workflows/_deploy-module.yml`, deny: true, rule: 'leitura-parcial-crua' },
   { cmd: `sed -n "1,20p" src/app.ts`, deny: true, rule: 'leitura-parcial-crua' },
   { cmd: `head -c 500 src/app.ts`, deny: true, rule: 'leitura-parcial-crua' },
+  { cmd: `head -c 500 README`, deny: true, rule: 'leitura-parcial-crua' },
+  { cmd: `head -c500 arquivo`, deny: true, rule: 'leitura-parcial-crua' },
+  { cmd: `head -c 500 arquivo | sed -n '1,2p'`, deny: true, rule: 'leitura-parcial-crua' },
+  {
+    cmd: `head -c 500 "src/foo bar.txt"`,
+    deny: true,
+    rule: 'leitura-parcial-crua',
+    suggestion: 'rtk read "src/foo bar.txt"',
+  },
   { cmd: `awk 'NR<50' x.ts`, deny: true, rule: 'leitura-parcial-crua' },
 
   // Filtro de pipe NÃO é leitura de arquivo — bloquear aqui quebraria o jeito
@@ -112,6 +121,12 @@ for (const testCase of CASES) {
     if (!reason.includes(testCase.rule)) {
       console.log(`FALHOU  ${testCase.cmd}`);
       console.log(`        regra esperada ${testCase.rule}, motivo: ${reason.split('\n')[0]}`);
+      failed += 1;
+      continue;
+    }
+    if (testCase.suggestion && !reason.includes(testCase.suggestion)) {
+      console.log(`FALHOU  ${testCase.cmd}`);
+      console.log(`        sugestão esperada ${testCase.suggestion}, motivo: ${reason.split('\n').at(-1)}`);
       failed += 1;
       continue;
     }

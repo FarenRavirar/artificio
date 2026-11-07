@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // registro-anti-compactacao — Stop: cobra o registro do que foi MEDIDO quando o
-// turno termina sem escrever na spec ativa.
+// turno termina sem escrever na spec ativa ou numa sessão válida.
 //
 // POR QUE EXISTE
 // A compactação de contexto apaga a medição que MATOU uma hipótese — e o que
@@ -30,10 +30,11 @@
 // compactação falha sempre.
 //
 // COMO ESCAPAR LEGITIMAMENTE
-// Escrever na spec ativa (qualquer `Edit`/`Write` em `specs/<ativa>/`) no mesmo
-// turno. Turno sem medição real não é cobrado. A cobrança é uma vez por turno:
-// se o agente parar de novo sem escrever, `stop_hook_active` corta, para não
-// prender a sessão em laço.
+// Escrever na spec ativa ou numa sessão válida no mesmo turno. No Claude Code,
+// isso é um `Edit`/`Write`; no Codex, um `apply_patch` concluído. Turno sem
+// medição real não é cobrado. A cobrança é uma vez por turno: se o agente parar
+// de novo sem escrever, `stop_hook_active` corta, para não prender a sessão em
+// laço.
 
 const { lerPayload } = require(require('node:path').join(__dirname, 'ler-payload.js'));
 const fs = require('node:fs');
@@ -73,9 +74,9 @@ function eMedicao(nome) {
   return FERRAMENTAS_DE_MEDICAO.has(nome) || PREFIXO_MCP_MEDICAO.test(nome || '');
 }
 
-// Escrita que conta como registro: doc de spec, e os docs de governança que
-// guardam regra durável. Código não conta — comentário em código é o destino
-// certo para explicar o código, mas não sobrevive como estado da spec.
+// Escrita que conta como registro: doc de spec, sessão, e os docs de governança
+// que guardam regra durável. Código não conta — comentário em código é o
+// destino certo para explicar o código, mas não sobrevive como estado da spec.
 // `(^|\/)` e não `\/`: o caminho pode chegar relativo, começando já em
 // `specs/` — mesmo defeito que a suíte do `deploy-contract-gate` pegou na
 // primeira versão dele (ver o comentário da família "workflow" lá).
@@ -90,16 +91,20 @@ function eRegistro(arquivo) {
   );
 }
 
+function eMensagemHumanaCodex(payload) {
+  if (payload?.type !== 'message' || payload?.role !== 'user') return false;
+  const metadados = payload.internal_chat_message_metadata_passthrough?.content_item_metadata;
+  if (!Array.isArray(metadados)) return true; // rollouts antigos não trazem proveniência
+  return metadados.some((item) => item?.provenance?.type === 'user');
+}
+
 function lerUltimoTurnoCodex(eventos) {
   let inicio = 0;
   for (let i = eventos.length - 1; i >= 0; i--) {
     const payload = eventos[i]?.payload;
     if (
       eventos[i]?.type === 'response_item' &&
-      payload?.type === 'message' &&
-      payload?.role === 'user' &&
-      Array.isArray(payload.content) &&
-      payload.content.some((bloco) => bloco?.type === 'input_text')
+      eMensagemHumanaCodex(payload)
     ) {
       inicio = i;
       break;
@@ -109,9 +114,21 @@ function lerUltimoTurnoCodex(eventos) {
   let medicoes = 0;
   let registrou = false;
   const comandos = [];
+  const patchesDeRegistro = new Set();
 
   for (let i = inicio; i < eventos.length; i++) {
     const payload = eventos[i]?.payload;
+    if (
+      eventos[i]?.type === 'response_item' &&
+      payload?.type === 'custom_tool_call_output' &&
+      patchesDeRegistro.has(payload.call_id)
+    ) {
+      const saida = Array.isArray(payload.output) ? payload.output : [];
+      if (saida.some((bloco) => /^Script completed\b/.test(String(bloco?.text ?? '')))) {
+        registrou = true;
+      }
+      continue;
+    }
     if (
       eventos[i]?.type !== 'response_item' ||
       !['custom_tool_call', 'function_call'].includes(payload?.type)
@@ -136,8 +153,11 @@ function lerUltimoTurnoCodex(eventos) {
     }
 
     if (nomes.includes('apply_patch')) {
-      for (const match of entrada.matchAll(/^\*\*\* (?:Add|Update) File: (.+)$/gm)) {
-        if (eRegistro(match[1].trim())) registrou = true;
+      const linhaDeArquivo = /(?:^|\r?\n|\\(?:r\\n|n|r))\*\*\* (?:Add|Update) File: (.+?)(?=\r?\n|\\(?:r\\n|n|r)|$)/g;
+      for (const match of entrada.matchAll(linhaDeArquivo)) {
+        if (eRegistro(match[1].trim()) && payload.call_id) {
+          patchesDeRegistro.add(payload.call_id);
+        }
       }
     }
   }
