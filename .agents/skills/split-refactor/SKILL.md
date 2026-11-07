@@ -36,29 +36,25 @@ Use quando o usuário pedir para:
 
 Use em ordem de precisão:
 
-1. `codebase-memory-mcp`
-
-   * recuperar padrões, decisões e refatorações anteriores.
-
-2. LSP
+1. LSP
 
    * mapear símbolos, referências, imports, exports, consumidores e diagnósticos;
    * confirmar impacto antes de mover código.
 
-3. `ast-grep`
+2. `ast-grep`
 
    * localizar padrões estruturais, duplicações e usos equivalentes.
 
-4. `rg`
+3. `rg`
 
    * localizar imports, exports, rotas, strings e referências textuais.
 
-5. Git
+4. Git
 
    * usar `git status` e `git diff`;
    * não commitar.
 
-6. Validação
+5. Validação
 
    * `pnpm run lint`;
    * `pnpm run build`;

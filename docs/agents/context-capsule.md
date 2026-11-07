@@ -23,7 +23,7 @@ Ver `.specify/memory/project-state.md`. Hoje: **Fase 3 — projetos + conteúdo.
 ## Reload (Tier 0 — estes 4)
 `project-state.md` + este capsule + `decisions.md` + `backlog-audit-map.md`. Resto sob demanda. **Caveman ultra é obrigatório na comunicação com o mantenedor** (salvo trecho de segurança/ordem destrutiva que exija clareza). Disciplina: `docs/agents/token-economy.md`. **Mapa macro até conclusão: `docs/agents/roadmap.md` (T1).**
 
-**Ferramentas obrigatórias quando disponíveis:** todo agente deve usar o conjunto local antes de cair no fallback cru: `rtk` para shell/leitura/busca, `artificio-api-governance` para qualquer API, LSP para diagnóstico automático de arquivos tocados e `codebase-memory-mcp` para grafo/impacto. Se uma ferramenta não aparecer no cliente atual (Codex/Claude/OpenCode), registrar limitação na sessão e usar fallback (`rtk rg`, `ast-grep`, leitura direta, `pnpm verify:api` quando aplicável). Detalhe canônico: `AGENTS.md` §Ferramentas MCP / Agentes.
+**Ferramentas obrigatórias quando disponíveis:** todo agente deve usar o conjunto local antes de cair no fallback cru: `rtk` para shell/leitura/busca, `artificio-api-governance` para qualquer API, LSP para diagnóstico automático de arquivos tocados. Se uma ferramenta não aparecer no cliente atual (Codex/Claude/OpenCode), registrar limitação na sessão e usar fallback (`rtk rg`, `ast-grep`, leitura direta, `pnpm verify:api` quando aplicável). Detalhe canônico: `AGENTS.md` §Ferramentas MCP / Agentes.
 
 Escalada T1 obrigatoria: se tocar/questionar governanca, infra, deploy, CI/CD, VM, DNS/tunnel, banco, auth, SEO/Lighthouse/qualidade transversal, pacotes compartilhados, specs/backlog/sessoes ou conclusao de tarefa, ler as secoes/docs T1 pertinentes antes de agir/encerrar. Se nao leu o T1 pertinente, nao pode dizer "resolvido".
 
@@ -69,6 +69,5 @@ Agente primário único (`artificio-orquestrador`) coordena subagentes especiali
 **Ferramentas locais essenciais (usar quando disponíveis):**
 - `rtk` — prefixo obrigatório para shell, busca, leitura, git, testes e builds; reduz tokens.
 - LSP — diagnóstico automático; pega erros semânticos que busca textual não vê.
-- `codebase-memory-mcp` — grafo de conhecimento para busca estrutural, chamadas e impacto.
 - `artificio-api-governance` — MCP/API bundle (`search_api`, `get_api_bundle_summary`) para descoberta primária de rotas.
 - `opencode-agent-browser` — automação de browser headful via `agent-browser` CLI (navegação, screenshots, scraping, formulários, dev tools). Documentado em `AGENTS.md` §Browser Automation.

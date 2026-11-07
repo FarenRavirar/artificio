@@ -34,6 +34,8 @@
 
 const { lerPayload } = require(require('node:path').join(__dirname, 'ler-payload.js'));
 
+const codex = process.argv.includes('--codex');
+
 // Normaliza o texto antes de testar, para que o padrao nao precise antecipar
 // cada forma de escrever o mesmo comando. Sem isto, cada regra viraria uma
 // regex barroca e as evasoes passariam pelo que ela esquecesse.
@@ -107,12 +109,36 @@ const REGRAS = [
     porque: 'AGENTS.md §Autorizacao: criar/mover/remover worktree exige aprovacao nominal PREVIA. Explique antes por que o cwd nao pode ser usado, o caminho exato, e como o trabalho volta. `git worktree list` e livre.',
   },
   {
+    nome: 'git-historico-sem-aprovacao',
+    decisao: 'ask',
+    test: /\bgit\s+(?:merge|rebase|reset|cherry-pick)\b/,
+    porque: 'AGENTS.md §Autorizacao: merge e reescrita de historico exigem aprovacao nominal.',
+  },
+  {
+    nome: 'workflow-sem-aprovacao',
+    decisao: 'ask',
+    test: /\bgh\s+(?:pr\s+merge|workflow\s+run|run\s+rerun)\b/,
+    porque: 'AGENTS.md §Autorizacao: merge e disparo de workflow exigem aprovacao nominal.',
+  },
+  {
     nome: 'vm-escrita',
     decisao: 'ask',
     // `ssh faren` com subcomando de mutacao. Read-only na VM e livre por regra
     // petrea e nao pode cair aqui — dai a lista fechada de verbos de escrita.
-    test: /\bssh\s+faren\b[^;&|]*\b(?:docker\s+(?:restart|stop|start|rm|kill|compose\s+(?:up|down))|systemctl\s+(?:start|stop|restart)|rm\s+-|mv\s|cp\s|tee\s|>\s*\/)/,
+    test: /\bssh\s+faren\b[^;&|]*\b(?:docker\s+(?:restart|stop|start|rm|kill|cp|compose\s+(?:up|down))|systemctl\s+(?:start|stop|restart)|rm\s+-|mv\s|cp\s|tee\s|>\s*\/)/,
     porque: 'AGENTS.md §Autorizacao: escrita na VM Oracle exige aprovacao nominal a cada vez. Inspecao read-only (docker ps|logs|inspect, psql SELECT, cat, ls) e SEMPRE permitida e nao passa por aqui.',
+  },
+  {
+    nome: 'docker-local-escrita',
+    decisao: 'ask',
+    test: /(?:^|[\s;&|(`])docker\s+(?:restart|stop|rm|cp|compose\s+(?:up|down))\b/,
+    porque: 'AGENTS.md §Autorizacao: mutacao Docker exige aprovacao nominal.',
+  },
+  {
+    nome: 'copia-remota-sem-aprovacao',
+    decisao: 'ask',
+    test: /(?:^|[\s;&|(`])(?:scp|rsync)\s/,
+    porque: 'AGENTS.md §Autorizacao: copiar ou sincronizar arquivos com a VM exige aprovacao nominal.',
   },
   {
     nome: 'sql-write-producao',
@@ -128,37 +154,92 @@ const REGRAS = [
   },
 ];
 
+function eLeituraRemotaSeguraCodex(command) {
+  const match = command.trim().match(/^rtk\s+ssh\s+faren\s+(.+)$/);
+  if (!match) return false;
+
+  const remoto = match[1].trim().replace(/^(['"])(.*)\1$/, '$2');
+  // PermissionRequest so libera uma chamada remota simples. Qualquer operador
+  // de shell pode anexar escrita a um comando que comeca read-only.
+  if (/[\r\n;&|`<>]|\$\(|\$\{/.test(remoto)) return false;
+
+  if (/^psql\b/i.test(remoto)) {
+    if (!/\bSELECT\b/i.test(remoto)
+      || /\b(?:INSERT|UPDATE|DELETE|DROP|ALTER|TRUNCATE|COPY|CALL|DO|INTO|FOR\s+UPDATE)\b/i.test(remoto)) {
+      return false;
+    }
+    const funcoes = [...remoto.matchAll(/\b([A-Za-z_]\w*)\s*\(/g)].map((item) => item[1].toLowerCase());
+    return funcoes.every((nome) => /^(?:count|min|max|sum|avg|coalesce)$/.test(nome));
+  }
+
+  const argumentosDeEscrita = [
+    /^find\b.*\s-(?:delete|exec|execdir|ok|okdir|fls|fprint0?|fprintf)\b/i,
+    /^curl\b.*\s(?:-[oOTdFX]|--(?:output|remote-name|upload-file|data(?:-ascii|-binary|-raw|-urlencode)?|form(?:-string)?|request|create-dirs|remove-on-error|etag-save|dump-header))(?:\s|=|$)/i,
+    /^pg_dump\b.*\s(?:-f\b|--file(?:\s|=))/i,
+    /^journalctl\b.*\s--(?:vacuum-(?:time|size|files)|rotate|flush|sync|relinquish-var|smart-relinquish-var|setup-keys)\b/i,
+    /^rg\b.*\s--pre(?:\s|=)/i,
+    /^git\s+(?:status|log|diff)\b.*\s--output(?:\s|=)/i,
+  ];
+  if (argumentosDeEscrita.some((padrao) => padrao.test(remoto))) return false;
+
+  return /^(?:docker\s+(?:ps|logs|inspect|stats|images|system\s+df)\b|(?:ls|cat|head|tail|df|free|uptime|nproc|whoami|grep|rg|find|stat|wc|pg_dump|journalctl)\b|curl\s+-s\b|git\s+(?:status|log|diff)\b|systemctl\s+status\b)/.test(remoto);
+}
+
 lerPayload((raw) => {
   let command = '';
+  let evento = '';
   try {
-    command = JSON.parse(raw)?.tool_input?.command ?? '';
+    const payload = JSON.parse(raw);
+    command = payload?.tool_input?.command ?? '';
+    evento = payload?.hook_event_name ?? '';
   } catch {
     process.exit(0); // payload ilegivel nunca bloqueia trabalho
   }
   if (!command) process.exit(0);
 
   const alvo = normalizar(command);
+  const regra = REGRAS.find((item) => item.test.test(alvo));
 
-  for (const regra of REGRAS) {
-    if (!regra.test.test(alvo)) continue;
-
-    console.log(JSON.stringify({
-      hookSpecificOutput: {
-        hookEventName: 'PreToolUse',
-        permissionDecision: regra.decisao,
-        permissionDecisionReason:
-          `[autorizacao-gate/${regra.nome}] ${regra.porque}`
-          // No `ask`, o proprio prompt E o pedido de autorizacao: mandar o agente
-          // "pedir antes de reemitir" faria ele pedir duas vezes a mesma coisa.
-          // No `deny` nao ha prompt, entao a saida de escape precisa vir no texto.
-          + (regra.decisao === 'ask'
-            ? ''
-            : `\n\nPeca a autorizacao ao mantenedor no formato "APROVACAO NECESSARIA" `
-              + `(Acao / Motivo / Risco / Rollback / Escopo / Comandos) antes de reemitir.`),
-      },
-    }));
+  if (evento === 'PermissionRequest') {
+    if (regra?.decisao === 'deny') {
+      console.log(JSON.stringify({
+        hookSpecificOutput: {
+          hookEventName: 'PermissionRequest',
+          decision: {
+            behavior: 'deny',
+            message: `[autorizacao-gate/${regra.nome}] ${regra.porque}`,
+          },
+        },
+      }));
+    } else if (!regra && eLeituraRemotaSeguraCodex(alvo)) {
+      console.log(JSON.stringify({
+        hookSpecificOutput: {
+          hookEventName: 'PermissionRequest',
+          decision: { behavior: 'allow' },
+        },
+      }));
+    }
+    // `ask` no PermissionRequest significa nao decidir: o prompt normal continua.
     process.exit(0);
   }
+
+  if (!regra || (codex && regra.decisao === 'ask')) process.exit(0);
+
+  console.log(JSON.stringify({
+    hookSpecificOutput: {
+      hookEventName: 'PreToolUse',
+      permissionDecision: regra.decisao,
+      permissionDecisionReason:
+        `[autorizacao-gate/${regra.nome}] ${regra.porque}`
+        // No `ask`, o proprio prompt E o pedido de autorizacao: mandar o agente
+        // "pedir antes de reemitir" faria ele pedir duas vezes a mesma coisa.
+        // No `deny` nao ha prompt, entao a saida de escape precisa vir no texto.
+        + (regra.decisao === 'ask'
+          ? ''
+          : `\n\nPeca a autorizacao ao mantenedor no formato "APROVACAO NECESSARIA" `
+            + `(Acao / Motivo / Risco / Rollback / Escopo / Comandos) antes de reemitir.`),
+    },
+  }));
 
   process.exit(0);
 });

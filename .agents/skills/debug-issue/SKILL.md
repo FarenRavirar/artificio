@@ -1,6 +1,6 @@
 ---
 name: debug-issue
-description: Depura bug navegando o código pelo grafo de conhecimento (codebase-memory), rastreando causa raiz por chamadas e dependências em vez de busca textual. Use quando o pedido for "debugar", "investigar esse erro", "por que isso quebra?", ou ao diagnosticar falha cujo caminho de código ainda não é conhecido.
+description: Depura bug navegando o código pelo grafo de conhecimento (code-review-graph), rastreando causa raiz por chamadas e dependências em vez de busca textual. Use quando o pedido for "debugar", "investigar esse erro", "por que isso quebra?", ou ao diagnosticar falha cujo caminho de código ainda não é conhecido.
 ---
 
 ## Debug Issue

@@ -28,7 +28,6 @@ modelo gasta raciocínio decidindo qual vence antes de agir.
   no que exige autorização por ação (commit, worktree, escrita na VM, SQL write,
   pacote novo). Push e abertura de PR ficaram liberados por decisão do mantenedor.
   Equivalentes: `.codex/rules/governanca.rules` e `permission.bash` no `opencode.json`.
-- **`ast-grep` roda cru** — busca estrutural (`ast-grep -p "PADRAO" --lang ts`). O hook
-  do `rtk` não o reescreve (medido: `No rewrite for`), diferente de `rg`/`git`/`pnpm`.
-- **Ferramentas de navegação:** LSP para diagnóstico semântico e `codebase-memory-mcp`
-  para mapa estrutural vêm antes de busca textual (`AGENTS.md` §Ordem de uso).
+- **`ast-grep`** — busca estrutural (`ast-grep -p "PADRAO" --lang ts`). O hook do `rtk`
+  o reescreve para `rtk ast-grep` (medido em rtk 1.1.0); digitar cru funciona igual.
+- **Ferramentas de navegação:** LSP para diagnóstico semântico vem antes de busca textual (`AGENTS.md` §Ordem de uso).

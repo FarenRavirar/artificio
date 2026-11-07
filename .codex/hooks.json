@@ -1,10 +1,14 @@
 {
-  "$comment": "Hooks de governanca do Artificio RPG para o Codex CLI. Spec 101, Fase 0.7 (D14). Sao os mesmos 4 hooks versionados em .claude/hooks/: o payload do PreToolUse do Codex e identico ao do Claude Code (tool_name, tool_input.command) e o deny usa o mesmo hookSpecificOutput/permissionDecision, entao o script roda nos dois sem alteracao. O caminho resolve a raiz por 'git rev-parse --show-toplevel' porque o Codex nao expoe variavel de diretorio de projeto (medido no binario 0.153.3: CODEX_PROJECT_DIR nao existe) e a sessao pode comecar num subdiretorio \u2014 com caminho relativo o hook nao carrega e a governanca desliga em silencio (medido de apps/mesas: MODULE_NOT_FOUND).",
+  "description": "Hooks de governanca do Artificio RPG para o Codex. Spec 101, Fase 0.7 (D14). Os gates PreToolUse compartilham implementacao com o Claude Code; os hooks Stop tambem sao compartilhados, mas registro-anti-compactacao interpreta os dois formatos de transcript. O caminho resolve a raiz por 'git rev-parse --show-toplevel' porque a sessao pode comecar num subdiretorio.",
   "hooks": {
     "PreToolUse": [
       {
         "matcher": "Bash",
         "hooks": [
+          {
+            "type": "command",
+            "command": "rtk hook codex"
+          },
           {
             "type": "command",
             "command": "node \"$(git rev-parse --show-toplevel)/.claude/hooks/rtk-enforce.js\""
@@ -15,7 +19,7 @@
           },
           {
             "type": "command",
-            "command": "node \"$(git rev-parse --show-toplevel)/.claude/hooks/autorizacao-gate.js\""
+            "command": "node \"$(git rev-parse --show-toplevel)/.claude/hooks/autorizacao-gate.js\" --codex"
           },
           {
             "type": "command",
@@ -41,26 +45,29 @@
             "command": "node \"$(git rev-parse --show-toplevel)/.claude/hooks/deploy-contract-gate.js\""
           }
         ]
-      },
+      }
+    ],
+    "PermissionRequest": [
       {
         "matcher": "Bash",
         "hooks": [
           {
             "type": "command",
-            "command": "C:/Users/paulo/.local/bin/headroom.EXE init hook ensure --profile init-artificio-4c523c87 --marker headroom-init-codex",
-            "timeout": 15
+            "command": "node \"$(git rev-parse --show-toplevel)/.claude/hooks/autorizacao-gate.js\" --codex"
           }
         ]
       }
     ],
-    "SessionStart": [
+    "Stop": [
       {
-        "matcher": "startup|resume",
         "hooks": [
           {
             "type": "command",
-            "command": "C:/Users/paulo/.local/bin/headroom.EXE init hook ensure --profile init-artificio-4c523c87 --marker headroom-init-codex",
-            "timeout": 15
+            "command": "node \"$(git rev-parse --show-toplevel)/.claude/hooks/registro-anti-compactacao.js\""
+          },
+          {
+            "type": "command",
+            "command": "node \"$(git rev-parse --show-toplevel)/.claude/hooks/caveman-resposta-final.js\""
           }
         ]
       }

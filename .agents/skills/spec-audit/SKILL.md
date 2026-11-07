@@ -1,6 +1,6 @@
 ---
 name: spec-audit
-description: Audita specs SDD e documentação operacional do Artifício RPG, cruzando spec.md, plan.md, tasks.md, backlog, sessões e project-state com código real usando LSP, codebase-memory-mcp e ferramentas locais. Use antes de implementar, antes de merge ou para revisar consistência documental.
+description: Audita specs SDD e documentação operacional do Artifício RPG, cruzando spec.md, plan.md, tasks.md, backlog, sessões e project-state com código real usando LSP e ferramentas locais. Use antes de implementar, antes de merge ou para revisar consistência documental.
 ---
 
 # Auditoria de spec SDD
@@ -38,27 +38,22 @@ Use para auditar uma spec SDD do Artifício RPG quando o pedido for:
 
 Use as ferramentas disponíveis em ordem de precisão.
 
-1. `codebase-memory-mcp`
-
-   * Use para recuperar contexto histórico, ADRs, decisões, specs relacionadas e estado anterior.
-   * Não escreva novas memórias sem necessidade explícita.
-
-2. LSP
+1. LSP
 
    * Use para navegar símbolos, referências, dependências, diagnósticos e impacto entre módulos.
    * Prefira LSP quando a dúvida depender de relação real entre código e uso.
 
-3. Busca estrutural e textual
+2. Busca estrutural e textual
 
    * Use `ast-grep` para padrões estruturais.
    * Use `rg` para localizar specs, tasks, débitos, reviews, decisões, sessões e usos diretos.
 
-4. Git
+3. Git
 
    * Use `git status` e `git diff` para entender alterações locais.
    * Não faça commit.
 
-5. Ferramentas de documentação e validação
+4. Ferramentas de documentação e validação
 
    * `markdownlint-cli2`
    * `cspell`

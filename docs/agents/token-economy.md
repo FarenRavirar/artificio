@@ -28,7 +28,7 @@ Não ler além do tier necessário. Não reabrir o que já está no contexto.
 - Saída de **todos os agentes** em caveman ultra salvo código/commits/segurança. Já embutido nos prompts dos subagentes.
 - Comunicação com mantenedor: PT, caveman ultra. Sem preâmbulo, sem resumo redundante.
 - Docs operacionais de reload (capsule, decisions, project-state) mantidos compactos; comprimir com a skill `caveman-compress` se incharem.
-- **A skill está instalada** (medido 2026-09-21): `~/.claude/skills/caveman/`, do repo `github.com/JuliusBrussee/caveman`, seis níveis. `caveman-activate.js` injeta 5249 chars com `level: ultra` no `SessionStart` (4 matchers); `caveman-mode-tracker.js` injeta 360 chars por prompt em `UserPromptSubmit`; `.claude/hooks/caveman-resposta-final.js` cobre o evento `Stop`, que era o buraco entre o prompt e a resposta final.
+- **Caveman 4.0.1 instalado** (2026-10-28, `github.com/JuliusBrussee/caveman`): plugin `caveman@caveman` (SessionStart/UserPromptSubmit/SessionEnd vêm do manifesto do plugin, não mais de hooks soltos) + CLI `caveman` (`caveman status`, `caveman doctor`, `caveman stats`). Módulos ligados: output, input, waste-fixes, scripts, browse; `routing` só liga após `caveman login`. O settings global aponta `ANTHROPIC_BASE_URL` para o proxy local (`127.0.0.1:8787`) — proxy parado = Claude Code sem rede; diagnóstico: `caveman doctor`. Telemetria desligada (`caveman telemetry off`). Medições de injeção por turno abaixo são da versão antiga: remedir. `.claude/hooks/caveman-resposta-final.js` cobre o evento `Stop`.
 
 ## Custo de reinjeção por turno (medido 2026-09-21)
 
@@ -47,11 +47,7 @@ e os matches costumam ser irrelevantes ao comando (medido: buscas por "caveman",
 "function" e "gatilho" devolveram seções de specs velhas e docs do `mesas`).
 São ~3,9x as injeções de todos os hooks `Stop` somados.
 
-Duas saídas levantadas, **nenhuma decidida** — pendente de resposta do
-mantenedor: tirar o `codebase-memory-mcp` do `PreToolUse(Grep|Glob|Bash)`
-mantendo o MCP por chamada explícita (é hook global, `~/.claude/settings.json`),
-ou instalar o proxy do repo do caveman, que comprime o que o agente LÊ (logs,
-JSON, diffs, saída de teste). O proxy é pacote novo: exige pergunta antes.
+Resolvido em 2026-10-29: `codebase-memory-mcp` removido (hooks globais e MCP). O proxy do caveman, que comprime o que o agente LÊ, segue instalado (caveman 4.0.1).
 
 ### Teto de mensagem nos hooks `Stop`
 

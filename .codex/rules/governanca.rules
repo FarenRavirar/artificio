@@ -1,0 +1,135 @@
+# Trava de autorizacao do Artificio RPG para o Codex CLI. Spec 101, Fase 4 (F4.3).
+#
+# Por que existe: e a mesma trava do AGENTS.md §Autorizacao, mas mecanica.
+# Medido em 2026-09-10: antes disto NENHUMA das acoes que aquela secao protege
+# era bloqueada por nada — os 4 hooks devolviam exit 0 para "git commit",
+# "git push origin dev", "git worktree add", "sudo apt-get install" e
+# "ssh faren docker restart". A regra escrita dependia inteiramente de o modelo
+# lembrar dela, e a spec 101 nasceu justamente de o agente violar regras que
+# estavam carregadas no proprio contexto.
+#
+# Onde este arquivo e lido: o Codex varre rules/ em cada camada de config ativa,
+# e a camada de projeto (<repo>/.codex/rules/) carrega quando o projeto e
+# trusted. Medido: ~/.codex/config.toml ja traz
+# [projects.'c:\projetos\artificio'] trust_level = "trusted", entao vale sem
+# passo manual. O equivalente no Claude Code esta em .claude/settings.json
+# (permissions.deny/ask) e no OpenCode em opencode.json (permission.bash).
+#
+# Precedencia (medida em 2026-09-10, codex-cli 0.153.3, com regra dupla no mesmo
+# comando): o Codex aplica a decisao MAIS RESTRITIVA quando mais de uma casa —
+# forbidden > prompt > allow. Difere do OpenCode, onde a ultima regra vence.
+# Valores aceitos: allow, prompt, forbidden ("deny", "ask" e "confirm" sao
+# rejeitados com "invalid decision", medido).
+#
+# Pegadinha medida no padrao: a forma com subcomando (["git","commit"]) deixa
+# passar "git -C . commit", "git -c x=y commit" e "git -c alias.x=!sh x" (o vetor
+# do CVE-2026-55582) — todas devolvem matchedRules vazio. So a forma
+# so-executavel (["git"]) casa as tres. Onde a regra abaixo usa subcomando, e
+# escolha deliberada de escopo (o mantenedor liberou push e PR), com o buraco
+# coberto pelo hook. Onde nao ha excecao a fazer, o padrao e so o executavel.
+# Mesma pegadinha vale no Claude Code, onde a doc diz que "Bash(git *)" cobre -c.
+#
+# LIMITE que nenhuma regra declarativa fecha: comando por caminho absoluto
+# (/usr/bin/git) so casa com --resolve-host-executables, e comando aninhado em
+# "bash -lc '...'" nao e dividido pelo execpolicy check. Quem enxerga esses e o
+# hook rtk-enforce.js, que le tool_input.command (o texto integral). Por isso as
+# tres camadas coexistem; nenhuma sozinha basta.
+
+# --- Camada 1: sem excecao, bloqueado sem prompt ---
+# Desligar a VM Oracle derruba producao inteira (todos os subdominios, o SSO e os
+# bancos) e quem religa e o mantenedor, manualmente, no painel. Nenhum pedido
+# autoriza isso por interpretacao, entao nao ha prompt a oferecer.
+prefix_rule(pattern=["shutdown"], decision="forbidden", justification="AGENTS.md: NUNCA desligar/reiniciar a VM Oracle. Derruba producao inteira sem caminho de volta pelo agente.")
+prefix_rule(pattern=["reboot"], decision="forbidden", justification="AGENTS.md: NUNCA reiniciar a VM Oracle.")
+prefix_rule(pattern=["poweroff"], decision="forbidden", justification="AGENTS.md: NUNCA desligar a VM Oracle.")
+prefix_rule(pattern=["halt"], decision="forbidden", justification="AGENTS.md: NUNCA desligar a VM Oracle.")
+prefix_rule(pattern=["rtk", "shutdown"], decision="forbidden", justification="AGENTS.md: NUNCA desligar/reiniciar a VM Oracle.")
+prefix_rule(pattern=["rtk", "reboot"], decision="forbidden", justification="AGENTS.md: NUNCA reiniciar a VM Oracle.")
+prefix_rule(pattern=["rtk", "poweroff"], decision="forbidden", justification="AGENTS.md: NUNCA desligar a VM Oracle.")
+prefix_rule(pattern=["rtk", "halt"], decision="forbidden", justification="AGENTS.md: NUNCA desligar a VM Oracle.")
+
+# --- Camada 2: leitura remota permitida; o PermissionRequest confirma o allow ---
+# A regra ampla de SSH abaixo continua produzindo PermissionRequest. Nessa etapa,
+# autorizacao-gate.js libera apenas estes comandos read-only e deixa desconhecidos
+# no prompt normal. Assim `allow` nunca afrouxa uma mutacao por prefixo parcial.
+prefix_rule(pattern=["rtk", "ssh", "faren", "docker", "ps"], decision="allow")
+prefix_rule(pattern=["rtk", "ssh", "faren", "docker", "logs"], decision="allow")
+prefix_rule(pattern=["rtk", "ssh", "faren", "docker", "inspect"], decision="allow")
+prefix_rule(pattern=["rtk", "ssh", "faren", "docker", "stats"], decision="allow")
+prefix_rule(pattern=["rtk", "ssh", "faren", "docker", "images"], decision="allow")
+prefix_rule(pattern=["rtk", "ssh", "faren", "docker", "system", "df"], decision="allow")
+prefix_rule(pattern=["rtk", "ssh", "faren", "ls"], decision="allow")
+prefix_rule(pattern=["rtk", "ssh", "faren", "cat"], decision="allow")
+prefix_rule(pattern=["rtk", "ssh", "faren", "head"], decision="allow")
+prefix_rule(pattern=["rtk", "ssh", "faren", "tail"], decision="allow")
+prefix_rule(pattern=["rtk", "ssh", "faren", "df"], decision="allow")
+prefix_rule(pattern=["rtk", "ssh", "faren", "free"], decision="allow")
+prefix_rule(pattern=["rtk", "ssh", "faren", "uptime"], decision="allow")
+prefix_rule(pattern=["rtk", "ssh", "faren", "nproc"], decision="allow")
+prefix_rule(pattern=["rtk", "ssh", "faren", "whoami"], decision="allow")
+prefix_rule(pattern=["rtk", "ssh", "faren", "grep"], decision="allow")
+prefix_rule(pattern=["rtk", "ssh", "faren", "rg"], decision="allow")
+prefix_rule(pattern=["rtk", "ssh", "faren", "find"], decision="allow")
+prefix_rule(pattern=["rtk", "ssh", "faren", "stat"], decision="allow")
+prefix_rule(pattern=["rtk", "ssh", "faren", "wc"], decision="allow")
+prefix_rule(pattern=["rtk", "ssh", "faren", "curl", "-s"], decision="allow")
+prefix_rule(pattern=["rtk", "ssh", "faren", "pg_dump"], decision="allow")
+prefix_rule(pattern=["rtk", "ssh", "faren", "git", "status"], decision="allow")
+prefix_rule(pattern=["rtk", "ssh", "faren", "git", "log"], decision="allow")
+prefix_rule(pattern=["rtk", "ssh", "faren", "git", "diff"], decision="allow")
+prefix_rule(pattern=["rtk", "ssh", "faren", "systemctl", "status"], decision="allow")
+prefix_rule(pattern=["rtk", "ssh", "faren", "journalctl"], decision="allow")
+
+# --- Camada 3: exige autorizacao nominal por acao (AGENTS.md §Autorizacao) ---
+# Prompta mesmo depois de o mantenedor autorizar por texto: a autorizacao vale
+# por acao e nao acumula entre commits/pushes, mesmo no mesmo PR e na mesma
+# conversa. O prompt e a confirmacao daquela acao, nao duvida sobre a anterior.
+# Decisao do mantenedor (2026-09-10): push e abrir PR ficam liberados; so o
+# COMMIT pergunta. E onde o conteudo entra na historia — depois do commit, push
+# e PR nao acrescentam decisao, e o hook git-commit-msg-gate ja barra --amend.
+# Por isso aqui o padrao volta a ser ("git", "commit") e nao so ("git"): a forma
+# so-executavel pegaria push tambem. O custo medido dessa escolha e conhecido —
+# "git -C . commit" e "git -c x=y commit" NAO casam (matchedRules vazio) e
+# escapam desta camada; quem os enxerga e o hook, que le o texto integral.
+prefix_rule(pattern=["git", "commit"], decision="prompt", justification="AGENTS.md §Autorizacao: cada commit exige autorizacao nominal — nao acumula entre commits, mesmo no mesmo PR e na mesma conversa.")
+prefix_rule(pattern=["rtk", "git", "commit"], decision="prompt", justification="AGENTS.md §Autorizacao: cada commit exige autorizacao nominal — nao acumula entre commits, mesmo no mesmo PR e na mesma conversa.")
+prefix_rule(pattern=["git", "worktree"], decision="prompt", justification="AGENTS.md §Autorizacao: worktree exige aprovacao nominal previa, com o caminho exato e como o trabalho volta ao cwd.")
+prefix_rule(pattern=["rtk", "git", "worktree"], decision="prompt", justification="AGENTS.md §Autorizacao: worktree exige aprovacao nominal previa.")
+prefix_rule(pattern=["git", "merge"], decision="prompt", justification="AGENTS.md §PR, Commit e Push: merge so com autorizacao explicita.")
+prefix_rule(pattern=["rtk", "git", "merge"], decision="prompt", justification="AGENTS.md §PR, Commit e Push: merge so com autorizacao explicita.")
+prefix_rule(pattern=["git", "rebase"], decision="prompt", justification="AGENTS.md: reescrita de historico exige aprovacao nominal.")
+prefix_rule(pattern=["rtk", "git", "rebase"], decision="prompt", justification="AGENTS.md: reescrita de historico exige aprovacao nominal.")
+prefix_rule(pattern=["git", "reset"], decision="prompt", justification="AGENTS.md: reset descarta trabalho, exige aprovacao nominal.")
+prefix_rule(pattern=["rtk", "git", "reset"], decision="prompt", justification="AGENTS.md: reset descarta trabalho, exige aprovacao nominal.")
+prefix_rule(pattern=["git", "cherry-pick"], decision="prompt", justification="AGENTS.md: reescrita de historico exige aprovacao nominal.")
+prefix_rule(pattern=["rtk", "git", "cherry-pick"], decision="prompt", justification="AGENTS.md: reescrita de historico exige aprovacao nominal.")
+prefix_rule(pattern=["gh", "pr", "merge"], decision="prompt", justification="AGENTS.md §PR, Commit e Push: merge de PR so com autorizacao explicita.")
+prefix_rule(pattern=["rtk", "gh", "pr", "merge"], decision="prompt", justification="AGENTS.md §PR, Commit e Push: merge de PR so com autorizacao explicita.")
+prefix_rule(pattern=["gh", "workflow", "run"], decision="prompt", justification="AGENTS.md §Autorizacao: disparar workflow (deploy/promote) exige autorizacao nominal.")
+prefix_rule(pattern=["rtk", "gh", "workflow", "run"], decision="prompt", justification="AGENTS.md §Autorizacao: disparar workflow exige autorizacao nominal.")
+prefix_rule(pattern=["gh", "run", "rerun"], decision="prompt", justification="AGENTS.md §Autorizacao: re-disparar workflow exige autorizacao nominal.")
+prefix_rule(pattern=["rtk", "gh", "run", "rerun"], decision="prompt", justification="AGENTS.md §Autorizacao: re-disparar workflow exige autorizacao nominal.")
+prefix_rule(pattern=["ssh"], decision="prompt", justification="AGENTS.md §Autorizacao: escrita na VM exige aprovacao nominal. Inspecao read-only e livre — responda o prompt.")
+prefix_rule(pattern=["rtk", "ssh", "faren"], decision="prompt", justification="AGENTS.md §Autorizacao: escrita na VM exige aprovacao nominal; PermissionRequest libera somente leitura reconhecida.")
+prefix_rule(pattern=["scp"], decision="prompt", justification="AGENTS.md §Autorizacao: copiar arquivo para a VM e escrita, exige aprovacao nominal.")
+prefix_rule(pattern=["rtk", "scp"], decision="prompt", justification="AGENTS.md §Autorizacao: copiar arquivo para a VM exige aprovacao nominal.")
+prefix_rule(pattern=["rsync"], decision="prompt", justification="AGENTS.md §Autorizacao: sincronizar arquivo com a VM e escrita, exige aprovacao nominal.")
+prefix_rule(pattern=["rtk", "rsync"], decision="prompt", justification="AGENTS.md §Autorizacao: sincronizar arquivo com a VM exige aprovacao nominal.")
+prefix_rule(pattern=["apt-get", "install"], decision="prompt", justification="AGENTS.md §Autorizacao: pacote apt novo exige perguntar antes — qual pacote, por que, alternativa no repo, impacto.")
+prefix_rule(pattern=["rtk", "apt-get", "install"], decision="prompt", justification="AGENTS.md §Autorizacao: pacote apt novo exige perguntar antes.")
+prefix_rule(pattern=["apt", "install"], decision="prompt", justification="AGENTS.md §Autorizacao: pacote apt novo exige perguntar antes.")
+prefix_rule(pattern=["rtk", "apt", "install"], decision="prompt", justification="AGENTS.md §Autorizacao: pacote apt novo exige perguntar antes.")
+prefix_rule(pattern=["sudo"], decision="prompt", justification="AGENTS.md §Autorizacao: comando privilegiado exige aprovacao nominal.")
+prefix_rule(pattern=["rtk", "sudo"], decision="prompt", justification="AGENTS.md §Autorizacao: comando privilegiado exige aprovacao nominal.")
+prefix_rule(pattern=["docker", "restart"], decision="prompt", justification="AGENTS.md §Autorizacao: mutacao Docker exige aprovacao nominal.")
+prefix_rule(pattern=["docker", "stop"], decision="prompt", justification="AGENTS.md §Autorizacao: mutacao Docker exige aprovacao nominal.")
+prefix_rule(pattern=["docker", "rm"], decision="prompt", justification="AGENTS.md §Autorizacao: mutacao Docker exige aprovacao nominal.")
+prefix_rule(pattern=["docker", "cp"], decision="prompt", justification="AGENTS.md §Autorizacao: mutacao Docker exige aprovacao nominal.")
+prefix_rule(pattern=["docker", "compose", "up"], decision="prompt", justification="AGENTS.md §Autorizacao: mutacao Docker exige aprovacao nominal.")
+prefix_rule(pattern=["docker", "compose", "down"], decision="prompt", justification="AGENTS.md §Autorizacao: mutacao Docker exige aprovacao nominal.")
+prefix_rule(pattern=["rtk", "docker", "restart"], decision="prompt", justification="AGENTS.md §Autorizacao: mutacao Docker exige aprovacao nominal.")
+prefix_rule(pattern=["rtk", "docker", "stop"], decision="prompt", justification="AGENTS.md §Autorizacao: mutacao Docker exige aprovacao nominal.")
+prefix_rule(pattern=["rtk", "docker", "rm"], decision="prompt", justification="AGENTS.md §Autorizacao: mutacao Docker exige aprovacao nominal.")
+prefix_rule(pattern=["rtk", "docker", "cp"], decision="prompt", justification="AGENTS.md §Autorizacao: mutacao Docker exige aprovacao nominal.")
+prefix_rule(pattern=["rtk", "docker", "compose", "up"], decision="prompt", justification="AGENTS.md §Autorizacao: mutacao Docker exige aprovacao nominal.")
+prefix_rule(pattern=["rtk", "docker", "compose", "down"], decision="prompt", justification="AGENTS.md §Autorizacao: mutacao Docker exige aprovacao nominal.")
