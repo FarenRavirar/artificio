@@ -27,6 +27,26 @@ const usoDeFerramenta = (name, input) =>
     message: { content: [{ type: "tool_use", name, input }] },
   });
 
+const promptCodex = (texto) =>
+  JSON.stringify({
+    type: "response_item",
+    payload: {
+      type: "message",
+      role: "user",
+      content: [{ type: "input_text", text: texto }],
+    },
+  });
+
+const ferramentaCodex = (source) =>
+  JSON.stringify({
+    type: "response_item",
+    payload: {
+      type: "custom_tool_call",
+      name: "exec",
+      input: source,
+    },
+  });
+
 // Resultado de ferramenta: linha `user` com content em ARRAY. Não pode ser
 // confundida com prompt humano, senão o gate cortaria o turno no meio.
 const resultadoDeFerramenta = () =>
@@ -192,7 +212,7 @@ t("Grep e MCP de grafo contam como medição", () => {
     promptHumano("investiga"),
     usoDeFerramenta("Grep", { pattern: "proxy_pass" }),
     usoDeFerramenta("Glob", { pattern: "**/*.conf" }),
-    usoDeFerramenta("mcp__codebase-memory-mcp__search_graph", { q: "og" }),
+    usoDeFerramenta("mcp__code-review-graph__semantic_search_nodes_tool", { q: "og" }),
     usoDeFerramenta("mcp__code-review-graph__query_graph_tool", { q: "x" }),
   ]);
   assert(bloqueou(r), "busca estrutural é medição tanto quanto Bash");
@@ -284,6 +304,40 @@ t("UMA medição COM registro na spec libera", () => {
     usoDeFerramenta("Write", { file_path: "specs/102-seo-indexacao-recuperacao/tasks.md" }),
   ]);
   assert.strictEqual(r.code, 0);
+});
+
+t("rollout Codex: exec_command conta como medição", () => {
+  const r = roda([
+    promptCodex("investiga"),
+    ferramentaCodex('await tools.exec_command({cmd: "rtk git status"});'),
+  ]);
+  assert(bloqueou(r), "o formato response_item/custom_tool_call precisa ser cobrado");
+  assert(motivo(r).includes("1 medições"));
+});
+
+t("rollout Codex: sessão escrita por apply_patch conta como registro", () => {
+  const patch = [
+    'const patch = `*** Begin Patch',
+    '*** Add File: sessoes/26-11-07_1_governanca_codex-harness-paridade.md',
+    '+registro',
+    '*** End Patch`;',
+    'await tools.apply_patch(patch);',
+  ].join("\n");
+  const r = roda([
+    promptCodex("investiga e registra"),
+    ferramentaCodex('await tools.exec_command({cmd: "rtk git status"});'),
+    ferramentaCodex(patch),
+  ]);
+  assert.strictEqual(r.code, 0, "sessão pedida pelo mantenedor é registro válido");
+});
+
+t("rollout Codex: só o último prompt humano delimita o turno", () => {
+  const r = roda([
+    promptCodex("investiga"),
+    ferramentaCodex('await tools.exec_command({cmd: "rtk git status"});'),
+    promptCodex("agora só me diz oi"),
+  ]);
+  assert.strictEqual(r.code, 0, "medição do turno anterior não pode contaminar o atual");
 });
 
 console.log(`\n${ok} passaram`);

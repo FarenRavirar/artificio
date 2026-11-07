@@ -1,7 +1,4 @@
 {
-  "enabledPlugins": {
-    "typescript-lsp@claude-plugins-official": false
-  },
   "permissions": {
     "allow": [
       "Bash(ssh faren docker ps:*)",
@@ -152,5 +149,9 @@
         ]
       }
     ]
+  },
+  "enabledPlugins": {
+    "typescript-lsp@claude-plugins-official": false,
+    "agent-skills@addy-agent-skills": true
   }
 }

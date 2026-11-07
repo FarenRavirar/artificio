@@ -67,7 +67,7 @@ const FERRAMENTAS_DE_MEDICAO = new Set([
   'WebSearch',
 ]);
 
-const PREFIXO_MCP_MEDICAO = /^mcp__(codebase-memory-mcp|code-review-graph|artificio-api-governance)__/;
+const PREFIXO_MCP_MEDICAO = /^mcp__(code-review-graph|artificio-api-governance)__/;
 
 function eMedicao(nome) {
   return FERRAMENTAS_DE_MEDICAO.has(nome) || PREFIXO_MCP_MEDICAO.test(nome || '');
@@ -83,10 +83,66 @@ function eRegistro(arquivo) {
   const p = String(arquivo || '').replace(/\\/g, '/');
   return (
     /(^|\/)specs\/[^/]+\/(tasks|spec|plan)\.md$/i.test(p) ||
+    /(^|\/)sessoes\/[^/]+\.md$/i.test(p) ||
     /(^|\/)\.specify\/memory\/(errors|project-state|decisions)\.md$/i.test(p) ||
     /(^|\/)AGENTS\.md$/i.test(p) ||
     /(^|\/)\.agents\/skills\/[^/]+\/SKILL\.md$/i.test(p)
   );
+}
+
+function lerUltimoTurnoCodex(eventos) {
+  let inicio = 0;
+  for (let i = eventos.length - 1; i >= 0; i--) {
+    const payload = eventos[i]?.payload;
+    if (
+      eventos[i]?.type === 'response_item' &&
+      payload?.type === 'message' &&
+      payload?.role === 'user' &&
+      Array.isArray(payload.content) &&
+      payload.content.some((bloco) => bloco?.type === 'input_text')
+    ) {
+      inicio = i;
+      break;
+    }
+  }
+
+  let medicoes = 0;
+  let registrou = false;
+  const comandos = [];
+
+  for (let i = inicio; i < eventos.length; i++) {
+    const payload = eventos[i]?.payload;
+    if (
+      eventos[i]?.type !== 'response_item' ||
+      !['custom_tool_call', 'function_call'].includes(payload?.type)
+    ) continue;
+
+    const entrada = String(payload.input ?? payload.arguments ?? '');
+    const nomes = [String(payload.name ?? '')];
+    for (const match of entrada.matchAll(/tools\.([A-Za-z0-9_]+)/g)) {
+      nomes.push(match[1]);
+    }
+
+    const mediu = nomes.some((nome) =>
+      nome === 'exec_command' ||
+      nome === 'view_image' ||
+      /^mcp__(code-review-graph|artificio-api-governance)__/.test(nome) ||
+      nome === 'mcp__codex_apps__search_service_web_run'
+    );
+    if (mediu) {
+      medicoes++;
+      const nome = nomes.find((item) => item !== 'exec') || payload.name || 'tool';
+      comandos.push(`Codex ${nome}`.slice(0, 70));
+    }
+
+    if (nomes.includes('apply_patch')) {
+      for (const match of entrada.matchAll(/^\*\*\* (?:Add|Update) File: (.+)$/gm)) {
+        if (eRegistro(match[1].trim())) registrou = true;
+      }
+    }
+  }
+
+  return { medicoes, registrou, comandos };
 }
 
 // Lê o transcript de trás para frente até o último prompt real do usuário.
@@ -101,6 +157,19 @@ function lerUltimoTurno(transcriptPath) {
   }
 
   const linhas = bruto.split('\n').filter(Boolean);
+  const eventos = [];
+  for (const linha of linhas) {
+    try {
+      eventos.push(JSON.parse(linha));
+    } catch {
+      // Linha parcial no fim do rollout: ignora e usa o restante.
+    }
+  }
+
+  if (eventos.some((evento) => evento?.type === 'response_item')) {
+    return lerUltimoTurnoCodex(eventos);
+  }
+
   let inicio = 0;
   for (let i = linhas.length - 1; i >= 0; i--) {
     let j;

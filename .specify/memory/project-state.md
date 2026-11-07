@@ -82,7 +82,7 @@ T8.1 [P0] (`og-default.png` ausente — reconfirmado em 2026-07-28, `public/` s�
 - **Laranja canônico** `#FF5722` (D064), navy `#020740` (D040)
 - **Linguagem pública:** "projetos" (D063); "módulo" = termo técnico interno
 - **Comunicação agentes:** caveman ultra obrigatório (D068/D088)
-- **Ferramentas agentes:** usar quando disponíveis `rtk`, `artificio-api-governance`, LSP e `codebase-memory-mcp`; fallback só registrado (D112)
+- **Ferramentas agentes:** usar quando disponíveis `rtk`, `artificio-api-governance`, e LSP; fallback só registrado (D112)
 - **Branch protection** `dev` (D073): tudo via PR, check `lint + build + test` obrigatório
 - **WP EOL resolvido** (D074): migração concluída, residual zero de conteúdo servido com URL WP
 

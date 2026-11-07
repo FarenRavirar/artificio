@@ -1,6 +1,6 @@
 ---
 name: explore-codebase
-description: Mapeia estrutura e arquitetura de uma área do código pelo grafo de conhecimento (codebase-memory). Use ao entrar numa parte do repo que ainda não conhece, antes de refatorar algo grande, ou quando pedirem "como isso funciona?", "me explica essa parte do código".
+description: Mapeia estrutura e arquitetura de uma área do código pelo grafo de conhecimento (code-review-graph). Use ao entrar numa parte do repo que ainda não conhece, antes de refatorar algo grande, ou quando pedirem "como isso funciona?", "me explica essa parte do código".
 ---
 
 ## Explore Codebase

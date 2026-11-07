@@ -55,8 +55,7 @@ Resumo operacional:
 
 1. `artificio-api-governance` para API.
 2. LSP para diagnóstico automático.
-3. `codebase-memory-mcp` para grafo/impacto.
-4. `ast-grep`, `rtk rg`, `rtk read`, `git` e leitura direta.
+3. `rtk ast-grep`, `rtk rg`, `rtk read`, `git` e leitura direta.
 
 Se essas ferramentas não estiverem disponíveis, usar fallback local e registrar a limitação.
 

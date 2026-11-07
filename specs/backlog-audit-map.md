@@ -93,7 +93,6 @@
 | BL-FEEDBACK-MESAS-ANTIDRIFT | 🔵 Futuro | Mesas consumir `@artificio/ui/feedback` |
 | DEB-046-04 | 🟢 Baixo | `site-admin` sem deps `@artificio/*`; URL hardcoded em `api.ts` |
 | BL-ECOSYSTEM-SERENA | 🔵 Futuro | Serena MCP instalado; aguarda smoke test com agente real |
-| BL-ECOSYSTEM-CODEBASE-MEMORY | 🔵 Futuro | Codebase-memory-mcp indexado; aguarda v1.0+ |
 | — | — | **✅ CONCLUÍDO / EM PROD (fechados; lista compacta)** |
 | BL-082-DOWNLOADS-FECHAMENTO-REAL | ✅ | PRs #188/#190 mergeadas (2026-07-23) |
 | BL-083-REJEICAO-MOTIVO-LEGAL-EMAIL | ✅ | PR #192 mergeada (2026-07-24) |

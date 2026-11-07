@@ -1,6 +1,6 @@
 ---
 name: ferramentas-mcp
-description: Mecânica das ferramentas do repo — tabela de comandos do rtk por categoria, pegadinhas já medidas, e o detalhe de cada MCP (LSP, codebase-memory-mcp, artificio-api-governance, cloudflare, opencode/DeepSeek). Use quando for rodar comando de build/lint/test/git e não souber a forma correta, quando um comando `rtk` falhar de modo estranho, ao configurar ou diagnosticar MCP, ou antes de delegar trabalho ao opencode/DeepSeek. A ordem de uso das ferramentas e a trava de acionar outro agente ficam no `AGENTS.md`, não aqui.
+description: Mecânica das ferramentas do repo — tabela de comandos do rtk por categoria, pegadinhas já medidas, e o detalhe de cada MCP (LSP, artificio-api-governance, cloudflare, opencode/DeepSeek). Use quando for rodar comando de build/lint/test/git e não souber a forma correta, quando um comando `rtk` falhar de modo estranho, ao configurar ou diagnosticar MCP, ou antes de delegar trabalho ao opencode/DeepSeek. A ordem de uso das ferramentas e a trava de acionar outro agente ficam no `AGENTS.md`, não aqui.
 ---
 
 # Ferramentas MCP / Agentes — mecânica
@@ -53,7 +53,7 @@ Forçamento automático (instalado 2026-07-27, após ~50 esquecimentos na semana
 2. **`rtk-enforce.js`** (`PreToolUse` em `Bash`, roda logo depois) — **bloqueia** (`permissionDecision: deny`) o que a camada 1 deixa passar: `pnpm <script>` sem `run` (`pnpm verify:api`, `pnpm test`) e `pnpm --filter <pkg> <script>` não são reescritos. O deny devolve o comando corrigido pronto, então o custo é reemitir na mesma volta. Conferir se um comando específico é reescrito: `rtk hook check "<comando>"` — **dry-run, exige o comando como argumento** desde a 0.47.0 (antes era checagem geral de cobertura); sem argumento devolve `No rewrite for:` vazio, que é a nova sintaxe, não erro.
 3. **`rtk-read-gate.js`** (`PreToolUse` em `Read`) — o hook do rtk **só intercepta o tool `Bash`**; `Read`/`Grep`/`Glob` são nativos e passam por fora dele, que é por onde "esqueci o `rtk read`" escapava. O gate bloqueia leitura **integral** de arquivo com mais de 600 linhas e de lockfile, sempre sugerindo `rtk read`, `offset`/`limit` ou LSP. Leitura com `offset`/`limit` passa direto — ler trecho de arquivo grande é o comportamento desejado, não a violação.
 
-Consequência prática: **não existe mais "esqueci"**. Ou o comando é reescrito sem o agente notar, ou é bloqueado com a correção no motivo. O que o agente ainda precisa fazer por conta própria é escolher LSP/`codebase-memory-mcp` antes de busca textual — isso nenhum hook decide.
+Consequência prática: **não existe mais "esqueci"**. Ou o comando é reescrito sem o agente notar, ou é bloqueado com a correção no motivo. O que o agente ainda precisa fazer por conta própria é escolher LSP antes de busca textual — isso nenhum hook decide.
 
 **Comando obrigatório para lint/build/test/verify, na raiz do monorepo:**
 
@@ -81,15 +81,6 @@ Erros cometidos em smoke test (2026-07-25, build develop `bee2178`) — não rep
 - Usar para: checar arquivos tocados antes/depois de edição; confirmar impacto local de refactor; achar erro rápido enquanto ainda é barato corrigir.
 - Clientes: OpenCode expõe LSP diretamente; Claude Code pode usar plugin LSP; Codex depende das ferramentas disponíveis no turno/config local.
 - Trava: LSP é importante, mas auxiliar. Diagnóstico limpo não substitui `pnpm run lint`, `pnpm run build`, testes pontuais e `pnpm verify:api` quando exigidos.
-
-## codebase-memory-mcp
-
-- Origem: Spec 044 / DEB-044-02. Configurado em OpenCode e Claude Code; Codex usa config MCP local do usuário. Versão instalada se lê com `codebase-memory-mcp --version` — não fica registrada aqui, porque número em doc envelhece sozinho e vira afirmação falsa que ninguém mede.
-- Função: grafo persistente do código para descoberta estrutural, chamadas, arquitetura e impacto. Complementa LSP e busca textual.
-- Ferramentas esperadas: `search_graph`, `trace_path`, `get_code_snippet`, `query_graph`, `get_architecture`.
-- Usar para: achar funções/classes/rotas/variáveis por padrão; rastrear quem chama quem; ler snippet específico; consultar fan-out/fan-in; obter visão de arquitetura.
-- Não usar para: literais, mensagens, configs, docs, YAML/JSON, shell, Dockerfile ou quando o grafo estiver desatualizado/insuficiente. Fallback = `rtk rg`, `ast-grep`, leitura direta.
-- Disciplina: código real continua fonte material. Se grafo e arquivo divergirem, o arquivo vence; registrar débito se a ferramenta induzir erro recorrente.
 
 ## artificio-api-governance
 

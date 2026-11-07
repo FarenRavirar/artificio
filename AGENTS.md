@@ -32,7 +32,7 @@ Detalhe nas seções próprias. Isto é o piso:
 - **Estado do código não se escreve em doc** (commitado, local, mergeado, `dev`, produção, SHA, branch, PR) — `git`/`gh` medem. Fica o que comando não mede: decisão, bloqueio, aceite que falta.
 - Validação repo-wide só no fim, e um comando por vez — `test`/`lint`/`build` em paralelo trava a máquina dele.
 - Pesquisar em `spec.md`/`plan.md`/`tasks.md` antes de perguntar, abrindo a seção inteira.
-- `rtk` no lugar do comando cru, sempre.
+- `rtk` no lugar do comando cru, sempre. Filtro cortou o que faltava: `rtk recall <hash>` (`--grep`, `--from`, `--full`); sem filtro: `rtk bypass <cmd>` (antigo `rtk proxy`).
 
 ### T1 — consultar quando a tarefa exigir
 
@@ -316,10 +316,14 @@ Mecânica completa na skill `ferramentas-mcp`. Ordem de uso:
 
 1. `artificio-api-governance` para qualquer pergunta de API.
 2. LSP para diagnóstico e impacto semântico — `workspaceSymbol`/`goToDefinition` (onde está), `findReferences` (quem usa), `goToImplementation`, `hover` (tipo). Checar diagnostics depois de editar.
-3. `codebase-memory-mcp` para mapa estrutural e dependências.
-4. `ast-grep`, `rtk rg`, `rtk read`, `git`, validação CLI.
+3. `rtk ast-grep`, `rtk rg`, `rtk read`, `git`, validação CLI.
 
 `rtk rg` para texto literal (comentário, string, config, YAML/Dockerfile) ou onde o LSP não cobre.
+
+Documentação e segurança:
+- **Context7 (MCP `context7`):** consultar antes de usar API de biblioteca ou framework; versão da doc deve casar com o `package.json`/lockfile. Substitui memória do modelo.
+- **21st.dev Magic (MCP `magic`, chave `API_KEY_21ST` no ambiente do usuário):** só para UI; saída é rascunho e passa por revisão e teste.
+- **Skills `agent-skills` (plugin):** apoio de processo; em choque com este arquivo, este vence.
 
 **Trava (pétrea):** acionar outro agente de IA exige aprovação nominal por ação, priorizando read-only. Ter o MCP disponível não é autorização. Vale igual para escrita via MCP da Cloudflare, que alcança DNS e tunnel de produção — leitura livre, escrita segue §Autorização. Delegação autorizada usa `mcp__opencode__*`; `mcp__opencode-deepseek__deepseek` só se o oficial não responder.
 
