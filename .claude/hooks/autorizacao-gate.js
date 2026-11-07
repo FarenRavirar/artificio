@@ -155,14 +155,32 @@ const REGRAS = [
 ];
 
 function eLeituraRemotaSeguraCodex(command) {
-  const match = command.match(/\brtk\s+ssh\s+faren\s+(.+)$/);
+  const match = command.trim().match(/^rtk\s+ssh\s+faren\s+(.+)$/);
   if (!match) return false;
 
   const remoto = match[1].trim().replace(/^(['"])(.*)\1$/, '$2');
+  // PermissionRequest so libera uma chamada remota simples. Qualquer operador
+  // de shell pode anexar escrita a um comando que comeca read-only.
+  if (/[\r\n;&|`<>]|\$\(|\$\{/.test(remoto)) return false;
+
   if (/^psql\b/i.test(remoto)) {
-    return /\bSELECT\b/i.test(remoto)
-      && !/\b(?:INSERT|UPDATE|DELETE|DROP|ALTER|TRUNCATE)\b/i.test(remoto);
+    if (!/\bSELECT\b/i.test(remoto)
+      || /\b(?:INSERT|UPDATE|DELETE|DROP|ALTER|TRUNCATE|COPY|CALL|DO|INTO|FOR\s+UPDATE)\b/i.test(remoto)) {
+      return false;
+    }
+    const funcoes = [...remoto.matchAll(/\b([A-Za-z_]\w*)\s*\(/g)].map((item) => item[1].toLowerCase());
+    return funcoes.every((nome) => /^(?:count|min|max|sum|avg|coalesce)$/.test(nome));
   }
+
+  const argumentosDeEscrita = [
+    /^find\b.*\s-(?:delete|exec|execdir|ok|okdir|fls|fprint0?|fprintf)\b/i,
+    /^curl\b.*\s(?:-[oOTdFX]|--(?:output|remote-name|upload-file|data(?:-ascii|-binary|-raw|-urlencode)?|form(?:-string)?|request|create-dirs|remove-on-error|etag-save|dump-header))(?:\s|=|$)/i,
+    /^pg_dump\b.*\s(?:-f\b|--file(?:\s|=))/i,
+    /^journalctl\b.*\s--(?:vacuum-(?:time|size|files)|rotate|flush|sync|relinquish-var|smart-relinquish-var|setup-keys)\b/i,
+    /^rg\b.*\s--pre(?:\s|=)/i,
+    /^git\s+(?:status|log|diff)\b.*\s--output(?:\s|=)/i,
+  ];
+  if (argumentosDeEscrita.some((padrao) => padrao.test(remoto))) return false;
 
   return /^(?:docker\s+(?:ps|logs|inspect|stats|images|system\s+df)\b|(?:ls|cat|head|tail|df|free|uptime|nproc|whoami|grep|rg|find|stat|wc|pg_dump|journalctl)\b|curl\s+-s\b|git\s+(?:status|log|diff)\b|systemctl\s+status\b)/.test(remoto);
 }
