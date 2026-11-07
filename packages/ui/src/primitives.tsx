@@ -352,6 +352,8 @@ export function Modal({
   className,
 }: ModalProps) {
   useEscapeClose(open, onClose);
+  const panelRef = useRef<HTMLElement>(null);
+  useFocusTrap(open, panelRef);
   if (!open) return null;
   const titleId = "artificio-modal-title";
   const descriptionId = description ? "artificio-modal-description" : undefined;
@@ -360,6 +362,8 @@ export function Modal({
     <div className="artificio-modal-root">
       <div className="artificio-modal-backdrop" onClick={onClose} />
       <section
+        ref={panelRef}
+        tabIndex={-1}
         className={cx("artificio-modal", className)}
         role="dialog"
         aria-modal="true"

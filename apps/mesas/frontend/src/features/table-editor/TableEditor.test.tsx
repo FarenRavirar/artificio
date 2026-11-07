@@ -41,7 +41,15 @@ vi.mock('../../contexts/useAuth', () => ({
   }),
 }));
 
-vi.mock('./parts/IdentityPart', () => ({ IdentityPart: () => <div data-testid="part-identity" /> }));
+vi.mock('./parts/IdentityPart', () => ({
+  IdentityPart: () => (
+    <div data-testid="part-identity">
+      <div data-field="selectedSystemId">
+        <input id="table-editor-system-system-search" aria-label="Sistema da mesa" />
+      </div>
+    </div>
+  ),
+}));
 vi.mock('./parts/WhenPart', () => ({ WhenPart: () => <div data-testid="part-when" /> }));
 vi.mock('./parts/WherePart', () => ({ WherePart: () => <div data-testid="part-where" /> }));
 vi.mock('./parts/ValuesPart', () => ({ ValuesPart: () => <div data-testid="part-values" /> }));
@@ -197,6 +205,18 @@ describe('navegação entre as partes', () => {
     await waitFor(() => {
       expect(screen.getByRole('region', { name: 'Quando joga' })).toBeInTheDocument();
       expect(screen.getByTestId('part-when')).toBeInTheDocument();
+    });
+  });
+
+  it('A4: erro de sistema foca o controle composto real', async () => {
+    renderEditor(makeApi({
+      errors: { selectedSystemId: 'Selecione um sistema.' },
+      revealedPending: true,
+      firstErrorFieldToFocus: 'selectedSystemId',
+    }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('textbox', { name: 'Sistema da mesa' })).toHaveFocus();
     });
   });
 });

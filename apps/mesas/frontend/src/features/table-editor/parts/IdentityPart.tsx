@@ -283,6 +283,7 @@ export function IdentityPart({
       <Panel tone="subtle">
         <EditorField
           fieldId="selectedSystemId"
+          controlId="table-editor-system-system-search"
           state={state}
           parserMarked={parserFilledFields.has('selectedSystemId')}
           label="Sistema da mesa"

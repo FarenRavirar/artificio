@@ -205,7 +205,13 @@ export function TableEditor({ initialData, onPublished, onBack }: TableEditorPro
     const target = api.firstErrorFieldToFocus;
     if (!target || !api.revealedPending) return;
     const timer = setTimeout(() => {
-      document.getElementById(target)?.focus();
+      const field = Array.from(document.querySelectorAll<HTMLElement>('[data-field]'))
+        .find((element) => element.dataset.field === target);
+      const control = document.getElementById(target)
+        ?? field?.querySelector<HTMLElement>(
+          'input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        );
+      control?.focus();
     }, 0);
     return () => clearTimeout(timer);
   }, [api.revealedPending, api.firstErrorFieldToFocus, activePartId]);

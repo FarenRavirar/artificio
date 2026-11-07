@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X } from 'lucide-react';
+import { Modal } from '@artificio/ui';
 import toast from 'react-hot-toast';
 import { useAuth } from '../contexts/useAuth';
 import { useSystemsCatalog } from '../hooks/useSystemsCatalog';
@@ -267,28 +267,14 @@ export const SystemSuggestionModal = ({
   if (!isOpen) return null;
 
   const modal = (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
-      <div
-        className="bg-[#1B2A4A] border border-white/10 rounded-lg shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
-          <h2 className="text-xl font-bold text-white">Sugerir Sistema</h2>
-          <button
-            onClick={onClose}
-            className="text-white/50 hover:text-white transition-colors"
-            aria-label="Fechar"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        <div className="px-6 py-4">
-          <p className="text-white/70 text-sm mb-6">
-            {user?.role === 'admin'
-              ? 'Adicione um novo sistema, edição ou variante diretamente ao catálogo.'
-              : 'Sugira um novo sistema, edição ou variante. Sua sugestão será revisada por um administrador.'}
-          </p>
+    <Modal
+      open={isOpen}
+      onClose={onClose}
+      title="Sugerir Sistema"
+      description={user?.role === 'admin'
+        ? 'Adicione um novo sistema, edição ou variante diretamente ao catálogo.'
+        : 'Sugira um novo sistema, edição ou variante. Sua sugestão será revisada por um administrador.'}
+    >
 
           {error && (
             <div className="bg-red-500/10 border border-red-500/30 text-red-400 px-4 py-3 rounded-lg mb-4 text-sm">
@@ -500,10 +486,8 @@ export const SystemSuggestionModal = ({
                 {loading ? 'Enviando...' : 'Enviar Sugestão'}
               </button>
             </div>
-          </form>
-        </div>
-      </div>
-    </div>
+      </form>
+    </Modal>
   );
 
   if (typeof document === 'undefined') return modal;

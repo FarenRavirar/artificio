@@ -78,7 +78,25 @@ describe('SystemSuggestionModal', () => {
     fireEvent.click(screen.getByRole('button', { name: /enviar sugest/i }));
 
     await waitFor(() => expect(onSuccess).toHaveBeenCalledTimes(1));
+    const suggestionPosts = vi.mocked(globalThis.fetch).mock.calls.filter(
+      ([input, init]) => init?.method === 'POST'
+        && String(input).includes('/api/v1/system-suggestions'),
+    );
+    expect(suggestionPosts).toHaveLength(1);
     expect(onOuterSubmit).not.toHaveBeenCalled();
+  });
+
+  it('usa a camada modal compartilhada acima do editor', () => {
+    render(
+      <div className="table-editor">
+        <SystemSuggestionModal isOpen onClose={vi.fn()} />
+      </div>,
+    );
+
+    const dialog = screen.getByRole('dialog', { name: 'Sugerir Sistema' });
+    const modalRoot = dialog.closest('.artificio-modal-root');
+    expect(modalRoot?.parentElement).toBe(document.body);
+    expect(document.querySelector('.table-editor')).not.toContainElement(modalRoot);
   });
 
   it('admin cria sistema direto no catalogo', async () => {
