@@ -52,6 +52,8 @@ describe('AuthProvider + ProtectedRoute', () => {
     me.release();
 
     await waitFor(() => expect(screen.getByText('pagina')).toBeTruthy());
+    // useEffect é passivo: o DOM pode aparecer antes do efeito rodar (flaky sob carga no CI).
+    await waitFor(() => expect(mounts).toHaveBeenCalled());
     expect(mounts).toHaveBeenCalledTimes(1);
   });
 });

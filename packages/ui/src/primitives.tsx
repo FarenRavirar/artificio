@@ -352,6 +352,9 @@ export function Modal({
   className,
 }: ModalProps) {
   useEscapeClose(open, onClose);
+  const panelRef = useRef<HTMLElement>(null);
+  const restoreFocusRef = useRef<HTMLElement>(null);
+  useFocusTrap(open, panelRef, restoreFocusRef);
   if (!open) return null;
   const titleId = "artificio-modal-title";
   const descriptionId = description ? "artificio-modal-description" : undefined;
@@ -360,11 +363,19 @@ export function Modal({
     <div className="artificio-modal-root">
       <div className="artificio-modal-backdrop" onClick={onClose} />
       <section
+        ref={panelRef}
+        tabIndex={-1}
         className={cx("artificio-modal", className)}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={descriptionId}
+        onFocusCapture={(event) => {
+          const previous = event.relatedTarget;
+          if (previous instanceof HTMLElement && !event.currentTarget.contains(previous)) {
+            restoreFocusRef.current = previous;
+          }
+        }}
       >
         <header className="artificio-modal-header">
           <div>
@@ -418,7 +429,8 @@ export function Drawer({
 }: DrawerProps) {
   useEscapeClose(open, onClose);
   const panelRef = useRef<HTMLElement>(null);
-  useFocusTrap(open, panelRef);
+  const restoreFocusRef = useRef<HTMLElement>(null);
+  useFocusTrap(open, panelRef, restoreFocusRef);
   if (!open) return null;
   const titleId = "artificio-drawer-title";
 
@@ -432,6 +444,12 @@ export function Drawer({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
+        onFocusCapture={(event) => {
+          const previous = event.relatedTarget;
+          if (previous instanceof HTMLElement && !event.currentTarget.contains(previous)) {
+            restoreFocusRef.current = previous;
+          }
+        }}
       >
         <header className="artificio-drawer-header">
           <h2 id={titleId} className="artificio-drawer-title">
@@ -469,23 +487,36 @@ function useEscapeClose(open: boolean, onClose?: () => void) {
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
+function visibleFocusableElements(container: HTMLElement): HTMLElement[] {
+  return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter((element) => {
+    if (element.closest('[hidden], [aria-hidden="true"], [inert]')) return false;
+    const style = window.getComputedStyle(element);
+    return style.display !== "none" && style.visibility !== "hidden";
+  });
+}
+
 // D108 — Drawer/Modal exigem foco preso e restaurado (achado spec 086 T5C.4:
-// primitivo tinha Escape/backdrop mas nao prendia foco). Ao abrir, foco vai
-// pro primeiro elemento focavel do painel; Tab/Shift+Tab ficam presos dentro
-// dele; ao fechar, foco volta pro elemento que tinha foco antes de abrir.
-function useFocusTrap(open: boolean, containerRef: { current: HTMLElement | null }) {
+// primitivo tinha Escape/backdrop mas nao prendia foco). Ao abrir, preserva o
+// autoFocus do consumidor ou usa o primeiro controle visivel; Tab/Shift+Tab
+// ficam presos dentro dele; ao fechar, foco volta ao elemento anterior.
+function useFocusTrap(
+  open: boolean,
+  containerRef: { current: HTMLElement | null },
+  restoreFocusRef: { current: HTMLElement | null },
+) {
   useEffect(() => {
     if (!open) return;
     const previouslyFocused = document.activeElement as HTMLElement | null;
     const container = containerRef.current;
-    const focusables = container
-      ? Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR))
-      : [];
-    (focusables[0] ?? container)?.focus();
+    const focusables = container ? visibleFocusableElements(container) : [];
+    const activeElement = document.activeElement as HTMLElement | null;
+    if (!activeElement || !focusables.includes(activeElement)) {
+      (focusables[0] ?? container)?.focus();
+    }
 
     function onKeyDown(event: KeyboardEvent) {
       if (event.key !== "Tab" || !container) return;
-      const current = Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR));
+      const current = visibleFocusableElements(container);
       if (current.length === 0) {
         event.preventDefault();
         container.focus();
@@ -493,10 +524,11 @@ function useFocusTrap(open: boolean, containerRef: { current: HTMLElement | null
       }
       const first = current[0];
       const last = current.at(-1) ?? first;
-      if (event.shiftKey && document.activeElement === first) {
+      const active = document.activeElement as HTMLElement | null;
+      if (event.shiftKey && (!active || !current.includes(active) || active === first)) {
         event.preventDefault();
         last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
+      } else if (!event.shiftKey && (!active || !current.includes(active) || active === last)) {
         event.preventDefault();
         first.focus();
       }
@@ -505,9 +537,9 @@ function useFocusTrap(open: boolean, containerRef: { current: HTMLElement | null
     document.addEventListener("keydown", onKeyDown);
     return () => {
       document.removeEventListener("keydown", onKeyDown);
-      previouslyFocused?.focus();
+      (restoreFocusRef.current ?? previouslyFocused)?.focus();
     };
-  }, [open, containerRef]);
+  }, [open, containerRef, restoreFocusRef]);
 }
 
 export interface HeaderActionProps {
