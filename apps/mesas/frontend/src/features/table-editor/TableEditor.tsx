@@ -325,7 +325,7 @@ export function TableEditor({ initialData, onPublished, onBack }: TableEditorPro
 
       {/* Modal de restauração de rascunho (A15) — mesmo texto do fluxo
           antigo, agora sobre o `Modal` do design system; o trap de foco
-          devolve o foco ao "Continuar" (primeiro focável). */}
+          preserva o `autoFocus` do "Continuar". */}
       {api.showRestoreModal && (
         <Modal
           open={api.showRestoreModal}

@@ -245,9 +245,11 @@ export function IdentityPart({
         error={errors.description}
       >
         <ContentEditor
+          id="description"
           value={state.description}
           onChange={(text) => patch({ description: text })}
           label="Descrição da mesa"
+          labelledByExternal
           placeholder="Descreva sua campanha, o tom da história, o que esperar…"
           minHeight={180}
           maxLength={DESCRIPTION_MAX_LENGTH}
@@ -263,9 +265,11 @@ export function IdentityPart({
         label="Regras e observações da mesa"
       >
         <ContentEditor
+          id="rulesNotes"
           value={state.rulesNotes}
           onChange={(text) => patch({ rulesNotes: text })}
           label="Regras e observações da mesa"
+          labelledByExternal
           maxLength={EDITOR_TEXT_LIMITS.rulesNotes[1]}
           placeholder="Ex: Usamos regras homebrew para combate, proibido PvP, etc."
           minHeight={120}

@@ -1,5 +1,7 @@
 // @vitest-environment jsdom
 import React from 'react';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { cleanup, render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { SystemSuggestionModal } from '../components/SystemSuggestionModal';
@@ -28,14 +30,26 @@ describe('SystemSuggestionModal', () => {
     globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
 
-      if (init?.method === 'POST') {
+      const pathname = new URL(url, 'http://localhost').pathname;
+
+      if (init?.method === 'POST' && (
+        pathname === '/api/v1/system-suggestions'
+        || pathname === '/api/v1/systems/admin'
+      )) {
         return {
           ok: true,
           json: async () => ({
-            data: url.includes('/api/v1/systems/admin')
+            data: pathname === '/api/v1/systems/admin'
               ? { id: 'system-1', name: 'Sistema Teste' }
               : { id: 'suggestion-1' },
           }),
+        } as Response;
+      }
+
+      if (init?.method === 'POST') {
+        return {
+          ok: false,
+          json: async () => ({ error: `Unexpected POST: ${pathname}` }),
         } as Response;
       }
 
@@ -80,7 +94,7 @@ describe('SystemSuggestionModal', () => {
     await waitFor(() => expect(onSuccess).toHaveBeenCalledTimes(1));
     const suggestionPosts = vi.mocked(globalThis.fetch).mock.calls.filter(
       ([input, init]) => init?.method === 'POST'
-        && String(input).includes('/api/v1/system-suggestions'),
+        && new URL(String(input), 'http://localhost').pathname === '/api/v1/system-suggestions',
     );
     expect(suggestionPosts).toHaveLength(1);
     expect(onOuterSubmit).not.toHaveBeenCalled();
@@ -94,9 +108,30 @@ describe('SystemSuggestionModal', () => {
     );
 
     const dialog = screen.getByRole('dialog', { name: 'Sugerir Sistema' });
-    const modalRoot = dialog.closest('.artificio-modal-root');
+    const modalRoot = dialog.closest<HTMLElement>('.artificio-modal-root');
     expect(modalRoot?.parentElement).toBe(document.body);
     expect(document.querySelector('.table-editor')).not.toContainElement(modalRoot);
+
+    const readZIndex = (source: string, selector: string): number => {
+      const uncommented = source.replace(/\/\*[\s\S]*?\*\//g, '');
+      for (const rule of uncommented.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+        const selectors = rule[1]?.split(',').map((item) => item.trim()) ?? [];
+        if (!selectors.includes(selector)) continue;
+        const value = rule[2]?.match(/z-index:\s*(\d+)/)?.[1];
+        if (value) return Number(value);
+      }
+      throw new Error(`z-index ausente para ${selector}`);
+    };
+    const uiStyles = readFileSync(
+      resolve(process.cwd(), '../../../packages/ui/src/styles.css'),
+      'utf8',
+    );
+    const editorStyles = readFileSync(
+      resolve(process.cwd(), 'src/features/table-editor/TableEditor.css'),
+      'utf8',
+    );
+    expect(readZIndex(uiStyles, '.artificio-modal-root'))
+      .toBeGreaterThan(readZIndex(editorStyles, '.table-editor'));
   });
 
   it('admin cria sistema direto no catalogo', async () => {

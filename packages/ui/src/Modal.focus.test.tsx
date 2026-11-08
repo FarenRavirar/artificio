@@ -21,6 +21,21 @@ function Harness() {
   );
 }
 
+function AutoFocusHarness() {
+  const [open, setOpen] = useState(false);
+  return (
+    <div>
+      <button type="button" onClick={() => setOpen(true)}>
+        Abrir rascunho
+      </button>
+      <Modal open={open} title="Rascunho" onClose={() => setOpen(false)}>
+        <button type="button" autoFocus>Continuar</button>
+        <button type="button">Descartar</button>
+      </Modal>
+    </div>
+  );
+}
+
 describe("Modal focus trap", () => {
   it("move o foco ao abrir, fecha com Escape e restaura o acionador", () => {
     const { getByText, getByLabelText, queryByRole } = render(<Harness />);
@@ -47,5 +62,36 @@ describe("Modal focus trap", () => {
 
     fireEvent.keyDown(document, { key: "Tab", shiftKey: true });
     expect(document.activeElement).toBe(last);
+  });
+
+  it("preserva o autoFocus definido pelo consumidor", () => {
+    const { getByText, getByLabelText } = render(<AutoFocusHarness />);
+    const opener = getByText("Abrir rascunho");
+    opener.focus();
+    fireEvent.click(opener);
+
+    expect(document.activeElement).toBe(getByText("Continuar"));
+    fireEvent.click(getByLabelText("Fechar"));
+    expect(document.activeElement).toBe(opener);
+  });
+
+  it("ignora controles ocultos e recupera foco que esteja fora do dialogo", () => {
+    const { getByText, getByLabelText } = render(
+      <div>
+        <button type="button">Fora</button>
+        <Modal open title="Envio" onClose={() => undefined}>
+          <button type="button" style={{ display: "none" }}>Oculto</button>
+          <button type="button" disabled>Enviando</button>
+        </Modal>
+      </div>,
+    );
+    const closeButton = getByLabelText("Fechar");
+    getByText("Fora").focus();
+
+    fireEvent.keyDown(document, { key: "Tab" });
+    expect(document.activeElement).toBe(closeButton);
+
+    fireEvent.keyDown(document, { key: "Tab", shiftKey: true });
+    expect(document.activeElement).toBe(closeButton);
   });
 });

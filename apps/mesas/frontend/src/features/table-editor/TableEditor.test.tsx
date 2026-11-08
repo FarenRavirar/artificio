@@ -41,15 +41,26 @@ vi.mock('../../contexts/useAuth', () => ({
   }),
 }));
 
-vi.mock('./parts/IdentityPart', () => ({
-  IdentityPart: () => (
-    <div data-testid="part-identity">
-      <div data-field="selectedSystemId">
-        <input id="table-editor-system-system-search" aria-label="Sistema da mesa" />
+vi.mock('./parts/IdentityPart', async () => {
+  const { ContentEditor } = await import('@artificio/content-editor');
+  return {
+    IdentityPart: () => (
+      <div data-testid="part-identity">
+        <div data-field="description">
+          <ContentEditor
+            id="description"
+            label="Descrição da mesa"
+            value=""
+            onChange={() => undefined}
+          />
+        </div>
+        <div data-field="selectedSystemId">
+          <input id="table-editor-system-system-search" aria-label="Sistema da mesa" />
+        </div>
       </div>
-    </div>
-  ),
-}));
+    ),
+  };
+});
 vi.mock('./parts/WhenPart', () => ({ WhenPart: () => <div data-testid="part-when" /> }));
 vi.mock('./parts/WherePart', () => ({ WherePart: () => <div data-testid="part-where" /> }));
 vi.mock('./parts/ValuesPart', () => ({ ValuesPart: () => <div data-testid="part-values" /> }));
@@ -219,6 +230,19 @@ describe('navegação entre as partes', () => {
       expect(screen.getByRole('textbox', { name: 'Sistema da mesa' })).toHaveFocus();
     });
   });
+
+  it('A4: erro de descrição foca o textarea, não a aba Escrever', async () => {
+    renderEditor(makeApi({
+      errors: { description: 'Descreva a mesa.' },
+      revealedPending: true,
+      firstErrorFieldToFocus: 'description',
+    }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('textbox', { name: 'Descrição da mesa' })).toHaveFocus();
+    });
+    expect(screen.getByRole('tab', { name: 'Escrever' })).not.toHaveFocus();
+  });
 });
 
 describe('pendências na lateral e no rodapé (A4)', () => {
@@ -283,6 +307,19 @@ describe('modal de rascunho (A15)', () => {
   it('sem rascunho salvo o modal não renderiza', () => {
     renderEditor(makeApi());
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('preserva autoFocus em Continuar e Enter não descarta o rascunho', () => {
+    const handleRestoreDraft = vi.fn();
+    const handleDiscardDraft = vi.fn();
+    renderEditor(makeApi({ showRestoreModal: true, handleRestoreDraft, handleDiscardDraft }));
+
+    const continueButton = screen.getByRole('button', { name: 'Continuar' });
+    expect(continueButton).toHaveFocus();
+    fireEvent.click(document.activeElement as HTMLElement);
+
+    expect(handleRestoreDraft).toHaveBeenCalledTimes(1);
+    expect(handleDiscardDraft).not.toHaveBeenCalled();
   });
 });
 

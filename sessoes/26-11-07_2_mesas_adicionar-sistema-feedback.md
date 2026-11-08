@@ -37,18 +37,18 @@ O comando de teste executou 100 arquivos e 1.281 testes, todos verdes. `suggesti
 ## Correção aplicada
 
 1. `SystemSuggestionModal` passou a usar o `Modal` de `@artificio/ui`, ainda dentro de um portal em `document.body`. O formulário, os payloads e os endpoints permaneceram iguais. A casca agora usa a camada canônica `.artificio-modal-root`, com `z-index: 100`, acima do editor em `z-index: 60`.
-2. O `Modal` compartilhado passou a usar o `useFocusTrap` que já atendia o `Drawer`. Ao abrir, o foco entra no diálogo; `Tab` e `Shift+Tab` permanecem nele; `Escape` fecha; o foco retorna ao acionador. A alteração em `packages/ui` foi autorizada nominalmente pelo mantenedor nesta sessão.
-3. O foco do primeiro erro no `TableEditor` agora tenta o id direto e, para controles compostos, procura o wrapper de validação `[data-field]` e seu primeiro controle operável. `IdentityPart` liga o rótulo ao id real `table-editor-system-system-search`.
-4. As regressões cobrem foco no seletor composto, uso da camada compartilhada fora da casca do editor, contenção e restauração de foco, fechamento por `Escape` e exatamente um `POST /api/v1/system-suggestions`.
+2. O `Modal` compartilhado passou a usar o `useFocusTrap` que já atendia o `Drawer`. Ao abrir, ele preserva um `autoFocus` definido pelo consumidor ou foca o primeiro controle visível; controles ocultos, desabilitados e fora da ordem de tabulação não viram limites; foco externo é recapturado; `Escape` fecha; o foco retorna ao acionador. A alteração em `packages/ui` foi autorizada nominalmente pelo mantenedor nesta sessão.
+3. O foco do primeiro erro no `TableEditor` agora tenta o id direto e, para controles compostos, procura o wrapper de validação `[data-field]` e seu primeiro controle operável. `IdentityPart` liga os rótulos aos ids reais de sistema, descrição e regras; o erro de descrição chega ao `textarea`, não à aba “Escrever”.
+4. As regressões cobrem foco no seletor composto e no `ContentEditor` real, preservação de `autoFocus` no rascunho, contenção e restauração de foco, controles ocultos, fechamento por `Escape`, contrato numérico das camadas e exatamente um `POST` para o caminho `/api/v1/system-suggestions`.
 
 O backend, o contrato da API e `packages/catalog-ui` não mudaram.
 
 ## Validação
 
-- `rtk pnpm --filter @artificio/ui test`: 26 arquivos e 150 testes verdes.
-- Testes focados do Mesas: 2 arquivos e 38 testes verdes.
-- A suíte completa do Mesas terminou com exit code 0; os avisos preexistentes de `act(...)`, URL relativa e `Window.scrollTo()` permaneceram no stderr.
-- `typecheck`, `lint` e `build` passaram em `packages/ui` e `apps/mesas/frontend`.
+- `rtk pnpm test` em `packages/ui`: 26 arquivos e 152 testes verdes.
+- Testes focados do Mesas: 2 arquivos e 40 testes verdes.
+- `rtk pnpm exec tsc -b` reproduziu a falha do CI em `suggestionModals.test.tsx:99`; depois da correção terminou com exit code 0.
+- `lint` e `build` passaram em `packages/ui` e `apps/mesas/frontend`.
 - O build de `apps/links`, outro consumidor medido de `Modal`, gerou 17 páginas.
 - `rtk pnpm verify:api` encontrou 607 rotas, terminou com exit code 0 e registrou zero breaking changes.
 - A auditoria dirigida pelas 10 heurísticas de Nielsen não encontrou nova regressão no fluxo. A correção resolve H1, H3, H4 e H9; as demais heurísticas não mudaram.
