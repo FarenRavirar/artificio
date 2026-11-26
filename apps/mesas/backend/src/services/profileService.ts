@@ -69,13 +69,14 @@ export function deriveGmNickname(
   patch?: Record<string, unknown>,
 ): string {
   const doPatch = typeof patch?.nickname === 'string' ? patch.nickname.trim() : '';
-  if (doPatch.length >= 2) return doPatch.slice(0, 40);
+  // Code points, como o CHECK de nickname no banco.
+  if ([...doPatch].length >= 2) return [...doPatch].slice(0, 40).join('');
 
   for (const candidato of [names.displayName, names.username]) {
     const nome = candidato?.trim() ?? '';
     // 'Usuário' é o display_name que `updateProfile` grava quando cria a linha sem
     // nome (ex.: só a foto do Google): placeholder, não nome escolhido.
-    if (nome.length >= 2 && nome.toLowerCase() !== 'usuário') return nome.slice(0, 40);
+    if ([...nome].length >= 2 && nome.toLowerCase() !== 'usuário') return [...nome].slice(0, 40).join('');
   }
   return `user-${userId.slice(0, 8)}`;
 }

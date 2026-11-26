@@ -1533,6 +1533,22 @@ const DAY_TO_DEFINE_PATTERNS = [
   /\bdatas?(?:\s+e\s+hor[aá]rios?|\s+e\s+horas?)?(?:\s*[:：]|\s)\s*a\s+(?:decidir|combinar|definir)\b/,
 ];
 
+// Linha de agenda ("Dias e horários da mesa:", "Data & Hora:", "Dia/Horário:"), já sem
+// markdown. "Data de início:" fica de fora de propósito: não diz o dia da sessão.
+const SCHEDULE_LINE =
+  /^[^\p{L}]*(?:dias?|datas?)(?:\s+d[ae]\s+(?:semana|mesa|jogo|sess[aã]o))?(?:\s*(?:e|&|\/)\s*(?:horas?|hor[aá]rios?)(?:\s+d[ae]\s+(?:mesa|jogo))?)?\s*[:：](.*)$/iu;
+const WEEKDAY_WORD = /(?<!\p{L})(?:segunda|ter[çc]a|quarta|quinta|sexta|s[áa]bado|domingo)s?(?!\p{L})/iu;
+// Data de calendário ou dia abreviado: há um dia ali que não sabemos ler, não é "a definir".
+const UNREAD_DAY = /\d{1,2}\/\d{1,2}|\d{4}|(?<!\p{L})(?:seg|qua|qui|sex|s[áa]b|dom)(?!\p{L})/iu;
+
+function scheduleLineValues(text: string): string[] {
+  return text
+    .split('\n')
+    // NFKC: rótulo em "negrito" Unicode (𝐃𝐢𝐚) vira letra comum.
+    .map((line) => SCHEDULE_LINE.exec(line.normalize('NFKC').replace(/[*_~`|]/g, ''))?.[1].trim() ?? '')
+    .filter(Boolean);
+}
+
 function extractDayOfWeek(text: string, labelAliases: string[] = []): string | null {
   const days: Record<string, string> = {
     segunda: 'segunda', 'segunda-feira': 'segunda',
@@ -1544,7 +1560,14 @@ function extractDayOfWeek(text: string, labelAliases: string[] = []): string | n
     domingo: 'domingo',
   };
   const learnedLabelValue = labelAliases.length > 0 ? extractLabelValue(text, labelAliases) : null;
-  const scope = learnedLabelValue ?? text;
+  // A linha de agenda manda no resto do corpo (um "sexta" na sinopse não vence
+  // "Dias: A definir"). Preenchida sem nenhum dia = "a definir", como o horário.
+  const schedule = scheduleLineValues(text);
+  const scheduleWithDay = schedule.filter((value) => WEEKDAY_WORD.test(value));
+  if (!learnedLabelValue && schedule.length > 0 && scheduleWithDay.length === 0 && !schedule.some((value) => UNREAD_DAY.test(value))) {
+    return 'to_define';
+  }
+  const scope = learnedLabelValue ?? (scheduleWithDay.length > 0 ? scheduleWithDay.join('\n') : text);
   const lower = scope.toLowerCase();
   for (const [key, value] of Object.entries(days)) {
     if (lower.includes(key)) return value;

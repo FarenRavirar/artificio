@@ -952,3 +952,17 @@ describe('mergeSlotsState + slotsConsistencySchema (achado Codex, PR #285)', () 
     expect(efetivo({ slots_total: 3, slots_open: 0 }).success).toBe(true);
   });
 });
+
+// O CHECK tables_announcer_requires_name conta caracteres, não unidades UTF-16.
+describe('actual_gm_name conta code points', () => {
+  const parse = (actual_gm_name: string) => updateTableSchema.safeParse({ actual_gm_name }).success;
+
+  it('recusa um caractere, mesmo com length 2 em JS ou espaços em volta', () => {
+    expect(parse('𝑻')).toBe(false);
+    expect(parse('  a ')).toBe(false);
+  });
+
+  it('aceita dois caracteres', () => {
+    expect(parse('🐉🐉')).toBe(true);
+  });
+});

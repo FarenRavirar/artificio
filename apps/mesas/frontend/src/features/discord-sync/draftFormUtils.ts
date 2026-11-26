@@ -354,8 +354,12 @@ export function parseOptionalMoney(value: string): number | null {
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
 }
 
-export function validateForm(form: DraftForm, hostDiscordId?: string | null): string[] {
+export function validateForm(form: DraftForm, hostDiscordId?: string | null, authorName?: string): string[] {
   const missing: string[] = [];
+  // Espelha o guard do sync (syncHelpers.ts): o nome efetivo precisa de 2 code points.
+  // Sem nome nenhum não acusa: no inbox o admin logado vira o mestre.
+  const gmName = form.raw_gm_name.trim() || authorName?.trim() || '';
+  if (gmName && [...gmName].length < 2) missing.push('Nome do mestre (mínimo 2 caracteres)');
   if (!form.title.trim()) missing.push('Título');
   if (!form.description.trim()) missing.push('Descrição');
   if (!form.system_id.trim()) missing.push('Sistema');

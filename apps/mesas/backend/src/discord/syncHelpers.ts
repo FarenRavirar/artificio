@@ -619,6 +619,19 @@ export async function syncDraftToTable(
     throw new config.ValidationError(missingFields);
   }
 
+  const gmName = config.getGmName(payload, adminDisplayName);
+
+  // CHECK tables_announcer_requires_name (Postgres): publisher_role='announcer'
+  // (sempre, nesse pipeline) exige actual_gm_name não-nulo com >=2 chars após
+  // trim. gmName vem de payload.source.author_name (Discord API não garante
+  // presença) ou adminDisplayName — nenhum dos dois validado antes. Sem esse
+  // check, insert quebrava com 500 do Postgres em vez de 422 com mensagem
+  // clara (achado do mantenedor 2026-07-08, mesma classe do bug age_rating).
+  // Conta code points como o `char_length` do Postgres: "𝑻".length é 2 em JS e 1 no banco.
+  if (!gmName || [...gmName.trim()].length < 2) {
+    throw new config.ValidationError(['gm_name']);
+  }
+
   const contacts = extractContacts(payload);
   const schedules = extractSchedules(payload);
   const imageUpload = await uploadCoverForDraft(draftId, payload, draft.image_upload_attempts ?? 0);
@@ -642,17 +655,6 @@ export async function syncDraftToTable(
 
   const sourceId = config.getSourceId(messageRow);
   const sourceUrl = config.getSourceUrl(messageRow);
-  const gmName = config.getGmName(payload, adminDisplayName);
-
-  // CHECK tables_announcer_requires_name (Postgres): publisher_role='announcer'
-  // (sempre, nesse pipeline) exige actual_gm_name não-nulo com >=2 chars após
-  // trim. gmName vem de payload.source.author_name (Discord API não garante
-  // presença) ou adminDisplayName — nenhum dos dois validado antes. Sem esse
-  // check, insert quebrava com 500 do Postgres em vez de 422 com mensagem
-  // clara (achado do mantenedor 2026-07-08, mesma classe do bug age_rating).
-  if (!gmName || gmName.trim().length < 2) {
-    throw new config.ValidationError(['gm_name']);
-  }
 
   const existingTable = await db
     .selectFrom('tables')

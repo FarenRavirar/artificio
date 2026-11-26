@@ -530,3 +530,13 @@ describe('COVER_MIME_TYPES', () => {
     expect(COVER_MIME_TYPES).toContain('image/webp');
   });
 });
+
+describe('validateForm: nome do mestre', () => {
+  // "𝑻".length é 2 em JS, mas o CHECK do banco conta 1 caractere (500 no sync).
+  it('acusa nome efetivo de um caractere e aceita quando o campo é preenchido', () => {
+    const base = { raw_gm_name: '' } as DraftForm;
+    const label = 'Nome do mestre (mínimo 2 caracteres)';
+    expect(validateForm({ ...base, title: '', description: '', system_id: '', slots_total: '', slots_open: '', contact_url: '', contact_discord: '', start_time: '' }, null, '𝑻')).toContain(label);
+    expect(validateForm({ ...base, raw_gm_name: 'Tê', title: '', description: '', system_id: '', slots_total: '', slots_open: '', contact_url: '', contact_discord: '', start_time: '' }, null, '𝑻')).not.toContain(label);
+  });
+});

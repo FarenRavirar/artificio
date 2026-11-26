@@ -516,7 +516,7 @@ export function DraftEditorTab({
           )}
         </label>
         <label className="md:col-span-2">
-          <span className={labelClass}>Nome do mestre (opcional)</span>
+          <span className={labelClass}>Nome do mestre</span>
           <input
             value={form.raw_gm_name}
             onChange={(e) => onUpdateForm('raw_gm_name', e.target.value)}
@@ -525,7 +525,7 @@ export function DraftEditorTab({
           />
           <span className="mt-1 block text-xs text-white/45">
             Extraído do texto quando o anúncio traz "Mestre:"/"Narrador:"/"GM:"/"DM:" explícito.
-            Sem preencher, "Mestre responsável" usa quem postou o anúncio no Discord — nem sempre é o mestre de fato.
+            Opcional: sem preencher, "Mestre responsável" usa quem postou o anúncio no Discord — nem sempre é o mestre de fato. Obrigatório quando esse nome tiver menos de 2 caracteres.
           </span>
         </label>
         <div className="md:col-span-2">

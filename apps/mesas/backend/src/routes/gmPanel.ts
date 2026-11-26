@@ -233,7 +233,7 @@ router.post('/profile', authMiddleware, async (req: Request, res: Response) => {
     return res.status(400).json({ error: 'Slug inválido. Use apenas letras minúsculas, números e hífens.' });
   }
 
-  if (nickname !== undefined && (typeof nickname !== 'string' || nickname.trim().length < 2 || nickname.trim().length > 40)) {
+  if (nickname !== undefined && (typeof nickname !== 'string' || [...nickname.trim()].length < 2 || nickname.trim().length > 40)) {
     await auditIdentityRejected({ actorId: userId, field: 'nickname', attempted: nickname, reason: 'length', door: 'POST /gm/profile' });
     return res.status(400).json({ error: 'Nickname inválido. Use entre 2 e 40 caracteres.' });
   }
@@ -418,7 +418,7 @@ router.put('/profile', authMiddleware, async (req: Request, res: Response) => {
   const bannerFrame = normalizeImageFramePatch(req.body, 'banner');
 
   if (nickname !== undefined) {
-    if (typeof nickname !== 'string' || nickname.trim().length < 2 || nickname.trim().length > 40) {
+    if (typeof nickname !== 'string' || [...nickname.trim()].length < 2 || nickname.trim().length > 40) {
       await auditIdentityRejected({ actorId: userId, field: 'nickname', attempted: nickname, reason: 'length', door: 'PUT /gm/profile' });
       return res.status(400).json({ error: 'Nickname inválido. Use entre 2 e 40 caracteres.' });
     }
