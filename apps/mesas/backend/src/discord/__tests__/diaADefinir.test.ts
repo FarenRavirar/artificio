@@ -53,6 +53,8 @@ describe('dia "a definir" pela linha de agenda', () => {
   });
 
   it('dia na linha seguinte ao rótulo é mantido', () => {
+    expect(dayOf(['▬ Dias e horários: Semanalmente', 'Sempre às quintas-feiras às 20:00'])).toBe('quinta');
+    expect(dayOf(['▬ Dias e horários: Livres', 'Data Limite: até quarta'])).toBe('to_define');
     expect(dayOf(['▬ Dias e horários:', 'Semanalmente', 'Quinta-feira às 20h'])).toBe('quinta');
     expect(dayOf(['▬ Dias e horários: Semanalmente', 'Quinta-feira às 20h'])).toBe('quinta');
   });

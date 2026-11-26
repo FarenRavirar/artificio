@@ -1552,23 +1552,22 @@ const UNREAD_DAY_PATTERNS = [
   /(?<!\p{L})ter(?:\.\s*(?=\d|às|as)|\s+(?=\d{1,2}\s*[h:]))/iu,
 ];
 const SAYS_TO_DEFINE = /(?<!\p{L})[aàá]\s+(?:definir|decidir|combinar|discutir)(?!\p{L})/iu;
-const WEEKDAY_PREFIXES = new Set(['a', 'ao', 'aos', 'as', 'às', 'os', 'toda', 'todas', 'todo', 'todos']);
+// Outro campo do anúncio ("Data Limite: ..."); o ":" de "20:00" não conta.
+const FIELD_LINE = /\p{L}\s*:/u;
 
 function isScheduleLabel(label: string): boolean {
   const [head, ...rest] = label.toLowerCase().split(/[^\p{L}]+/u).filter(Boolean);
   return SCHEDULE_LABEL_HEADS.has(head) && rest.every((word) => SCHEDULE_LABEL_WORDS.has(word));
 }
 
-function startsWithWeekday(line: string): boolean {
-  const first = line.toLowerCase().split(/[^\p{L}]+/u).find((word) => word && !WEEKDAY_PREFIXES.has(word));
-  return WEEKDAY_WORD.test(first ?? '');
-}
-
 // "Dias e horários:" / "Semanalmente" / "Quinta-feira às 20h": o dia vem nas linhas
 // seguintes. "A definir" escrito na própria linha do rótulo encerra o assunto.
 function withContinuationDay(inline: string, following: string[]): string {
   if (WEEKDAY_WORD.test(inline) || SAYS_TO_DEFINE.test(inline)) return inline;
-  const day = following.slice(0, 2).find((line) => line.length <= 60 && startsWithWeekday(line));
+  const nextField = following.findIndex((line) => FIELD_LINE.test(line));
+  const day = following
+    .slice(0, nextField < 0 ? 2 : Math.min(nextField, 2))
+    .find((line) => line.length <= 60 && WEEKDAY_WORD.test(line));
   return day ? `${inline} ${day}`.trim() : inline;
 }
 

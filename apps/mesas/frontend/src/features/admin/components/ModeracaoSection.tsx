@@ -59,7 +59,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * MessagesView instancia useDiscordSync() próprio (cada seção tem seu hook).
  */
 export function ModeracaoSection() {
-  const adminName = useAuth().user?.name;
+  const adminName = useAuth().user?.sso_name;
   const { sub } = useParams<{ sub?: string }>();
   const navigate = useNavigate();
   const [subTab, setSubTab] = useState<ModSubTab>(() => resolveSubTab(sub));
