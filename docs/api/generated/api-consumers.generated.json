@@ -1606,7 +1606,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authGet",
-      "line": 60
+      "line": 54
     },
     {
       "app": "mesas-frontend",
@@ -1616,7 +1616,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authPut",
-      "line": 86
+      "line": 80
     },
     {
       "app": "mesas-frontend",

@@ -31,6 +31,7 @@ const mockDraft: DiscordDraft = {
   discord_message_id: 'dm-1',
   table_id: null,
   parsed_payload: {
+    source: { author_name: 'Mariana' },
     table: {
       title: 'Mesa Teste',
       description: 'Descricao',

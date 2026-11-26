@@ -11,9 +11,9 @@ Sem spec, a pedido do mantenedor.
 
 ## Dia "a definir" não reconhecido
 
-- Regra nova em `extractDayOfWeek`: a linha de agenda ("Dias e horários", "Data e Hora", "Dia/Horário") manda no resto do corpo; preenchida sem nenhum dia, vira `to_define`; data de calendário não vira.
-- Medido contra os 155 rascunhos de produção, tendo o dia salvo pelo admin como referência: 139 antes, 149 depois.
-- Restantes: 3 sem nenhuma linha de agenda; 3 que são erro do parser antigo ainda publicado, sem correção humana do dia (`parsed_payload` igual ao salvo, `import_corrections.diff` sem `day_of_week`).
+- Regra nova em `extractDayOfWeek`: a linha de agenda ("Dias e horários", "Data e Hora", "Dia/Horário") manda no resto do corpo; só vira `to_define` quando declara isso (a definir, flexível, livre). Inferir "a definir" pela ausência de dia foi descartado: apagava a pendência de revisão em datas, abreviações e dias escritos na linha seguinte.
+- Medido contra os 155 rascunhos de produção, tendo o dia salvo pelo admin como referência: 139 antes, 148 depois. Frase que fala só do horário ("horários livres", "qualquer horário") não decide o dia, ao custo de anúncios que o admin marcou como "a definir" e agora ficam pendentes.
+- Restantes: aaf736bc (só fala de horários livres); 3 sem nenhuma linha de agenda; 3 que são erro do parser antigo ainda publicado, sem correção humana do dia (`parsed_payload` igual ao salvo, `import_corrections.diff` sem `day_of_week`).
 - Rótulo de dia aprendido (`label_alias`) continua vencendo a linha de agenda genérica.
 - Mesma classe do "𝑻" corrigida em `nickname` de mestre (rotas e `deriveGmNickname`).
 

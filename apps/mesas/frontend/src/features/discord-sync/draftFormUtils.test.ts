@@ -169,7 +169,7 @@ describe('validateForm', () => {
     frequency: 'semanal',
     contact_url: 'https://discord.gg/abc',
     contact_discord: '',
-    raw_gm_name: '',
+    raw_gm_name: 'Mariana',
     cover_url: '',
     cover_url_source: '',
     cover_quality: '',
@@ -537,6 +537,7 @@ describe('validateForm: nome do mestre', () => {
     const label = 'Nome do mestre (mínimo 2 caracteres)';
     expect(validateForm(form, null, '', 'Admin')).not.toContain(label);
     expect(validateForm(form, null, '')).toContain(label);
+    expect(validateForm(form, null, '', 'A')).toContain('Nome da sua conta (mínimo 2 caracteres)');
   });
 
   // "𝑻".length é 2 em JS, mas o CHECK do banco conta 1 caractere (500 no sync).

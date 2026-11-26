@@ -1537,23 +1537,39 @@ const DAY_TO_DEFINE_PATTERNS = [
 // markdown. "Data de início:" fica de fora de propósito: não diz o dia da sessão.
 const SCHEDULE_LABEL_HEADS = new Set(['dia', 'dias', 'data', 'datas']);
 const SCHEDULE_LABEL_WORDS = new Set([
-  'da', 'de', 'e', 'semana', 'mesa', 'jogo', 'sessão', 'sessao',
+  'da', 'das', 'de', 'do', 'dos', 'e', 's', 'semana', 'mesa', 'jogo', 'sessão', 'sessões', 'sessao',
   'hora', 'horas', 'horário', 'horários', 'horario', 'horarios',
 ]);
 const WEEKDAY_WORD = /(?<!\p{L})(?:segunda|ter[çc]a|quarta|quinta|sexta|s[áa]bado|domingo)s?(?!\p{L})/iu;
-// Há um dia ali que não sabemos ler (data de calendário ou abreviação): não é "a definir".
-// "ter" sozinho é verbo; só conta como terça com ponto ou seguido de hora.
-const UNREAD_DAY_PATTERNS = [
-  /\d{1,2}\/\d{1,2}|\d{4}/,
-  // "12-10"; "19-23h" é intervalo de horas.
-  /(?<!\d)\d{1,2}-(?:0?[1-9]|1[0-2])(?![\dh:])/i,
-  /\d{1,2}\s+de\s+(?:janeiro|fevereiro|mar[çc]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)/i,
-  /(?<!\p{L})(?:seg|qua|qui|sex|s[áa]b|dom)(?!\p{L})/iu,
-  /(?<!\p{L})ter(?:\.\s*(?=\d|às|as)|\s+(?=\d{1,2}\s*[h:]))/iu,
-];
 const SAYS_TO_DEFINE = /(?<!\p{L})[aàá]\s+(?:definir|decidir|combinar|discutir)(?!\p{L})/iu;
+// "A definir" exige o anúncio dizer isso: data, abreviação ou texto que não sabemos ler
+// ficam sem dia (pendência de revisão). Inferir por ausência de dia errava esses casos.
+const DAY_UNDEFINED_PATTERNS = [
+  SAYS_TO_DEFINE,
+  /(?<!\p{L})(?:ser|serem)\s+(?:definid|decidid|combinad)/iu,
+  /(?<!\p{L})(?:flex[ií]ve(?:l|is)|livres?|diversos|qualquer|indefinidos?)(?!\p{L})/iu,
+];
 // Outro campo do anúncio ("Data Limite: ..."); o ":" de "20:00" não conta.
 const FIELD_LINE = /\p{L}\s*:/u;
+
+const TIME_WORD = /(?<!\p{L})hor(?:a|[áa]rio)/iu;
+const DAY_WORD = /(?<!\p{L})(?:dias?|datas?|semana)(?!\p{L})/iu;
+
+// Orações que falam do dia: "horário a definir" ou "qualquer horário" não dizem nada
+// sobre ele; "dias e horários a definir" diz.
+function dayClauses(value: string): string[] {
+  return value.split(/[,;.()]/).filter((clause) => !TIME_WORD.test(clause) || DAY_WORD.test(clause));
+}
+
+// Os padrões supõem espaços colapsados: `\s*` repetido sobre texto externo já custou
+// 27 s de CPU neste arquivo.
+function collapseSpaces(value: string): string {
+  return value.replace(/\s+/g, ' ').trim();
+}
+
+function declaresDayUndefined(value: string): boolean {
+  return dayClauses(collapseSpaces(value)).some((clause) => DAY_UNDEFINED_PATTERNS.some((re) => re.test(clause)));
+}
 
 function isScheduleLabel(label: string): boolean {
   const [head, ...rest] = label.toLowerCase().split(/[^\p{L}]+/u).filter(Boolean);
@@ -1561,21 +1577,21 @@ function isScheduleLabel(label: string): boolean {
 }
 
 // "Dias e horários:" / "Semanalmente" / "Quinta-feira às 20h": o dia vem nas linhas
-// seguintes. "A definir" escrito na própria linha do rótulo encerra o assunto.
+// seguintes. "A definir" sobre o dia, na própria linha do rótulo, encerra o assunto.
 function withContinuationDay(inline: string, following: string[]): string {
-  if (WEEKDAY_WORD.test(inline) || SAYS_TO_DEFINE.test(inline)) return inline;
+  if (WEEKDAY_WORD.test(inline) || dayClauses(inline).some((clause) => SAYS_TO_DEFINE.test(clause))) return inline;
   const nextField = following.findIndex((line) => FIELD_LINE.test(line));
-  const day = following
+  const found = following
     .slice(0, nextField < 0 ? 2 : Math.min(nextField, 2))
-    .find((line) => line.length <= 60 && WEEKDAY_WORD.test(line));
-  return day ? `${inline} ${day}`.trim() : inline;
+    .find((line) => line.length <= 60 && (WEEKDAY_WORD.test(line) || (!inline && declaresDayUndefined(line))));
+  return found ? `${inline} ${found}`.trim() : inline;
 }
 
 function scheduleLineValues(text: string): string[] {
   // NFKC: rótulo em "negrito" Unicode (𝐃𝐢𝐚) vira letra comum.
   const lines = text
     .split('\n')
-    .map((line) => line.normalize('NFKC').replace(/[*_~`|]/g, '').trim())
+    .map((line) => collapseSpaces(line.normalize('NFKC').replace(/[*_~`|]/g, '')))
     .filter(Boolean);
   return lines.flatMap((line, index) => {
     const colon = line.indexOf(':');
@@ -1596,14 +1612,12 @@ function extractDayOfWeek(text: string, labelAliases: string[] = []): string | n
     domingo: 'domingo',
   };
   const learnedLabelValue = labelAliases.length > 0 ? extractLabelValue(text, labelAliases) : null;
-  // A linha de agenda manda no resto do corpo (um "sexta" na sinopse não vence
-  // "Dias: A definir"). Preenchida sem nenhum dia = "a definir", como o horário.
-  const schedule = scheduleLineValues(text);
-  const scheduleWithDay = schedule.filter((value) => WEEKDAY_WORD.test(value));
-  if (!learnedLabelValue && schedule.length > 0 && scheduleWithDay.length === 0 && !schedule.some((value) => UNREAD_DAY_PATTERNS.some((re) => re.test(value)))) {
-    return 'to_define';
-  }
-  const scope = learnedLabelValue ?? (scheduleWithDay.length > 0 ? scheduleWithDay.join('\n') : text);
+  // Rótulo aprendido, ou linha de agenda que traz o dia ou o declara indefinido, manda
+  // no resto do corpo. Linha ilegível ("Data: 12/10") cai na busca no corpo inteiro.
+  const candidates = learnedLabelValue ? [learnedLabelValue] : scheduleLineValues(text);
+  const withDay = candidates.filter((value) => WEEKDAY_WORD.test(value));
+  if (withDay.length === 0 && candidates.some(declaresDayUndefined)) return 'to_define';
+  const scope = learnedLabelValue ?? (withDay.length > 0 ? withDay.join('\n') : text);
   const lower = scope.toLowerCase();
   for (const [key, value] of Object.entries(days)) {
     if (lower.includes(key)) return value;
@@ -2593,6 +2607,7 @@ export function stripNullBytes(text: string): string {
  * `stripDecorativeMarkup` não resolvia: a whitelist dele preserva `:` e dígitos,
  * então o marcador virava texto em vez de sumir.
  */
+const LONG_SPACE_RUN_RE = /[^\S\r\n]{40,}/g;
 const CUSTOM_EMOJI_RE = /<(a?):([\w~]+):(\d{15,25})>/g;
 
 /**
@@ -2644,6 +2659,12 @@ export function normalizeDiscordEmojis(text: string): string {
   return stripRegionalIndicators(
     text.replace(CUSTOM_EMOJI_RE, (_todo, _animado, nome: string) => letraDeEmoji(nome) ?? ''),
   );
+}
+
+// Corrida longa de espaços vira um só: vários regex do parser são quadráticos nela
+// (20 mil espaços custavam perto de 1 s por anúncio), e o texto é externo.
+function normalizeAnnouncementText(text: string): string {
+  return normalizeDiscordEmojis(text).replace(LONG_SPACE_RUN_RE, ' ');
 }
 
 // Achado Codex (PR #168): stripNullBytes só cobre string_raw — embeds/
@@ -2942,13 +2963,13 @@ export type HomebrewClass = 'discard' | 'review' | 'none';
  * de sistema não-fixo (ex. "Jogo do dia:") nunca acha o hint aqui, e um
  * sistema autoral/próprio anunciado sob esse rótulo escapa do descarte. */
 function getAnnouncementSystemHint(message: ImportRawMessage, labelAliasesSystem?: string[]): string | null {
-  const threadName = normalizeDiscordEmojis(stripNullBytes(message.discord_thread_name ?? ''));
+  const threadName = normalizeAnnouncementText(stripNullBytes(message.discord_thread_name ?? ''));
   // `normalizeDiscordEmojis` ANTES da extração: emoji de letra vira a letra e o resto
   // some, em vez de virar `:emoji 19:154...` no hint de sistema.
   // Sem `aplicarMapeamentos` aqui de propósito: esta função só extrai o HINT para decidir
   // descarte por sistema autoral, e não recebe `roleMappings`. Uma role de sistema não
   // traduzida vira hint nulo, que é o comportamento seguro — não descarta nada por engano.
-  const rawBody = normalizeDiscordEmojis(stripNullBytes(message.content_raw ?? ''));
+  const rawBody = normalizeAnnouncementText(stripNullBytes(message.content_raw ?? ''));
   // O fallback de embed passa pela MESMA normalizacao que `content_raw`. Antes
   // entrava cru: um anuncio publicado so como embed (bot de divulgacao) chegava
   // aqui com `<:emoji_15:1154>` no lugar da letra capitular e com byte nulo
@@ -2956,7 +2977,7 @@ function getAnnouncementSystemHint(message: ImportRawMessage, labelAliasesSystem
   // autoral escapava do descarte pelo FORMATO do anuncio, nao pelo conteudo.
   // `parseDiscordAnnouncement` (L3032) ja aplicava `stripNullBytes` aos dois
   // caminhos; aqui so um deles era tratado. Achado do CodeRabbit.
-  const corpoEmbeds = normalizeDiscordEmojis(stripNullBytes(extractBodyFromEmbeds(message.embeds ?? [])));
+  const corpoEmbeds = normalizeAnnouncementText(stripNullBytes(extractBodyFromEmbeds(message.embeds ?? [])));
   const body = stripSeparatorLines(rawBody.trim() || corpoEmbeds);
   if (!body.trim()) return null;
   const explicitSystem = normalizeTitle(extractLabelValue(body, [
@@ -3035,7 +3056,7 @@ export function parseDiscordAnnouncement(
   // de letra vira a letra (senão o parágrafo perde a inicial) e o resto some, em vez de
   // virar `:emoji 19:154...` no título. Achado do mantenedor (draft 85f669da).
   const tratar = (t: string) =>
-    normalizeDiscordEmojis(roleMappings ? aplicarMapeamentos(t, roleMappings) : t).trim();
+    normalizeAnnouncementText(roleMappings ? aplicarMapeamentos(t, roleMappings) : t).trim();
 
   // O thread name passa pelo MESMO tratamento do corpo: servidores põem a role de
   // sistema no título do tópico ("<@&123>: Curse of Strahd"), e sem traduzir aqui o

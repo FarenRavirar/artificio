@@ -39,25 +39,19 @@ interface Props {
   readonly adminName?: string;
 }
 
-export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSync, adminName }: Props) {
-  const { confirm } = useConfirm();
-  const h = useDraftForm(draft, api, onUpdate, adminName);
-  const dialogRef = useRef<HTMLDialogElement | null>(null);
-  const previousFocusRef = useRef<HTMLElement | null>(null);
-  const [refreshingImage, setRefreshingImage] = useState(false);
-  const [detailLoadFailedDraftId, setDetailLoadFailedDraftId] = useState<string | null>(null);
+// Mesa vinculada ao draft: detalhe, publicação e elegibilidade do "Copiar anúncio".
+function useLinkedTable(tableId: DiscordDraft['table_id']) {
   const [publishing, setPublishing] = useState(false);
   const [publishedSlug, setPublishedSlug] = useState<string | null>(null);
   const [tableDetail, setTableDetail] = useState<TableDetail | null>(null);
-  const [isCopyingJson, setIsCopyingJson] = useState(false);
 
   // Busca o registro completo da mesa vinculada pela rota ADMIN. Diferente da
   // rota pública `/api/v1/tables/:slug`, a admin devolve o detalhe sem aplicar o
   // filtro de visibilidade (archived_at + expiração de importado) — é exatamente
   // o que o predicado do "Copiar anúncio" (R2) precisa avaliar por conta própria.
-  const loadTableDetail = useCallback(async (tableId: string): Promise<TableDetail | null> => {
+  const loadTableDetail = useCallback(async (id: string): Promise<TableDetail | null> => {
     try {
-      const response = await authGet(`/api/v1/admin/tables/${tableId}`);
+      const response = await authGet(`/api/v1/admin/tables/${id}`);
       if (!response.ok) return null;
       const payload: unknown = await response.json().catch(() => null);
       const data = payload && typeof payload === 'object' && 'data' in payload
@@ -80,10 +74,10 @@ export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSyn
   // antes de abrir o preview — GET /admin/tables/:id (mesmo endpoint que
   // ignora gm_id) resolve slug+status atual ao montar o componente.
   const handlePublishTable = useCallback(async () => {
-    if (!draft.table_id) return;
+    if (!tableId) return;
     setPublishing(true);
     try {
-      const response = await authPut(`/api/v1/admin/tables/${draft.table_id}`, { status: 'active' });
+      const response = await authPut(`/api/v1/admin/tables/${tableId}`, { status: 'active' });
       if (!response.ok) {
         const errorPayload: unknown = await response.json().catch(() => null);
         const errorMessage = errorPayload
@@ -107,20 +101,38 @@ export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSyn
       // o predicado do "Copiar anúncio" precisa de archived_at/origin/created_at/
       // starts_at. Sem isso, mesa importada recém-publicada (mas expirada) ganharia
       // botão com link que a rota pública responde 410.
-      const detail = await loadTableDetail(draft.table_id);
+      const detail = await loadTableDetail(tableId);
       if (detail) setTableDetail(detail);
     } catch {
       toast.error('Erro ao publicar mesa. Tente novamente.');
     } finally {
       setPublishing(false);
     }
-  }, [draft.table_id, loadTableDetail]);
+  }, [tableId, loadTableDetail]);
 
-  const shouldShowSlotsDisambiguation = Boolean(h.slotsAmbiguity && h.payloadMissingFields.includes('slots_open:ambiguous_x_of_y'));
-  // DEB-048-29: badge "autoral?" — anúncio ambíguo p/ sistema próprio. Revisor decide
-  // Sincronizar (manter) ou rejeitar (descartar).
-  const isHomebrewSuspect = h.payloadMissingFields.includes('system_name:homebrew_suspect');
-  const selectedPayload = h.activeTab === 'parsed' ? draft.parsed_payload : (draft.normalized_payload ?? draft.parsed_payload);
+  useEffect(() => {
+    if (!tableId) return;
+    let cancelled = false;
+    authGet(`/api/v1/admin/tables/${tableId}`)
+      .then((response) => (response.ok ? response.json() : null))
+      .then((payload: unknown) => {
+        if (cancelled || !payload) return;
+        const data = payload && typeof payload === 'object' && 'data' in payload
+          ? (payload as { data?: unknown }).data
+          : null;
+        if (!data || typeof data !== 'object') return;
+        const record = data as Record<string, unknown>;
+        if (record.status === 'active' && typeof record.slug === 'string') {
+          setPublishedSlug(record.slug);
+        }
+        // Registro completo normalizado alimenta o predicado do "Copiar anúncio"
+        // (archived_at + expiração de importado) e o próprio botão.
+        const detail = normalizeTableDetailPayload(data);
+        if (detail) setTableDetail(detail);
+      })
+      .catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [tableId]);
 
   // R2/D1 (spec 093): o "Copiar anúncio" só existe quando a mesa vinculada está
   // publicada de fato — active, não arquivada e (se importada) não expirada.
@@ -130,6 +142,150 @@ export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSyn
   const canCopyAnnouncement = tableDetail !== null
     && isTableAnnounceable(tableDetail)
     && !isImportedTableExpired(tableDetail);
+
+  return { publishing, publishedSlug, tableDetail, canCopyAnnouncement, handlePublishTable };
+}
+
+function draftStatusLabel(canSync: boolean, status: DiscordDraft['status']): string {
+  if (canSync) return 'Pronto';
+  if (status === 'synced') return 'Sincronizado';
+  if (status === 'rejected') return 'Rejeitado';
+  return 'Revisar';
+}
+
+type DraftController = ReturnType<typeof useDraftForm>;
+
+function DraftStatusBar({ draft, h }: Readonly<{ draft: DiscordDraft; h: DraftController }>) {
+  // DEB-048-29: badge "autoral?" — anúncio ambíguo p/ sistema próprio. Revisor decide
+  // Sincronizar (manter) ou rejeitar (descartar).
+  const isHomebrewSuspect = h.payloadMissingFields.includes('system_name:homebrew_suspect');
+  const statusLabel = draftStatusLabel(h.canSync, draft.status);
+
+  return (
+    <div className="px-5 py-3 border-b border-white/10 flex items-center gap-3">
+      {h.editingStatus ? (
+        <>
+          <select value={h.newStatus} onChange={(e) => h.setNewStatus(e.target.value as DiscordImportDraftStatus)} className="app-select py-1">
+            {STATUS_OPTIONS.map((status) => (
+              <option key={status} value={status}>{status}</option>
+            ))}
+          </select>
+          <input
+            placeholder="Notas de revisão..."
+            value={h.reviewNotes}
+            onChange={(e) => h.setReviewNotes(e.target.value)}
+            className="flex-1 px-2 py-1 bg-white/5 border border-white/10 rounded-lg text-white text-sm placeholder-white/30"
+          />
+          <button onClick={h.handleSaveStatus} disabled={h.savingStatus} className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-sm rounded-lg disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-400">
+            {h.savingStatus ? '...' : 'Salvar'}
+          </button>
+          <button onClick={() => h.setEditingStatus(false)} className="px-3 py-1 bg-white/10 hover:bg-white/20 text-white text-sm rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-400">
+            Cancelar
+          </button>
+        </>
+      ) : (
+        <>
+          <span className="text-white/60 text-sm">Status:</span>
+          <span className="text-white text-sm font-medium">{statusLabel}</span>
+          {draft.status === 'ready' && !h.canSync && (
+            <span className="text-amber-300 text-xs">({h.missingFields.length} pendência{h.missingFields.length === 1 ? '' : 's'})</span>
+          )}
+          {draft.confidence != null && <span className={`text-xs ${confidenceColor(Number(draft.confidence))}`}>confiança: {(Number(draft.confidence) * 100).toFixed(0)}%</span>}
+          {isHomebrewSuspect && (
+            <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 text-xs font-medium" title="O sistema pode ser autoral/próprio. Decida: sincronizar (manter) ou rejeitar (descartar).">
+              ⚠ Possível sistema autoral
+            </span>
+          )}
+          {draft.status !== 'synced' && (
+            <button onClick={() => h.setEditingStatus(true)} className="ml-auto px-2 py-1 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white text-xs rounded-lg transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-400">
+              Editar status
+            </button>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+interface DraftActionsProps {
+  readonly draft: DiscordDraft;
+  readonly h: DraftController;
+  readonly linked: ReturnType<typeof useLinkedTable>;
+  readonly onBeforeSync: Props['onBeforeSync'];
+  readonly onRefreshImage?: () => void;
+  readonly refreshingImage: boolean;
+}
+
+function DraftActions({ draft, h, linked, onBeforeSync, onRefreshImage, refreshingImage }: DraftActionsProps) {
+  const syncTitle = buildSyncTitle(h.canSync, h.dirty, h.missingFields);
+
+  return (
+    <div className="px-5 py-4 border-t border-white/10 flex flex-wrap gap-2 justify-end">
+      <button onClick={h.handleReparse} disabled={h.reparsing} className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white text-sm rounded-lg transition-colors disabled:opacity-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-400">
+        {h.reparsing ? 'Reparseando...' : 'Reparsar'}
+      </button>
+      {draft.discord_message_id && onRefreshImage && (
+        <button
+          onClick={onRefreshImage}
+          disabled={refreshingImage}
+          className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white text-sm rounded-lg transition-colors disabled:opacity-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-400"
+        >
+          {refreshingImage ? 'Rebaixando imagem...' : 'Rebaixar imagem'}
+        </button>
+      )}
+      <button onClick={h.handleSaveFields} disabled={h.savingFields} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition-colors disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-400">
+        {h.savingFields ? 'Salvando...' : 'Salvar campos'}
+      </button>
+      <button
+        onClick={() => h.handleSync(onBeforeSync)}
+        disabled={!h.canSync || h.syncing}
+        className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm rounded-lg transition-colors disabled:opacity-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-400"
+        title={syncTitle}
+      >
+        {h.syncing ? 'Sincronizando...' : 'Sincronizar como mesa'}
+      </button>
+      {draft.status === 'synced' && draft.table_id && !linked.publishedSlug && (
+        <button
+          onClick={linked.handlePublishTable}
+          disabled={linked.publishing}
+          className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm rounded-lg transition-colors disabled:opacity-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-400"
+          title="Publica a mesa (status draft → active) via PUT /admin/tables — funciona mesmo sem gm_id (spec 060)"
+        >
+          {linked.publishing ? 'Publicando...' : 'Publicar mesa'}
+        </button>
+      )}
+      {linked.publishedSlug && (
+        <a
+          href={`${getMesasPublicOrigin()}/mesas/${linked.publishedSlug}`}
+          target="_blank"
+          rel="noreferrer"
+          className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white text-sm rounded-lg transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-400"
+        >
+          Ver Mesa Publicada
+        </a>
+      )}
+      {linked.canCopyAnnouncement && linked.tableDetail && (
+        <CopyAnnouncementButton
+          table={linked.tableDetail}
+          className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white text-sm rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-400"
+        />
+      )}
+    </div>
+  );
+}
+
+export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSync, adminName }: Props) {
+  const { confirm } = useConfirm();
+  const h = useDraftForm(draft, api, onUpdate, adminName);
+  const dialogRef = useRef<HTMLDialogElement | null>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+  const [refreshingImage, setRefreshingImage] = useState(false);
+  const [detailLoadFailedDraftId, setDetailLoadFailedDraftId] = useState<string | null>(null);
+  const [isCopyingJson, setIsCopyingJson] = useState(false);
+  const linked = useLinkedTable(draft.table_id);
+
+  const shouldShowSlotsDisambiguation = Boolean(h.slotsAmbiguity && h.payloadMissingFields.includes('slots_open:ambiguous_x_of_y'));
+  const selectedPayload = h.activeTab === 'parsed' ? draft.parsed_payload : (draft.normalized_payload ?? draft.parsed_payload);
 
   const handleCopyJson = useCallback(async () => {
     if (isCopyingJson) return;
@@ -143,13 +299,6 @@ export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSyn
       setIsCopyingJson(false);
     }
   }, [isCopyingJson, selectedPayload]);
-
-  const statusLabel = h.canSync ? 'Pronto'
-    : draft.status === 'synced' ? 'Sincronizado'
-    : draft.status === 'rejected' ? 'Rejeitado'
-    : 'Revisar';
-
-  const syncTitle = buildSyncTitle(h.canSync, h.dirty, h.missingFields);
 
   const tabClass = (tab: typeof h.activeTab) =>
     `px-3 py-1 text-xs rounded-lg transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-400 ${
@@ -208,30 +357,6 @@ export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSyn
       previousFocusRef.current?.focus();
     };
   }, []);
-
-  useEffect(() => {
-    if (!draft.table_id) return;
-    let cancelled = false;
-    authGet(`/api/v1/admin/tables/${draft.table_id}`)
-      .then((response) => (response.ok ? response.json() : null))
-      .then((payload: unknown) => {
-        if (cancelled || !payload) return;
-        const data = payload && typeof payload === 'object' && 'data' in payload
-          ? (payload as { data?: unknown }).data
-          : null;
-        if (!data || typeof data !== 'object') return;
-        const record = data as Record<string, unknown>;
-        if (record.status === 'active' && typeof record.slug === 'string') {
-          setPublishedSlug(record.slug);
-        }
-        // Registro completo normalizado alimenta o predicado do "Copiar anúncio"
-        // (archived_at + expiração de importado) e o próprio botão.
-        const detail = normalizeTableDetailPayload(data);
-        if (detail) setTableDetail(detail);
-      })
-      .catch(() => undefined);
-    return () => { cancelled = true; };
-  }, [draft.table_id]);
 
   useEffect(() => {
     // Guard cobre falha anterior (detailLoadFailedDraftId) pra não repetir fetch/toast
@@ -320,48 +445,7 @@ export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSyn
           </button>
         </div>
 
-        <div className="px-5 py-3 border-b border-white/10 flex items-center gap-3">
-          {h.editingStatus ? (
-            <>
-              <select value={h.newStatus} onChange={(e) => h.setNewStatus(e.target.value as DiscordImportDraftStatus)} className="app-select py-1">
-                {STATUS_OPTIONS.map((status) => (
-                  <option key={status} value={status}>{status}</option>
-                ))}
-              </select>
-              <input
-                placeholder="Notas de revisão..."
-                value={h.reviewNotes}
-                onChange={(e) => h.setReviewNotes(e.target.value)}
-                className="flex-1 px-2 py-1 bg-white/5 border border-white/10 rounded-lg text-white text-sm placeholder-white/30"
-              />
-              <button onClick={h.handleSaveStatus} disabled={h.savingStatus} className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-sm rounded-lg disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-400">
-                {h.savingStatus ? '...' : 'Salvar'}
-              </button>
-              <button onClick={() => h.setEditingStatus(false)} className="px-3 py-1 bg-white/10 hover:bg-white/20 text-white text-sm rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-400">
-                Cancelar
-              </button>
-            </>
-          ) : (
-            <>
-              <span className="text-white/60 text-sm">Status:</span>
-              <span className="text-white text-sm font-medium">{statusLabel}</span>
-              {draft.status === 'ready' && !h.canSync && (
-                <span className="text-amber-300 text-xs">({h.missingFields.length} pendência{h.missingFields.length === 1 ? '' : 's'})</span>
-              )}
-              {draft.confidence != null && <span className={`text-xs ${confidenceColor(Number(draft.confidence))}`}>confiança: {(Number(draft.confidence) * 100).toFixed(0)}%</span>}
-              {isHomebrewSuspect && (
-                <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 text-xs font-medium" title="O sistema pode ser autoral/próprio. Decida: sincronizar (manter) ou rejeitar (descartar).">
-                  ⚠ Possível sistema autoral
-                </span>
-              )}
-              {draft.status !== 'synced' && (
-                <button onClick={() => h.setEditingStatus(true)} className="ml-auto px-2 py-1 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white text-xs rounded-lg transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-400">
-                  Editar status
-                </button>
-              )}
-            </>
-          )}
-        </div>
+        <DraftStatusBar draft={draft} h={h} />
 
         <div className="flex gap-2 px-5 pt-3" role="tablist" aria-label="Visualizações do draft">
           <button className={tabClass('editor')} onClick={() => h.setActiveTab('editor')} role="tab" aria-selected={h.activeTab === 'editor'}>Campos</button>
@@ -457,57 +541,14 @@ export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSyn
           </div>
         )}
 
-        <div className="px-5 py-4 border-t border-white/10 flex flex-wrap gap-2 justify-end">
-          <button onClick={h.handleReparse} disabled={h.reparsing} className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white text-sm rounded-lg transition-colors disabled:opacity-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-400">
-            {h.reparsing ? 'Reparseando...' : 'Reparsar'}
-          </button>
-          {draft.discord_message_id && api.refreshDraftImage && (
-            <button
-              onClick={handleRefreshImage}
-              disabled={refreshingImage}
-              className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white text-sm rounded-lg transition-colors disabled:opacity-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-400"
-            >
-              {refreshingImage ? 'Rebaixando imagem...' : 'Rebaixar imagem'}
-            </button>
-          )}
-          <button onClick={h.handleSaveFields} disabled={h.savingFields} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition-colors disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-400">
-            {h.savingFields ? 'Salvando...' : 'Salvar campos'}
-          </button>
-          <button
-            onClick={() => h.handleSync(onBeforeSync)}
-            disabled={!h.canSync || h.syncing}
-            className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm rounded-lg transition-colors disabled:opacity-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-400"
-            title={syncTitle}
-          >
-            {h.syncing ? 'Sincronizando...' : 'Sincronizar como mesa'}
-          </button>
-          {draft.status === 'synced' && draft.table_id && !publishedSlug && (
-            <button
-              onClick={handlePublishTable}
-              disabled={publishing}
-              className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm rounded-lg transition-colors disabled:opacity-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-400"
-              title="Publica a mesa (status draft → active) via PUT /admin/tables — funciona mesmo sem gm_id (spec 060)"
-            >
-              {publishing ? 'Publicando...' : 'Publicar mesa'}
-            </button>
-          )}
-          {publishedSlug && (
-            <a
-              href={`${getMesasPublicOrigin()}/mesas/${publishedSlug}`}
-              target="_blank"
-              rel="noreferrer"
-              className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white text-sm rounded-lg transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-400"
-            >
-              Ver Mesa Publicada
-            </a>
-          )}
-          {canCopyAnnouncement && tableDetail && (
-            <CopyAnnouncementButton
-              table={tableDetail}
-              className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white text-sm rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-400"
-            />
-          )}
-        </div>
+        <DraftActions
+          draft={draft}
+          h={h}
+          linked={linked}
+          onBeforeSync={onBeforeSync}
+          onRefreshImage={api.refreshDraftImage ? handleRefreshImage : undefined}
+          refreshingImage={refreshingImage}
+        />
       </div>
     </dialog>
   );

@@ -354,17 +354,20 @@ export function parseOptionalMoney(value: string): number | null {
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
 }
 
-// Espelha o guard do sync (syncHelpers.ts): o nome efetivo precisa de 2 code points.
-// `adminName` só vem em rascunho do inbox, onde o admin logado tem prioridade
-// (inboxSyncConfig.getGmName). Sem nome nenhum não acusa.
-function hasShortGmName(form: DraftForm, authorName?: string, adminName?: string): boolean {
+// Espelha o guard do sync (syncHelpers.ts): o nome efetivo precisa existir e ter 2 code
+// points. `adminName` só vem em rascunho do inbox, onde o admin logado tem prioridade
+// (inboxSyncConfig.getGmName) e o campo do editor não resolve.
+function gmNameIssue(form: DraftForm, authorName?: string, adminName?: string): string | null {
   const gmName = (adminName ?? (form.raw_gm_name.trim() || authorName || '')).trim();
-  return gmName !== '' && [...gmName].length < 2;
+  if ([...gmName].length >= 2) return null;
+  const field = adminName === undefined ? 'Nome do mestre' : 'Nome da sua conta';
+  return `${field} (mínimo 2 caracteres)`;
 }
 
 export function validateForm(form: DraftForm, hostDiscordId?: string | null, authorName?: string, adminName?: string): string[] {
   const missing: string[] = [];
-  if (hasShortGmName(form, authorName, adminName)) missing.push('Nome do mestre (mínimo 2 caracteres)');
+  const gmIssue = gmNameIssue(form, authorName, adminName);
+  if (gmIssue) missing.push(gmIssue);
   if (!form.title.trim()) missing.push('Título');
   if (!form.description.trim()) missing.push('Descrição');
   if (!form.system_id.trim()) missing.push('Sistema');
