@@ -35,11 +35,13 @@ interface Props {
   readonly onClose: () => void;
   readonly api: DraftApiOperations;
   readonly onBeforeSync?: (draft: DiscordDraft) => Promise<{ tableId: string; created: boolean } | null>;
+  /** Nome do admin logado; só em rascunho do inbox, onde ele vira o mestre no sync. */
+  readonly adminName?: string;
 }
 
-export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSync }: Props) {
+export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSync, adminName }: Props) {
   const { confirm } = useConfirm();
-  const h = useDraftForm(draft, api, onUpdate);
+  const h = useDraftForm(draft, api, onUpdate, adminName);
   const dialogRef = useRef<HTMLDialogElement | null>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const [refreshingImage, setRefreshingImage] = useState(false);

@@ -1086,7 +1086,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.getDrafts",
-      "line": 128
+      "line": 130
     },
     {
       "app": "mesas-frontend",
@@ -1096,7 +1096,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.submitCorrection",
-      "line": 108
+      "line": 110
     },
     {
       "app": "mesas-frontend",
@@ -1376,7 +1376,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "inboxApi.updateDraft",
-      "line": 75
+      "line": 77
     },
     {
       "app": "mesas-frontend",
@@ -1386,7 +1386,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "inboxApi.getDraft",
-      "line": 76
+      "line": 78
     },
     {
       "app": "mesas-frontend",
@@ -1396,7 +1396,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "inboxApi.registerCorrection",
-      "line": 77
+      "line": 79
     },
     {
       "app": "mesas-frontend",
@@ -1406,7 +1406,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "inboxApi.retryLearningFeedback",
-      "line": 83
+      "line": 85
     },
     {
       "app": "mesas-frontend",
@@ -1416,7 +1416,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "inboxApi.reparseDraft",
-      "line": 74
+      "line": 76
     },
     {
       "app": "mesas-frontend",
@@ -1426,7 +1426,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "inboxApi.restoreDraft",
-      "line": 84
+      "line": 86
     },
     {
       "app": "mesas-frontend",
@@ -1436,7 +1436,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "inboxApi.syncDraft",
-      "line": 73
+      "line": 75
     },
     {
       "app": "mesas-frontend",
@@ -1606,7 +1606,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authGet",
-      "line": 58
+      "line": 60
     },
     {
       "app": "mesas-frontend",
@@ -1616,7 +1616,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authPut",
-      "line": 84
+      "line": 86
     },
     {
       "app": "mesas-frontend",

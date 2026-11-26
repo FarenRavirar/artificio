@@ -17,7 +17,7 @@ Sem spec, a pedido do mantenedor.
 - Rótulo de dia aprendido (`label_alias`) continua vencendo a linha de agenda genérica.
 - Mesma classe do "𝑻" corrigida em `nickname` de mestre (rotas e `deriveGmNickname`).
 
-## Dado publicado errado (aguarda aprovação de escrita em produção)
+## Dado publicado errado (corrigido em produção com aprovação, conferido por SELECT)
 
 | rascunho | mesa | publicado | anúncio |
 |---|---|---|---|
@@ -33,5 +33,5 @@ Fora do repositório (`~/.claude/hooks/ajudante-bash-somente-leitura.js`): passo
 
 ## Aceite que falta
 
-- Autorização para commit/push/PR e deploy.
+- Deploy (autorização própria).
 - Smoke: salvar o rascunho 0815b871 com nome do mestre e sincronizar.

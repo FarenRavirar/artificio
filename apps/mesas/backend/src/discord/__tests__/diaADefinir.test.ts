@@ -48,8 +48,13 @@ describe('dia "a definir" pela linha de agenda', () => {
     expect(dayOf(['» Data Limite: até quarta dia 25', line])).toBe(day);
   });
 
-  it('data de calendário não vira "a definir"', () => {
-    expect(dayOf(['▬ Data: 12/10 às 19h'])).toBeNull();
+  it.each(['12/10', '12-10 às 19h', '12 de outubro', 'ter. 19h', 'Ter 20h'])('dia ilegível não vira "a definir": %s', (value) => {
+    expect(dayOf([`▬ Data: ${value}`])).toBeNull();
+  });
+
+  it('dia na linha seguinte ao rótulo é mantido', () => {
+    expect(dayOf(['▬ Dias e horários:', 'Semanalmente', 'Quinta-feira às 20h'])).toBe('quinta');
+    expect(dayOf(['▬ Dias e horários: Semanalmente', 'Quinta-feira às 20h'])).toBe('quinta');
   });
 
   it('rótulo aprendido de dia vence uma linha "Data:" genérica', () => {

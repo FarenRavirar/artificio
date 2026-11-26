@@ -1535,18 +1535,55 @@ const DAY_TO_DEFINE_PATTERNS = [
 
 // Linha de agenda ("Dias e horários da mesa:", "Data & Hora:", "Dia/Horário:"), já sem
 // markdown. "Data de início:" fica de fora de propósito: não diz o dia da sessão.
-const SCHEDULE_LINE =
-  /^[^\p{L}]*(?:dias?|datas?)(?:\s+d[ae]\s+(?:semana|mesa|jogo|sess[aã]o))?(?:\s*(?:e|&|\/)\s*(?:horas?|hor[aá]rios?)(?:\s+d[ae]\s+(?:mesa|jogo))?)?\s*[:：](.*)$/iu;
+const SCHEDULE_LABEL_HEADS = new Set(['dia', 'dias', 'data', 'datas']);
+const SCHEDULE_LABEL_WORDS = new Set([
+  'da', 'de', 'e', 'semana', 'mesa', 'jogo', 'sessão', 'sessao',
+  'hora', 'horas', 'horário', 'horários', 'horario', 'horarios',
+]);
 const WEEKDAY_WORD = /(?<!\p{L})(?:segunda|ter[çc]a|quarta|quinta|sexta|s[áa]bado|domingo)s?(?!\p{L})/iu;
-// Data de calendário ou dia abreviado: há um dia ali que não sabemos ler, não é "a definir".
-const UNREAD_DAY = /\d{1,2}\/\d{1,2}|\d{4}|(?<!\p{L})(?:seg|qua|qui|sex|s[áa]b|dom)(?!\p{L})/iu;
+// Há um dia ali que não sabemos ler (data de calendário ou abreviação): não é "a definir".
+// "ter" sozinho é verbo; só conta como terça com ponto ou seguido de hora.
+const UNREAD_DAY_PATTERNS = [
+  /\d{1,2}\/\d{1,2}|\d{4}/,
+  // "12-10"; "19-23h" é intervalo de horas.
+  /(?<!\d)\d{1,2}-(?:0?[1-9]|1[0-2])(?![\dh:])/i,
+  /\d{1,2}\s+de\s+(?:janeiro|fevereiro|mar[çc]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)/i,
+  /(?<!\p{L})(?:seg|qua|qui|sex|s[áa]b|dom)(?!\p{L})/iu,
+  /(?<!\p{L})ter(?:\.\s*(?=\d|às|as)|\s+(?=\d{1,2}\s*[h:]))/iu,
+];
+const SAYS_TO_DEFINE = /(?<!\p{L})[aàá]\s+(?:definir|decidir|combinar|discutir)(?!\p{L})/iu;
+const WEEKDAY_PREFIXES = new Set(['a', 'ao', 'aos', 'as', 'às', 'os', 'toda', 'todas', 'todo', 'todos']);
+
+function isScheduleLabel(label: string): boolean {
+  const [head, ...rest] = label.toLowerCase().split(/[^\p{L}]+/u).filter(Boolean);
+  return SCHEDULE_LABEL_HEADS.has(head) && rest.every((word) => SCHEDULE_LABEL_WORDS.has(word));
+}
+
+function startsWithWeekday(line: string): boolean {
+  const first = line.toLowerCase().split(/[^\p{L}]+/u).find((word) => word && !WEEKDAY_PREFIXES.has(word));
+  return WEEKDAY_WORD.test(first ?? '');
+}
+
+// "Dias e horários:" / "Semanalmente" / "Quinta-feira às 20h": o dia vem nas linhas
+// seguintes. "A definir" escrito na própria linha do rótulo encerra o assunto.
+function withContinuationDay(inline: string, following: string[]): string {
+  if (WEEKDAY_WORD.test(inline) || SAYS_TO_DEFINE.test(inline)) return inline;
+  const day = following.slice(0, 2).find((line) => line.length <= 60 && startsWithWeekday(line));
+  return day ? `${inline} ${day}`.trim() : inline;
+}
 
 function scheduleLineValues(text: string): string[] {
-  return text
+  // NFKC: rótulo em "negrito" Unicode (𝐃𝐢𝐚) vira letra comum.
+  const lines = text
     .split('\n')
-    // NFKC: rótulo em "negrito" Unicode (𝐃𝐢𝐚) vira letra comum.
-    .map((line) => SCHEDULE_LINE.exec(line.normalize('NFKC').replace(/[*_~`|]/g, ''))?.[1].trim() ?? '')
+    .map((line) => line.normalize('NFKC').replace(/[*_~`|]/g, '').trim())
     .filter(Boolean);
+  return lines.flatMap((line, index) => {
+    const colon = line.indexOf(':');
+    if (colon < 0 || !isScheduleLabel(line.slice(0, colon))) return [];
+    const value = withContinuationDay(line.slice(colon + 1).trim(), lines.slice(index + 1));
+    return value ? [value] : [];
+  });
 }
 
 function extractDayOfWeek(text: string, labelAliases: string[] = []): string | null {
@@ -1564,7 +1601,7 @@ function extractDayOfWeek(text: string, labelAliases: string[] = []): string | n
   // "Dias: A definir"). Preenchida sem nenhum dia = "a definir", como o horário.
   const schedule = scheduleLineValues(text);
   const scheduleWithDay = schedule.filter((value) => WEEKDAY_WORD.test(value));
-  if (!learnedLabelValue && schedule.length > 0 && scheduleWithDay.length === 0 && !schedule.some((value) => UNREAD_DAY.test(value))) {
+  if (!learnedLabelValue && schedule.length > 0 && scheduleWithDay.length === 0 && !schedule.some((value) => UNREAD_DAY_PATTERNS.some((re) => re.test(value)))) {
     return 'to_define';
   }
   const scope = learnedLabelValue ?? (scheduleWithDay.length > 0 ? scheduleWithDay.join('\n') : text);

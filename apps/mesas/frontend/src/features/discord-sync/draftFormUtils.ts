@@ -354,12 +354,17 @@ export function parseOptionalMoney(value: string): number | null {
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
 }
 
-export function validateForm(form: DraftForm, hostDiscordId?: string | null, authorName?: string): string[] {
+// Espelha o guard do sync (syncHelpers.ts): o nome efetivo precisa de 2 code points.
+// `adminName` só vem em rascunho do inbox, onde o admin logado tem prioridade
+// (inboxSyncConfig.getGmName). Sem nome nenhum não acusa.
+function hasShortGmName(form: DraftForm, authorName?: string, adminName?: string): boolean {
+  const gmName = (adminName ?? (form.raw_gm_name.trim() || authorName || '')).trim();
+  return gmName !== '' && [...gmName].length < 2;
+}
+
+export function validateForm(form: DraftForm, hostDiscordId?: string | null, authorName?: string, adminName?: string): string[] {
   const missing: string[] = [];
-  // Espelha o guard do sync (syncHelpers.ts): o nome efetivo precisa de 2 code points.
-  // Sem nome nenhum não acusa: no inbox o admin logado vira o mestre.
-  const gmName = form.raw_gm_name.trim() || authorName?.trim() || '';
-  if (gmName && [...gmName].length < 2) missing.push('Nome do mestre (mínimo 2 caracteres)');
+  if (hasShortGmName(form, authorName, adminName)) missing.push('Nome do mestre (mínimo 2 caracteres)');
   if (!form.title.trim()) missing.push('Título');
   if (!form.description.trim()) missing.push('Descrição');
   if (!form.system_id.trim()) missing.push('Sistema');

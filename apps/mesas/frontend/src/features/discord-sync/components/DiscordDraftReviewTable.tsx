@@ -27,6 +27,8 @@ interface Props {
   readonly purgeRejectedDrafts?: (origin: OriginFilter) => Promise<{ deleted: number }>;
   /** Aba travada em um status fixo (ex.: 'rejected' na aba Descartados). Fixa o filtro de status e esconde o seletor. */
   readonly lockedStatus?: DiscordImportDraftStatus;
+  /** Nome do admin logado, usado como mestre no sync de rascunhos do inbox. */
+  readonly adminName?: string;
 }
 
 const DRAFT_STATUS_LABELS: Record<DiscordImportDraftStatus, string> = {
@@ -89,7 +91,7 @@ function readString(value: unknown): string | null {
   return typeof value === 'string' && value.trim() ? value : null;
 }
 
-export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsProp, syncReadyAction, showSyncReady = true, onBeforeSync, updateDraftsBatch, purgeRejectedDrafts, lockedStatus }: Props) {
+export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsProp, syncReadyAction, showSyncReady = true, onBeforeSync, updateDraftsBatch, purgeRejectedDrafts, lockedStatus, adminName }: Props) {
   const { confirm } = useConfirm();
   const navigate = useNavigate();
   const draftApi = api ?? discordSyncApi;
@@ -594,6 +596,7 @@ export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsP
           onClose={() => setSelectedDraft(null)}
           api={resolveApi(selectedDraft)}
           onBeforeSync={onBeforeSync}
+          adminName={selectedDraft.discord_message_id ? undefined : adminName}
         />
       )}
     </div>

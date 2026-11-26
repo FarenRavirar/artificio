@@ -532,6 +532,13 @@ describe('COVER_MIME_TYPES', () => {
 });
 
 describe('validateForm: nome do mestre', () => {
+  it('no inbox o nome do admin vence o nome curto do anúncio', () => {
+    const form = { ...buildForm({}), raw_gm_name: 'T' };
+    const label = 'Nome do mestre (mínimo 2 caracteres)';
+    expect(validateForm(form, null, '', 'Admin')).not.toContain(label);
+    expect(validateForm(form, null, '')).toContain(label);
+  });
+
   // "𝑻".length é 2 em JS, mas o CHECK do banco conta 1 caractere (500 no sync).
   it('acusa nome efetivo de um caractere e aceita quando o campo é preenchido', () => {
     const base = { raw_gm_name: '' } as DraftForm;
