@@ -192,7 +192,7 @@ async function updateGmProfileHandler(req: Request, res: Response) {
 
   // Spec 106 R1: o PATCH gravava `nickname` sem validar (null, 1 caractere, 60); o
   // contrato de 2-40 so existia em `POST`/`PUT /gm/profile`.
-  if (nickname !== undefined && (typeof nickname !== 'string' || nickname.trim().length < 2 || nickname.trim().length > 40)) {
+  if (nickname !== undefined && (typeof nickname !== 'string' || [...nickname.trim()].length < 2 || [...nickname.trim()].length > 40)) {
     await auditIdentityRejected({ actorId: userId, field: 'nickname', attempted: nickname, reason: 'length', door: 'PATCH /profile/gm' });
     return res.status(400).json({ error: 'Nickname inválido. Use entre 2 e 40 caracteres.' });
   }

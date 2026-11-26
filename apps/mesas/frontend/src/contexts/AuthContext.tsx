@@ -55,6 +55,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           id: apiUser.id,
           role: apiUser.role,
           name: displayName ?? session.user.name,
+          sso_name: session.user.name,
           avatar_url: session.user.avatar ?? undefined,
         });
       }
@@ -88,6 +89,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       id: session.user.id,
       role: mapSsoRole(session.user.role),
       name: session.user.name,
+      sso_name: session.user.name,
       avatar_url: session.user.avatar ?? undefined,
     };
   }, [localUser, session.user]);

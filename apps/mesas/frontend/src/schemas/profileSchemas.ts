@@ -126,8 +126,9 @@ export const sellingPointSchema = z.object({
 export const gmProfileSchema = z.object({
   nickname: z
     .string()
-    .min(2, 'Apelido deve ter no mínimo 2 caracteres')
-    .max(40, 'Apelido deve ter no máximo 40 caracteres')
+    // Code points, como o backend e o CHECK do banco.
+    .refine((value) => [...value.trim()].length >= 2, 'Apelido deve ter no mínimo 2 caracteres')
+    .refine((value) => [...value.trim()].length <= 40, 'Apelido deve ter no máximo 40 caracteres')
     .optional()
     .nullable(),
   bio_long: z

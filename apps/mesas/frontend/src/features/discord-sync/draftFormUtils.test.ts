@@ -169,7 +169,7 @@ describe('validateForm', () => {
     frequency: 'semanal',
     contact_url: 'https://discord.gg/abc',
     contact_discord: '',
-    raw_gm_name: '',
+    raw_gm_name: 'Mariana',
     cover_url: '',
     cover_url_source: '',
     cover_quality: '',
@@ -528,5 +528,23 @@ describe('COVER_MIME_TYPES', () => {
     expect(COVER_MIME_TYPES).toContain('image/jpeg');
     expect(COVER_MIME_TYPES).toContain('image/png');
     expect(COVER_MIME_TYPES).toContain('image/webp');
+  });
+});
+
+describe('validateForm: nome do mestre', () => {
+  it('no inbox o nome do admin vence o nome curto do anúncio', () => {
+    const form = { ...buildForm({}), raw_gm_name: 'T' };
+    const label = 'Nome do mestre (mínimo 2 caracteres)';
+    expect(validateForm(form, null, '', 'Admin')).not.toContain(label);
+    expect(validateForm(form, null, '')).toContain(label);
+    expect(validateForm(form, null, '', 'A')).toContain('Nome da sua conta (mínimo 2 caracteres)');
+  });
+
+  // "𝑻".length é 2 em JS, mas o CHECK do banco conta 1 caractere (500 no sync).
+  it('acusa nome efetivo de um caractere e aceita quando o campo é preenchido', () => {
+    const base = { raw_gm_name: '' } as DraftForm;
+    const label = 'Nome do mestre (mínimo 2 caracteres)';
+    expect(validateForm({ ...base, title: '', description: '', system_id: '', slots_total: '', slots_open: '', contact_url: '', contact_discord: '', start_time: '' }, null, '𝑻')).toContain(label);
+    expect(validateForm({ ...base, raw_gm_name: 'Tê', title: '', description: '', system_id: '', slots_total: '', slots_open: '', contact_url: '', contact_discord: '', start_time: '' }, null, '𝑻')).not.toContain(label);
   });
 });

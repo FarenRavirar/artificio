@@ -234,7 +234,7 @@ function editorReducer(state: DraftEditorState, action: DraftEditorAction): Draf
   }
 }
 
-export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, onUpdate: (d: DiscordDraft) => void) {
+export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, onUpdate: (d: DiscordDraft) => void, adminName?: string) {
   // PATCH/reparse não fazem join com a mensagem original e voltam sem content_raw;
   // sem isso o preview reativa o fetch lazy (e o toast de erro) a cada save.
   const applyUpdate = (updated: DiscordDraft) =>
@@ -282,7 +282,7 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
   // como exibição no editor mesmo sem virar canal de contato clicável.
   const authorName = useMemo(() => (payload ? asString(asRecord(payload.source).author_name) : ''), [payload]);
 
-  const missingFields = useMemo(() => validateForm(state.form, hostDiscordId), [state.form, hostDiscordId]);
+  const missingFields = useMemo(() => validateForm(state.form, hostDiscordId, authorName, adminName), [state.form, hostDiscordId, authorName, adminName]);
   const canSync = draft.status === 'ready' && !state.dirty && missingFields.length === 0;
 
   const fieldInsights = useMemo(
@@ -450,7 +450,7 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
     setSavingFields(true);
     try {
       const basePayload = draft.normalized_payload ?? draft.parsed_payload;
-      const nextMissing = validateForm(state.form, basePayload ? getDraftTable(basePayload).host_discord_id : null);
+      const nextMissing = validateForm(state.form, basePayload ? getDraftTable(basePayload).host_discord_id : null, authorName, adminName);
       // CodeRabbit: computa o payload normalizado uma vez e reusa no update E no
       // diff de correção — diff sobre state.form (strings) regravaria normalized_payload
       // com valores crus, sobrescrevendo campos já normalizados (ex.: price_value).

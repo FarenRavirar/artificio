@@ -17,6 +17,7 @@ import { resolveSubTab, SUB_TAB_CONTENT, type ModSubTab } from './moderacaoSubTa
 function inboxDraftToDiscordDraft(draft: InboxDraft): DiscordDraft {
   return { ...draft, content_raw: draft.raw_text ?? null } as DiscordDraft;
 }
+import { useAuth } from '../../../contexts/useAuth';
 import { PageHeader, SectionCard, tabButtonClass } from './ui';
 import { TableDuplicatesPanel } from './TableDuplicatesPanel';
 import { AdminTablesPanel } from './AdminTablesPanel';
@@ -58,6 +59,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * MessagesView instancia useDiscordSync() próprio (cada seção tem seu hook).
  */
 export function ModeracaoSection() {
+  const adminName = useAuth().user?.sso_name;
   const { sub } = useParams<{ sub?: string }>();
   const navigate = useNavigate();
   const [subTab, setSubTab] = useState<ModSubTab>(() => resolveSubTab(sub));
@@ -154,10 +156,10 @@ export function ModeracaoSection() {
         {subTab === 'mensagens' && <MessagesView />}
 
         {subTab === 'rascunhos' && (
-          <DiscordDraftReviewTable inboxApi={inboxDraftApi} onBeforeSync={handleBeforeSync} />
+          <DiscordDraftReviewTable adminName={adminName} inboxApi={inboxDraftApi} onBeforeSync={handleBeforeSync} />
         )}
         {subTab === 'descartados' && (
-          <DiscordDraftReviewTable inboxApi={inboxDraftApi} onBeforeSync={handleBeforeSync} lockedStatus="rejected" />
+          <DiscordDraftReviewTable adminName={adminName} inboxApi={inboxDraftApi} onBeforeSync={handleBeforeSync} lockedStatus="rejected" />
         )}
         {/* Mesma view das mensagens, travada em `ignored`: a aba não é uma lista
             nova, é o mesmo acervo com outro recorte e outras ações. */}

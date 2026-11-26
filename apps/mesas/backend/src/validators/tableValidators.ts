@@ -197,7 +197,10 @@ const baseTableSchema = z.object({
   content_warnings: z.array(z.string()).default([]),
   safety_tools: z.array(z.string()).default([]),
   publisher_role: z.enum(PUBLISHER_ROLES).default('gm'),
-  actual_gm_name: z.string().min(2).max(100).nullable().optional(),
+  // Code points, como o CHECK tables_announcer_requires_name: `.min(2)` aceitaria "𝑻".
+  actual_gm_name: z.string().max(100)
+    .refine((name) => [...name.trim()].length >= 2, 'Nome do mestre precisa de pelo menos 2 caracteres')
+    .nullable().optional(),
   is_ddal: z.boolean().default(false),
   ddal_code: z.string().max(50).nullable().optional(),
   ddal_name: z.string().max(200).nullable().optional(),

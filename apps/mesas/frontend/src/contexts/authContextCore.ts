@@ -4,6 +4,8 @@ export interface User {
   id: string;
   role: 'visitor' | 'player' | 'gm' | 'admin';
   name?: string;
+  /** Nome da conta SSO: é o `req.user.name` do backend; `name` pode ser o do perfil local. */
+  sso_name?: string;
   avatar_url?: string;
 }
 
